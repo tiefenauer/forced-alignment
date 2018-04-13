@@ -1,13 +1,17 @@
 # Create ReadyLingua Corpus
+import gzip
 import logging
 import os
+import pickle
+import sys
+import wave
 from pathlib import Path
 from shutil import copyfile
 
 from lxml import etree
 from tqdm import tqdm
 
-from audio_util import calculate_frame
+from audio_util import calculate_frame, resample_wav
 from util import log_setup
 
 log_setup()
@@ -89,9 +93,8 @@ def create_speech_pauses(segmentation_file):
     return speech_pauses
 
 
-def create_speech_segments(text_file, index_file):
-    speech_segments = []
-    text = Path(text_file).read_text(encoding='utf-8')
+def create_alignments(text, index_file):
+    alignments = []
     doc = etree.parse(index_file)
     for element in doc.findall('TextAudioIndex'):
         text_start = int(element.find('TextStartPos').text)
@@ -102,40 +105,66 @@ def create_speech_segments(text_file, index_file):
         audio_end_new = calculate_frame(audio_end)
 
         text_segment = text[text_start + 1:text_end + 1]  # komische Indizierung...
-        speech_segments.append({'text': text_segment, 'start': audio_start_new, 'end': audio_end_new})
+        alignments.append({'text': text_segment, 'start': audio_start_new, 'end': audio_end_new})
 
         element.find('AudioStartPos').text = str(audio_start_new)
         element.find('AudioEndPos').text = str(audio_end_new)
     doc.write(index_file, pretty_print=True)
-    return speech_segments
+    return text, alignments
+
+
+def create_corpus_entry(audio, transcript, speech_pauses, alignment):
+    corpus_entry = {}
+
+    with wave.open(audio, 'r') as wav:
+        corpus_entry['audio'] = wav.readframes(wav.getnframes())
+    corpus_entry['transcript'] = transcript
+    corpus_entry['speech_pauses'] = speech_pauses
+    corpus_entry['alignment'] = alignment
+    return corpus_entry
 
 
 def create_readylingua_corpus(corpus_dir=SOURCE_DIR):
     """ Iterate through all leaf directories that contain the audio and the alignment files """
     log.info('Collecting files')
-    for directory in tqdm(root for root, subdirs, files in os.walk(corpus_dir) if not subdirs):
+    corpus_entries = []
+    progress = tqdm([root for root, subdirs, files in os.walk(corpus_dir) if not subdirs], file=sys.stderr)
+    for directory in progress:
+        progress.set_description(f'{directory:{100}}')
+
         files = collect_files(directory)
         if not files:
             log.warning(f'Skipping directory: {directory}')
             continue
 
-        log.info('Downsampling audio')
+        # Downsampling Audio
         wav_file = files['audio']
         src = os.path.join(directory, wav_file)
         dst = os.path.join(TARGET_DIR, wav_file.split(".")[0] + "_16.wav")
-        # resample_wav(src, dst)
+        dst = resample_wav(src, dst)
 
-        log.info('Calculating speech pauses')
+        # Calculating speech pauses
         segmentation_file = os.path.join(directory, files['segmentation'])
         segmentation_file = copyfile(segmentation_file, os.path.join(TARGET_DIR, files['segmentation']))
         speech_pauses = create_speech_pauses(segmentation_file)
 
-        log.info('Calculating speech segments')
-        text_file = os.path.join(directory, files['text'])
-        text_file = copyfile(text_file, os.path.join(TARGET_DIR, files['text']))
+        # Calculating alignment
+        transcript = Path(directory, files['text']).read_text(encoding='utf-8')
         index_file = os.path.join(directory, files['index'])
         index_file = copyfile(index_file, os.path.join(TARGET_DIR, files['index']))
-        speech_segments = create_speech_segments(text_file, index_file)
+        transcript, alignment = create_alignments(transcript, index_file)
+
+        # Creating corpus entry
+        corpus_entry = create_corpus_entry(audio=dst, transcript=transcript, speech_pauses=speech_pauses,
+                                           alignment=alignment)
+        corpus_entries.append(corpus_entry)
+
+        os.remove(segmentation_file)
+        os.remove(index_file)
+
+    corpus_file = os.path.join(TARGET_DIR, 'readylingua.corpus.gz');
+    with gzip.open(corpus_file, 'wb') as corpus:
+        pickle.dump(corpus_entries, corpus)
 
 
 if __name__ == '__main__':

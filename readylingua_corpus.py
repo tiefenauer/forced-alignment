@@ -75,44 +75,43 @@ def resample_audio(directory, audio_file, inrate=44100, outrate=16000, inchannel
     return dst
 
 
-def file_names_are_valid(directory, audio_file, text_file, segmentation_file, index_file):
-    # check if file names are set
-    file_names = [audio_file, text_file, segmentation_file, index_file]
-    for attribute_name, file_name in {'audio_file': audio_file,
-                                      'text_file': text_file,
-                                      'segmentation_file': segmentation_file,
-                                      'index_file': index_file}.items():
+def collect_files(directory):
+    project_file = find_file_by_extension(directory, ' - Project.xml')
+    if project_file:
+        audio_file, text_file, segmentation_file, index_file = parse_project_file(os.path.join(directory, project_file))
+    else:
+        audio_file, text_file, segmentation_file, index_file = scan_content_dir(directory)
+
+    files = {'audio_file': audio_file,
+             'text_file': text_file,
+             'segmentation_file': segmentation_file,
+             'index_file': index_file}
+
+    # check if all file names were found
+    for attribute_name, file_name in files.items():
         if not file_name:
             log.warning(f'File \'{attribute_name}\' is not set')
-            return False
+            return None
 
     # check if files exist
-    for file_name in file_names:
+    for file_name in files.values():
         path = Path(directory, file_name)
         if not path.exists():
             log.warning(f'File does not exist: {path}')
-            return False
-    return True
+            return None
 
-
-def process_leaf_dir(leaf_dir):
-    project_file = find_file_by_extension(leaf_dir, ' - Project.xml')
-    if project_file:
-        audio_file, text_file, segmentation_file, index_file = parse_project_file(os.path.join(leaf_dir, project_file))
-    else:
-        audio_file, text_file, segmentation_file, index_file = scan_content_dir(leaf_dir)
-
-    if not file_names_are_valid(leaf_dir, audio_file, text_file, segmentation_file, index_file):
-        log.warning(f'Skipped directory: {leaf_dir}')
-
-    log.info(f'Processed directory: {leaf_dir}')
-    # audio = resample_audio(leaf_dir, audio_file)
+    return files
 
 
 def create_readylingua_corpus(corpus_dir=READYLINGUA_DIR):
     """ Iterate through all leaf directories that contain the audio and the alignment files """
-    for leaf_directory in (root for root, subdirs, files in os.walk(corpus_dir) if not subdirs):
-        process_leaf_dir(leaf_directory)
+    for leaf_dir in (root for root, subdirs, files in os.walk(corpus_dir) if not subdirs):
+        files = collect_files(leaf_dir)
+        if not files:
+            log.warning(f'Skipping directory: {leaf_dir}')
+            continue
+
+        log.info(f'Processed directory: {leaf_dir}')
 
 
 if __name__ == '__main__':

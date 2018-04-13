@@ -1,19 +1,18 @@
 # Create ReadyLingua Corpus
-import audioop
 import logging
 import os
-import sys
-import wave
 from pathlib import Path
 
 from lxml import etree
 
+from audio_util import resample_wav
 from util import log_setup
 
 log_setup()
 log = logging.getLogger(__name__)
 
-READYLINGUA_DIR = "D:/corpus/readylingua"
+SOURCE_DIR = "D:/corpus/readylingua-original"
+TARGET_DIR = "D:/corpus/readylingua"
 
 
 def find_file_by_extension(directory, extension):
@@ -43,38 +42,6 @@ def scan_content_dir(content_dir):
     return audio_file, text_file, segmentation_file, index_file
 
 
-def resample_audio(directory, audio_file, inrate=44100, outrate=16000, inchannels=1, outchannels=1):
-    """ Downsample WAV file to 16kHz
-    Source: https://github.com/rpinsler/deep-speechgen/blob/master/downsample.py
-    """
-    src = os.path.join(directory, audio_file)
-    dst = os.path.join(directory, audio_file.split(".")[0] + "_16.wav")
-
-    try:
-        os.remove(dst)
-    except OSError:
-        pass
-
-    with wave.open(src, 'r') as s_read:
-        try:
-            n_frames = s_read.getnframes()
-            data = s_read.readframes(n_frames)
-            converted = audioop.ratecv(data, 2, inchannels, inrate, outrate, None)
-            if outchannels == 1 & inchannels != 1:
-                converted = audioop.tomono(converted[0], 2, 1, 0)
-        except:
-            log.error(f'Could not resample audio file {src}: {sys.exc_info()[0]}')
-
-    with wave.open(dst, 'w') as s_write:
-        try:
-            s_write.setparams((outchannels, 2, outrate, 0, 'NONE', 'Uncompressed'))
-            s_write.writeframes(converted[0])
-        except:
-            log.error(f'Could not write resampled data: {dst}')
-
-    return dst
-
-
 def collect_files(directory):
     project_file = find_file_by_extension(directory, ' - Project.xml')
     if project_file:
@@ -82,10 +49,7 @@ def collect_files(directory):
     else:
         audio_file, text_file, segmentation_file, index_file = scan_content_dir(directory)
 
-    files = {'audio_file': audio_file,
-             'text_file': text_file,
-             'segmentation_file': segmentation_file,
-             'index_file': index_file}
+    files = {'audio': audio_file, 'text': text_file, 'segmentation': segmentation_file, 'index': index_file}
 
     # check if all file names were found
     for attribute_name, file_name in files.items():
@@ -103,16 +67,35 @@ def collect_files(directory):
     return files
 
 
-def create_readylingua_corpus(corpus_dir=READYLINGUA_DIR):
+def create_segments(wav_file, segments_file):
+    pass
+
+
+def create_readylingua_corpus(corpus_dir=SOURCE_DIR):
     """ Iterate through all leaf directories that contain the audio and the alignment files """
-    for leaf_dir in (root for root, subdirs, files in os.walk(corpus_dir) if not subdirs):
-        files = collect_files(leaf_dir)
+    for directory in (root for root, subdirs, files in os.walk(corpus_dir) if not subdirs):
+        files = collect_files(directory)
         if not files:
-            log.warning(f'Skipping directory: {leaf_dir}')
+            log.warning(f'Skipping directory: {directory}')
             continue
 
-        log.info(f'Processed directory: {leaf_dir}')
+        # Downsample audio file to 16kHz
+        wav_file = files['audio']
+        src = os.path.join(directory, wav_file)
+        dst = os.path.join(TARGET_DIR, wav_file.split(".")[0] + "_16.wav")
+        # resample_wav(src, dst)
+
+        # create audio segments
+        create_segments(dst, files['segments'])
+
+        log.info(f'Processed directory: {directory}')
 
 
 if __name__ == '__main__':
+    if not os.path.exists(SOURCE_DIR):
+        log.error("Source directory does not exist!")
+        exit(1)
+    if not os.path.exists(TARGET_DIR):
+        os.makedirs(TARGET_DIR)
+
     create_readylingua_corpus()

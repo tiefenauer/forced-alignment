@@ -2,10 +2,12 @@
 import logging
 import os
 from pathlib import Path
+from shutil import copyfile
 
 from lxml import etree
+from tqdm import tqdm
 
-from audio_util import resample_wav
+from audio_util import calculate_frame
 from util import log_setup
 
 log_setup()
@@ -67,28 +69,73 @@ def collect_files(directory):
     return files
 
 
-def create_segments(wav_file, segments_file):
-    pass
+def create_speech_pauses(segmentation_file):
+    """ re-calculate speech pauses for downsampled WAV file """
+    speech_pauses = []
+    doc = etree.parse(segmentation_file)
+    for element in doc.findall('Segments/Segment'):
+        # calculate new start and end frame positions
+        start_new = calculate_frame(int(element.attrib['start']))
+        end_new = calculate_frame(int(element.attrib['end']))
+
+        speech_pauses.append({'id': element.attrib['id'],
+                              'start': start_new,
+                              'end': end_new,
+                              'class': element.attrib['class']})
+
+        element.attrib['start'] = str(start_new)
+        element.attrib['end'] = str(end_new)
+    doc.write(segmentation_file, pretty_print=True)
+    return speech_pauses
+
+
+def create_speech_segments(text_file, index_file):
+    speech_segments = []
+    text = Path(text_file).read_text(encoding='utf-8')
+    doc = etree.parse(index_file)
+    for element in doc.findall('TextAudioIndex'):
+        text_start = int(element.find('TextStartPos').text)
+        text_end = int(element.find('TextEndPos').text)
+        audio_start = int(element.find('AudioStartPos').text)
+        audio_end = int(element.find('AudioEndPos').text)
+        audio_start_new = calculate_frame(audio_start)
+        audio_end_new = calculate_frame(audio_end)
+
+        text_segment = text[text_start + 1:text_end + 1]  # komische Indizierung...
+        speech_segments.append({'text': text_segment, 'start': audio_start_new, 'end': audio_end_new})
+
+        element.find('AudioStartPos').text = str(audio_start_new)
+        element.find('AudioEndPos').text = str(audio_end_new)
+    doc.write(index_file, pretty_print=True)
+    return speech_segments
 
 
 def create_readylingua_corpus(corpus_dir=SOURCE_DIR):
     """ Iterate through all leaf directories that contain the audio and the alignment files """
-    for directory in (root for root, subdirs, files in os.walk(corpus_dir) if not subdirs):
+    log.info('Collecting files')
+    for directory in tqdm(root for root, subdirs, files in os.walk(corpus_dir) if not subdirs):
         files = collect_files(directory)
         if not files:
             log.warning(f'Skipping directory: {directory}')
             continue
 
-        # Downsample audio file to 16kHz
+        log.info('Downsampling audio')
         wav_file = files['audio']
         src = os.path.join(directory, wav_file)
         dst = os.path.join(TARGET_DIR, wav_file.split(".")[0] + "_16.wav")
         # resample_wav(src, dst)
 
-        # create audio segments
-        create_segments(dst, files['segments'])
+        log.info('Calculating speech pauses')
+        segmentation_file = os.path.join(directory, files['segmentation'])
+        segmentation_file = copyfile(segmentation_file, os.path.join(TARGET_DIR, files['segmentation']))
+        speech_pauses = create_speech_pauses(segmentation_file)
 
-        log.info(f'Processed directory: {directory}')
+        log.info('Calculating speech segments')
+        text_file = os.path.join(directory, files['text'])
+        text_file = copyfile(text_file, os.path.join(TARGET_DIR, files['text']))
+        index_file = os.path.join(directory, files['index'])
+        index_file = copyfile(index_file, os.path.join(TARGET_DIR, files['index']))
+        speech_segments = create_speech_segments(text_file, index_file)
 
 
 if __name__ == '__main__':

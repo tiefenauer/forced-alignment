@@ -8,7 +8,6 @@ from util import log_setup
 log_setup()
 log = logging.getLogger(__name__)
 
-
 def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannels=1):
     """ Downsample WAV file to 16kHz
     Source: https://github.com/rpinsler/deep-speechgen/blob/master/downsample.py
@@ -37,3 +36,9 @@ def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannel
             log.error(f'Could not write resampled data: {dst}')
 
     return dst
+
+
+def calculate_frame(old_frame, sampling_rate_old=44100, sampling_rate_new=16000):
+    factor = sampling_rate_new/sampling_rate_old
+    new_frame = int(old_frame * factor)
+    return new_frame

@@ -1,6 +1,7 @@
 import audioop
 import logging
 import os
+import sys
 import wave
 
 import scipy.io.wavfile

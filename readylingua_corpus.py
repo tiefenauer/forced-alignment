@@ -8,7 +8,7 @@ from shutil import copyfile
 from lxml import etree
 from tqdm import tqdm
 
-from audio_util import calculate_frame, resample_wav, read_wav_file
+from audio_util import calculate_frame, resample_wav
 from corpus import Corpus, CorpusEntry, Alignment, Segment
 from corpus_util import save_corpus, CORPUS_DIR
 from util import log_setup
@@ -71,6 +71,13 @@ def collect_files(directory):
     return files
 
 
+def find_sampling_rate(index_file_path):
+    # find sampling rate
+    doc = etree.parse(index_file_path)
+    sampling_rate = int(doc.find('SamplingRate').text)
+    return sampling_rate
+
+
 def create_segments(segmentation_file):
     """ re-calculate speech pauses for downsampled WAV file """
     segments = []
@@ -127,9 +134,10 @@ def create_readylingua_corpus(corpus_dir=SOURCE_DIR, max_entries=None):
 
         # Downsampling Audio
         wav_file = files['audio']
+        sampling_rate = find_sampling_rate(os.path.join(directory, files['index']))
         src = os.path.join(directory, wav_file)
         dst = os.path.join(CORPUS_DIR, 'readylingua', wav_file.split(".")[0] + "_16.wav")
-        audio_file = resample_wav(src, dst)
+        audio_file = resample_wav(src, dst, inrate=sampling_rate)
 
         # Calculating speech pauses
         segmentation_file = os.path.join(directory, files['segmentation'])

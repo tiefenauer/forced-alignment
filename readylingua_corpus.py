@@ -1,24 +1,22 @@
 # Create ReadyLingua Corpus
-import gzip
 import logging
 import os
-import pickle
 import sys
-import wave
 from pathlib import Path
 from shutil import copyfile
 
 from lxml import etree
 from tqdm import tqdm
 
-from audio_util import calculate_frame, resample_wav
+from audio_util import calculate_frame, resample_wav, read_wav_file
+from corpus import Corpus, CorpusEntry, Alignment, Segment
+from corpus_util import save_corpus, CORPUS_DIR
 from util import log_setup
 
-log_setup()
+log_setup(filename='readylingua_corpus.log')
 log = logging.getLogger(__name__)
 
 SOURCE_DIR = "D:/corpus/readylingua-original"
-TARGET_DIR = "D:/corpus/readylingua"
 
 
 def find_file_by_extension(directory, extension):
@@ -73,63 +71,53 @@ def collect_files(directory):
     return files
 
 
-def create_speech_pauses(segmentation_file):
+def create_segments(segmentation_file):
     """ re-calculate speech pauses for downsampled WAV file """
-    speech_pauses = []
+    segments = []
     doc = etree.parse(segmentation_file)
     for element in doc.findall('Segments/Segment'):
         # calculate new start and end frame positions
-        start_new = calculate_frame(int(element.attrib['start']))
-        end_new = calculate_frame(int(element.attrib['end']))
+        start_frame = calculate_frame(int(element.attrib['start']))
+        end_frame = calculate_frame(int(element.attrib['end']))
 
-        speech_pauses.append({'id': element.attrib['id'],
-                              'start': start_new,
-                              'end': end_new,
-                              'class': element.attrib['class']})
+        segment = Segment(start_frame, end_frame, element.attrib['class'])
+        segments.append(segment)
 
-        element.attrib['start'] = str(start_new)
-        element.attrib['end'] = str(end_new)
+        element.attrib['start'] = str(start_frame)
+        element.attrib['end'] = str(end_frame)
     doc.write(segmentation_file, pretty_print=True)
-    return speech_pauses
+    return segments
 
 
 def create_alignments(text, index_file):
     alignments = []
     doc = etree.parse(index_file)
     for element in doc.findall('TextAudioIndex'):
-        text_start = int(element.find('TextStartPos').text)
-        text_end = int(element.find('TextEndPos').text)
+        start_text = int(element.find('TextStartPos').text)
+        end_text = int(element.find('TextEndPos').text)
         audio_start = int(element.find('AudioStartPos').text)
         audio_end = int(element.find('AudioEndPos').text)
-        audio_start_new = calculate_frame(audio_start)
-        audio_end_new = calculate_frame(audio_end)
+        start_frame = calculate_frame(audio_start)
+        end_frame = calculate_frame(audio_end)
 
-        text_segment = text[text_start + 1:text_end + 1]  # komische Indizierung...
-        alignments.append({'text': text_segment, 'start': audio_start_new, 'end': audio_end_new})
+        alignment = Alignment(start_frame, end_frame, start_text, end_text)
+        alignments.append(alignment)
 
-        element.find('AudioStartPos').text = str(audio_start_new)
-        element.find('AudioEndPos').text = str(audio_end_new)
+        element.find('AudioStartPos').text = str(start_frame)
+        element.find('AudioEndPos').text = str(end_frame)
     doc.write(index_file, pretty_print=True)
     return text, alignments
 
 
-def create_corpus_entry(audio, transcript, speech_pauses, alignment):
-    corpus_entry = {}
-
-    with wave.open(audio, 'r') as wav:
-        corpus_entry['audio'] = wav.readframes(wav.getnframes())
-    corpus_entry['transcript'] = transcript
-    corpus_entry['speech_pauses'] = speech_pauses
-    corpus_entry['alignment'] = alignment
-    return corpus_entry
-
-
-def create_readylingua_corpus(corpus_dir=SOURCE_DIR):
+def create_readylingua_corpus(corpus_dir=SOURCE_DIR, max_entries=None):
     """ Iterate through all leaf directories that contain the audio and the alignment files """
     log.info('Collecting files')
     corpus_entries = []
     progress = tqdm([root for root, subdirs, files in os.walk(corpus_dir) if not subdirs], file=sys.stderr)
     for directory in progress:
+        if len(corpus_entries) >= max_entries:
+            break
+
         progress.set_description(f'{directory:{100}}')
 
         files = collect_files(directory)
@@ -140,38 +128,36 @@ def create_readylingua_corpus(corpus_dir=SOURCE_DIR):
         # Downsampling Audio
         wav_file = files['audio']
         src = os.path.join(directory, wav_file)
-        dst = os.path.join(TARGET_DIR, wav_file.split(".")[0] + "_16.wav")
-        dst = resample_wav(src, dst)
+        dst = os.path.join(CORPUS_DIR, 'readylingua', wav_file.split(".")[0] + "_16.wav")
+        audio_file = resample_wav(src, dst)
 
         # Calculating speech pauses
         segmentation_file = os.path.join(directory, files['segmentation'])
-        segmentation_file = copyfile(segmentation_file, os.path.join(TARGET_DIR, files['segmentation']))
-        speech_pauses = create_speech_pauses(segmentation_file)
+        segmentation_file = copyfile(segmentation_file, os.path.join(CORPUS_DIR, files['segmentation']))
+        speech_pauses = create_segments(segmentation_file)
 
         # Calculating alignment
         transcript = Path(directory, files['text']).read_text(encoding='utf-8')
         index_file = os.path.join(directory, files['index'])
-        index_file = copyfile(index_file, os.path.join(TARGET_DIR, files['index']))
-        transcript, alignment = create_alignments(transcript, index_file)
+        index_file = copyfile(index_file, os.path.join(CORPUS_DIR, files['index']))
+        transcript, alignments = create_alignments(transcript, index_file)
 
         # Creating corpus entry
-        corpus_entry = create_corpus_entry(audio=dst, transcript=transcript, speech_pauses=speech_pauses,
-                                           alignment=alignment)
+        corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses)
         corpus_entries.append(corpus_entry)
 
         os.remove(segmentation_file)
         os.remove(index_file)
 
-    corpus_file = os.path.join(TARGET_DIR, 'readylingua.corpus.gz');
-    with gzip.open(corpus_file, 'wb') as corpus:
-        pickle.dump(corpus_entries, corpus)
+    corpus = Corpus(corpus_entries)
+    save_corpus(corpus, os.path.join('readylingua', 'readylingua.corpus'))
 
 
 if __name__ == '__main__':
     if not os.path.exists(SOURCE_DIR):
         log.error("Source directory does not exist!")
         exit(1)
-    if not os.path.exists(TARGET_DIR):
-        os.makedirs(TARGET_DIR)
+    if not os.path.exists(CORPUS_DIR):
+        os.makedirs(CORPUS_DIR)
 
-    create_readylingua_corpus()
+    create_readylingua_corpus(max_entries=1)

@@ -3,9 +3,8 @@ import logging
 import os
 import wave
 
-from util import log_setup
+import scipy.io.wavfile
 
-log_setup()
 log = logging.getLogger(__name__)
 
 
@@ -18,6 +17,9 @@ def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannel
         os.remove(dst)
     except OSError:
         pass
+
+    if not os.path.exists(os.path.dirname(dst)):
+        os.makedirs(os.path.dirname(dst))
 
     with wave.open(src, 'r') as s_read:
         try:
@@ -37,6 +39,11 @@ def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannel
             log.error(f'Could not write resampled data: {dst}')
 
     return dst
+
+
+def read_wav_file(file_path):
+    rate, data = scipy.io.wavfile.read(file_path)
+    return data
 
 
 def calculate_frame(old_frame, sampling_rate_old=44100, sampling_rate_new=16000):

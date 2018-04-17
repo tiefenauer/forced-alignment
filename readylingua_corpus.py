@@ -2,6 +2,7 @@
 import logging
 import os
 import sys
+import wave
 from pathlib import Path
 from shutil import copyfile
 
@@ -16,7 +17,14 @@ from util import log_setup
 log_setup(filename='readylingua_corpus.log')
 log = logging.getLogger(__name__)
 
-SOURCE_DIR = "D:/corpus/readylingua-original"
+SOURCE_DIR = "D:\\corpus\\readylingua-original"
+LANGUAGES = {
+    'Deutsch': 'de',
+    'Englisch': 'en',
+    'Französisch': 'fr',
+    'Italienisch': 'it',
+    'Spanisch': 'es'
+}
 
 
 def find_file_by_extension(directory, extension):
@@ -71,11 +79,26 @@ def collect_files(directory):
     return files
 
 
-def find_sampling_rate(index_file_path):
+def collect_corpus_entry_parms(directory, files):
+    index_file_path = os.path.join(directory, files['index'])
+    audio_file_path = os.path.join(directory, files['audio'])
+    folders = directory.split('\\')
+
+    # find name
+    name = folders[-1]
+
+    # find language
+    lang = [folder for folder in folders if folder in LANGUAGES.keys()]
+    language = LANGUAGES[lang[0]] if lang else 'unknown'
+
     # find sampling rate
     doc = etree.parse(index_file_path)
-    sampling_rate = int(doc.find('SamplingRate').text)
-    return sampling_rate
+    rate = int(doc.find('SamplingRate').text)
+
+    # find number of channels
+    channels = wave.open(audio_file_path, 'rb').getnchannels()
+
+    return {'name': name, 'language': language, 'rate': rate, 'channels': channels}
 
 
 def create_segments(segmentation_file):
@@ -129,15 +152,16 @@ def create_readylingua_corpus(corpus_dir=SOURCE_DIR, max_entries=None):
 
         files = collect_files(directory)
         if not files:
-            log.warning(f'Skipping directory: {directory}')
+            log.warning(f'Skipping directory (not all files found): {directory}')
             continue
+
+        parms = collect_corpus_entry_parms(directory, files)
 
         # Downsampling Audio
         wav_file = files['audio']
-        sampling_rate = find_sampling_rate(os.path.join(directory, files['index']))
         src = os.path.join(directory, wav_file)
         dst = os.path.join(CORPUS_DIR, 'readylingua', wav_file.split(".")[0] + "_16.wav")
-        audio_file = resample_wav(src, dst, inrate=sampling_rate)
+        audio_file = resample_wav(src, dst, inrate=parms['rate'], inchannels=parms['channels'])
 
         # Calculating speech pauses
         segmentation_file = os.path.join(directory, files['segmentation'])
@@ -151,13 +175,13 @@ def create_readylingua_corpus(corpus_dir=SOURCE_DIR, max_entries=None):
         transcript, alignments = create_alignments(transcript, index_file)
 
         # Creating corpus entry
-        corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses)
+        corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses, parms)
         corpus_entries.append(corpus_entry)
 
         os.remove(segmentation_file)
         os.remove(index_file)
 
-    corpus = Corpus(corpus_entries)
+    corpus = Corpus('ReadyLingua', corpus_entries)
     save_corpus(corpus, os.path.join('readylingua', 'readylingua.corpus'))
 
 

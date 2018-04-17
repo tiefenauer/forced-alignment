@@ -27,17 +27,18 @@ def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannel
             n_frames = s_read.getnframes()
             data = s_read.readframes(n_frames)
             converted = audioop.ratecv(data, 2, inchannels, inrate, outrate, None)
-            if outchannels == 1 & inchannels != 1:
-                converted = audioop.tomono(converted[0], 2, 1, 0)
-        except:
-            log.error(f'Could not resample audio file {src}: {sys.exc_info()[0]}')
+            converted = converted[0]
+            if outchannels == 1 and inchannels != 1:
+                converted = audioop.tomono(converted, 2, 1, 0)
+        except BaseException as e:
+            log.error(f'Could not resample audio file {src}: {e}')
 
     with wave.open(dst, 'w') as s_write:
         try:
             s_write.setparams((outchannels, 2, outrate, 0, 'NONE', 'Uncompressed'))
-            s_write.writeframes(converted[0])
-        except:
-            log.error(f'Could not write resampled data: {dst}')
+            s_write.writeframes(converted)
+        except BaseException as e:
+            log.error(f'Could not write resampled data {dst}: {e}')
 
     return dst
 

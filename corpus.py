@@ -3,7 +3,8 @@ from audio_util import read_wav_file
 
 class Corpus(object):
 
-    def __init__(self, corpus_entries):
+    def __init__(self, name, corpus_entries):
+        self.name = name
         self.corpus_entries = corpus_entries
 
     def __iter__(self):
@@ -18,7 +19,11 @@ class Corpus(object):
 
 
 class CorpusEntry(object):
-    def __init__(self, audio_file, transcript, alignments, speech_pauses):
+    def __init__(self, audio_file, transcript, alignments, speech_pauses, parms={}):
+        self.name = parms['name'] if 'name' in parms else ''
+        self.language = parms['language'] if 'language' in parms else 'unknown'
+        self.original_sampling_rate = parms['rate'] if 'rate' in parms else 'unknown'
+        self.original_channels = parms['channels'] if 'channels' in parms else 'unknown'
         self.audio_file = audio_file
         self.transcript = transcript
         for alignment in alignments:

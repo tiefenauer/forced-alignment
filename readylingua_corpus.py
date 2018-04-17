@@ -115,7 +115,7 @@ def create_readylingua_corpus(corpus_dir=SOURCE_DIR, max_entries=None):
     corpus_entries = []
     progress = tqdm([root for root, subdirs, files in os.walk(corpus_dir) if not subdirs], file=sys.stderr)
     for directory in progress:
-        if len(corpus_entries) >= max_entries:
+        if max_entries and len(corpus_entries) >= max_entries:
             break
 
         progress.set_description(f'{directory:{100}}')
@@ -160,4 +160,4 @@ if __name__ == '__main__':
     if not os.path.exists(CORPUS_DIR):
         os.makedirs(CORPUS_DIR)
 
-    create_readylingua_corpus(max_entries=1)
+    create_readylingua_corpus()

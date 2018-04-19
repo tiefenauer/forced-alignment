@@ -1,5 +1,6 @@
 # Create ReadyLingua Corpus
 import logging
+import math
 import os
 import sys
 import wave
@@ -47,7 +48,7 @@ def create_readylingua_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
     corpus_entries = []
 
     directories = [root for root, subdirs, files in os.walk(corpus_dir) if not subdirs]
-    progress = tqdm(directories, total=min(len(directories), max_entries), file=sys.stderr)
+    progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr)
 
     for directory in progress:
         if max_entries and len(corpus_entries) >= max_entries:

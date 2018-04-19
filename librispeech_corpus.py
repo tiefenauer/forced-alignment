@@ -1,5 +1,6 @@
 # Create ReadyLingua Corpus
 import logging
+import math
 import os
 import re
 import sys
@@ -16,7 +17,7 @@ logfile = 'librispeech_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-SOURCE_ROOT = "E:\\LibriSpeech"
+SOURCE_ROOT = "C:\\LibriSpeech"
 
 books_pattern = re.compile('(?P<book_id>.*)\|(?P<book_title>.*)\|')
 speakers_pattern = re.compile('(?P<speaker_id>.*)\|'
@@ -50,7 +51,7 @@ def create_librispeech_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
     corpus_entries = []
 
     directories = [root for root, subdirs, files in os.walk(corpus_dir) if not subdirs]
-    progress = tqdm(directories, total=min(len(directories), max_entries), file=sys.stderr)
+    progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr)
 
     for directory in progress:
         if max_entries and len(corpus_entries) >= max_entries:
@@ -60,7 +61,7 @@ def create_librispeech_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
 
         parms = collect_corpus_entry_parms(directory, books, chapters, speakers)
 
-        segments_file, transcription_file, mp3_file = collect_corpus_entry_files(directory)
+        segments_file, transcription_file, mp3_file = collect_corpus_entry_files(directory, parms)
         segments_file = os.path.join(directory, segments_file)
         transcription_file = os.path.join(directory, transcription_file)
 
@@ -177,13 +178,18 @@ def collect_corpus_entry_parms(directory, books, chapters, speakers):
     return {'name': book_title,
             'chapter_title': chapter['chapter_title'],
             'language': 'en',
+            'book_id': book_id,
+            'speaker_id': speaker_id,
+            'chapter_id': chapter_id,
             'speaker_name': speaker['name']}
 
 
-def collect_corpus_entry_files(directory):
-    segments_file = find_file_by_extension(directory, '.seg.txt')
-    transcription_file = find_file_by_extension(directory, '.trans.txt')
-    mp3_file = find_file_by_extension(directory, '.mp3')
+def collect_corpus_entry_files(directory, parms):
+    speaker_id = parms['speaker_id']
+    chapter_id = parms['chapter_id']
+    segments_file = find_file_by_extension(directory, f'{speaker_id}-{chapter_id}.seg.txt')
+    transcription_file = find_file_by_extension(directory, f'{speaker_id}-{chapter_id}.trans.txt')
+    mp3_file = find_file_by_extension(directory, f'{chapter_id}.mp3')
     return segments_file, transcription_file, mp3_file
 
 
@@ -201,7 +207,9 @@ def create_segments(segments_file, transcription_file):
                 segment_id = result.group('segment_id')
                 segment_start = result.group('segment_start')
                 segment_end = result.group('segment_end')
+
                 segment_text = segment_texts[segment_id] if segment_id in segment_texts else None
+
                 if segment_text:
                     start_frame = calculate_frame(segment_start)
                     end_frame = calculate_frame(segment_end)
@@ -210,8 +218,7 @@ def create_segments(segments_file, transcription_file):
                                'end_frame': end_frame,
                                'text': segment_text}
                     segments.append(segment)
-
-    transcription = ' '.join(segment_texts.values())
+    transcription = '\n'.join(segment_texts.values())
     return segments, transcription
 
 
@@ -242,4 +249,4 @@ def create_speech_pauses(segments):
 
 
 if __name__ == '__main__':
-    create_corpus(100)
+    create_corpus()

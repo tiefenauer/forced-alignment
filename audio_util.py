@@ -1,10 +1,11 @@
 import audioop
 import logging
 import os
-import sys
 import wave
 
 import scipy.io.wavfile
+from pydub import AudioSegment
+from pydub.utils import mediainfo
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +49,26 @@ def read_wav_file(file_path):
     return data
 
 
-def calculate_frame(old_frame, sampling_rate_old=44100, sampling_rate_new=16000):
-    factor = sampling_rate_new / sampling_rate_old
+def recalculate_frame(old_frame, old_sampling_rate=44100, new_sampling_rate=16000):
+    factor = new_sampling_rate / old_sampling_rate
     new_frame = int(old_frame * factor)
     return new_frame
+
+
+def calculate_frame(time_in_seconds, sampling_rate=16000):
+    time_in_seconds = float(time_in_seconds)
+    frame = int(time_in_seconds * sampling_rate)
+    return frame
+
+
+def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1):
+    info = mediainfo(infile)
+    inrate = int(float(info['sample_rate']))
+    inchannels = int(info['channels'])
+    AudioSegment.from_mp3(infile).export(outfile, format="wav", parameters="-sample_rate 16000")
+    if inrate != outrate:
+        outfile_resampled = outfile + '.resampled'
+        resample_wav(outfile, outfile_resampled, inrate, outrate, inchannels, outchannels)
+        os.remove(outfile)
+        os.rename(outfile_resampled, outfile)
+    return outfile

@@ -19,11 +19,7 @@ class Corpus(object):
 
 
 class CorpusEntry(object):
-    def __init__(self, audio_file, transcript, alignments, speech_pauses, parms={}):
-        self.name = parms['name'] if 'name' in parms else ''
-        self.language = parms['language'] if 'language' in parms else 'unknown'
-        self.original_sampling_rate = parms['rate'] if 'rate' in parms else 'unknown'
-        self.original_channels = parms['channels'] if 'channels' in parms else 'unknown'
+    def __init__(self, audio_file, transcript, alignments, speech_pauses, original_path='', parms={}):
         self.audio_file = audio_file
         self.transcript = transcript
         for alignment in alignments:
@@ -32,6 +28,12 @@ class CorpusEntry(object):
         for speech_pause in speech_pauses:
             speech_pause.corpus_entry = self
         self.speech_pauses = speech_pauses
+
+        self.original_path = original_path
+        self.name = parms['name'] if 'name' in parms else ''
+        self.language = parms['language'] if 'language' in parms else 'unknown'
+        self.original_sampling_rate = parms['rate'] if 'rate' in parms else 'unknown'
+        self.original_channels = parms['channels'] if 'channels' in parms else 'unknown'
 
     def __iter__(self):
         for alignment in self.alignments:
@@ -56,7 +58,7 @@ class Alignment(object):
 
     @property
     def text(self):
-        return self.corpus_entry.transcript[self.start_text + 1: self.end_text + 1]  # komische Indizierung...
+        return self.corpus_entry.transcript[self.start_text: self.end_text]  # komische Indizierung...
 
 
 class Segment(object):

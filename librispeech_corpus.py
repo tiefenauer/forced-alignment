@@ -17,7 +17,7 @@ logfile = 'librispeech_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-SOURCE_ROOT = r'D:\corpus\librispeech-raw'  # location of raw files
+SOURCE_ROOT = r'D:\corpus\librispeech-raw\audio'  # location of raw audio files
 TARGET_ROOT = r'E:\librispeech-corpus'  # target location of corpus
 
 books_pattern = re.compile('(?P<book_id>.*)\|(?P<book_title>.*)\|')

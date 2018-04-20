@@ -10,14 +10,15 @@ from tqdm import tqdm
 
 from audio_util import calculate_frame, mp3_to_wav
 from corpus import Corpus, Alignment, Segment, CorpusEntry
-from corpus_util import save_corpus, CORPUS_DIR, find_file_by_extension
+from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
 logfile = 'librispeech_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-SOURCE_ROOT = "C:\\LibriSpeech"
+SOURCE_ROOT = r'D:\corpus\librispeech-raw'  # location of raw files
+TARGET_ROOT = r'E:\librispeech-corpus'  # target location of corpus
 
 books_pattern = re.compile('(?P<book_id>.*)\|(?P<book_title>.*)\|')
 speakers_pattern = re.compile('(?P<speaker_id>.*)\|'
@@ -36,21 +37,21 @@ chapters_pattern = re.compile("(?P<chapter_id>.*)\|"
 segment_pattern = re.compile('(?P<segment_id>.*)\s(?P<segment_start>.*)\s(?P<segment_end>.*)\n')
 
 
-def create_corpus(max_entries=None):
+def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
     if not os.path.exists(SOURCE_ROOT):
-        log.error("Source directory does not exist!")
+        print(f"ERROR: Source root {source_root} does not exist!")
         exit(1)
-    if not os.path.exists(CORPUS_DIR):
-        os.makedirs(CORPUS_DIR)
+    if not os.path.exists(TARGET_ROOT):
+        os.makedirs(TARGET_ROOT)
 
-    create_librispeech_corpus(max_entries=max_entries)
+    return create_librispeech_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
 
 
-def create_librispeech_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
-    books, chapters, speakers = collect_corpus_info(corpus_dir)
+def create_librispeech_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
+    books, chapters, speakers = collect_corpus_info(source_root)
     corpus_entries = []
 
-    directories = [root for root, subdirs, files in os.walk(corpus_dir) if not subdirs]
+    directories = [root for root, subdirs, files in os.walk(source_root) if not subdirs]
     progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr)
 
     for directory in progress:
@@ -71,7 +72,7 @@ def create_librispeech_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
 
         # Downsample audio
         infile = os.path.join(directory, mp3_file)
-        outfile = os.path.join('corpora', 'librispeech', mp3_file.split(".")[0] + "_16.wav")
+        outfile = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
         audio_file = mp3_to_wav(infile, outfile)
 
         # create segments
@@ -89,7 +90,9 @@ def create_librispeech_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
         corpus_entries.append(corpus_entry)
 
     corpus = Corpus('LibriSpeech', corpus_entries)
-    save_corpus(corpus, os.path.join('librispeech', 'librispeech.corpus'))
+    corpus_file = os.path.join(target_root, 'librispeech.corpus')
+    save_corpus(corpus, corpus_file)
+    return corpus_file
 
 
 def collect_corpus_info(directory):
@@ -175,13 +178,13 @@ def collect_corpus_entry_parms(directory, books, chapters, speakers):
         speaker = speakers[speaker_id] if speaker_id in speakers else 'unknown'
         book_title = books[book_id] if book_id in books else 'unknown'
 
-    return {'name': book_title,
-            'chapter_title': chapter['chapter_title'],
-            'language': 'en',
-            'book_id': book_id,
-            'speaker_id': speaker_id,
-            'chapter_id': chapter_id,
-            'speaker_name': speaker['name']}
+        return {'name': book_title,
+                'chapter_title': chapter['chapter_title'],
+                'language': 'en',
+                'book_id': book_id,
+                'speaker_id': speaker_id,
+                'chapter_id': chapter_id,
+                'speaker_name': speaker['name']}
 
 
 def collect_corpus_entry_files(directory, parms):

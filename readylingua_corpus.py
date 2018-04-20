@@ -12,17 +12,15 @@ from tqdm import tqdm
 
 from audio_util import recalculate_frame, resample_wav
 from corpus import Corpus, CorpusEntry, Alignment, Segment
-from corpus_util import save_corpus, CORPUS_DIR, find_file_by_extension
+from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
-logfile = 'librispeech_corpus.log'
-if os.path.exists(logfile):
-    os.remove(logfile)
-
+logfile = 'readylingua_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-SOURCE_ROOT = "D:\\corpus\\readylingua-original"
+SOURCE_ROOT = r'D:\corpus\readylingua-raw'
+TARGET_ROOT = r'E:\readylingua-corpus'
 LANGUAGES = {
     'Deutsch': 'de',
     'Englisch': 'en',
@@ -32,22 +30,22 @@ LANGUAGES = {
 }
 
 
-def create_corpus():
+def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
     if not os.path.exists(SOURCE_ROOT):
-        log.error("Source directory does not exist!")
+        print(f"ERROR: Source root {source_root} does not exist!")
         exit(1)
-    if not os.path.exists(CORPUS_DIR):
-        os.makedirs(CORPUS_DIR)
+    if not os.path.exists(TARGET_ROOT):
+        os.makedirs(TARGET_ROOT)
 
-    create_readylingua_corpus()
+    return create_readylingua_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
 
 
-def create_readylingua_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
+def create_readylingua_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
     """ Iterate through all leaf directories that contain the audio and the alignment files """
     log.info('Collecting files')
     corpus_entries = []
 
-    directories = [root for root, subdirs, files in os.walk(corpus_dir) if not subdirs]
+    directories = [root for root, subdirs, files in os.walk(source_root) if not subdirs]
     progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr)
 
     for directory in progress:
@@ -66,29 +64,28 @@ def create_readylingua_corpus(corpus_dir=SOURCE_ROOT, max_entries=None):
         # Downsample audio
         wav_file = files['audio']
         src = os.path.join(directory, wav_file)
-        dst = os.path.join(CORPUS_DIR, 'readylingua', wav_file.split(".")[0] + "_16.wav")
+        dst = os.path.join(target_root, wav_file.split(".")[0] + "_16.wav")
         audio_file = resample_wav(src, dst, inrate=parms['rate'], inchannels=parms['channels'])
 
         # Calculate speech pauses
         segmentation_file = os.path.join(directory, files['segmentation'])
-        segmentation_file = copyfile(segmentation_file, os.path.join(CORPUS_DIR, files['segmentation']))
+        segmentation_file = copyfile(segmentation_file, os.path.join(target_root, files['segmentation']))
         speech_pauses = create_segments(segmentation_file)
 
         # Calculate alignments
         transcript = Path(directory, files['text']).read_text(encoding='utf-8')
         index_file = os.path.join(directory, files['index'])
-        index_file = copyfile(index_file, os.path.join('corpora', files['index']))
+        index_file = copyfile(index_file, os.path.join(target_root, files['index']))
         transcript, alignments = create_alignments(transcript, index_file)
 
         # Create corpus entry
         corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses, directory, parms)
         corpus_entries.append(corpus_entry)
 
-        os.remove(segmentation_file)
-        os.remove(index_file)
-
-    corpus = Corpus('ReadyLingua', corpus_entries)
-    save_corpus(corpus, os.path.join('readylingua', 'readylingua.corpus'))
+    corpus_file = os.path.join(target_root, 'readylingua.corpus')
+    save_corpus(corpus, corpus_file)
+    print(f'Corpus files saved to {corpus_file}')
+    return corpus_file
 
 
 def collect_files(directory):
@@ -172,9 +169,6 @@ def create_segments(segmentation_file):
         segment = Segment(start_frame, end_frame, element.attrib['class'])
         segments.append(segment)
 
-        element.attrib['start'] = str(start_frame)
-        element.attrib['end'] = str(end_frame)
-    doc.write(segmentation_file, pretty_print=True)
     return segments
 
 
@@ -192,9 +186,6 @@ def create_alignments(text, index_file):
         alignment = Alignment(start_frame, end_frame, start_text, end_text)
         alignments.append(alignment)
 
-        element.find('AudioStartPos').text = str(start_frame)
-        element.find('AudioEndPos').text = str(end_frame)
-    doc.write(index_file, pretty_print=True)
     return text, alignments
 
 

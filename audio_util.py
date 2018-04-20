@@ -10,10 +10,14 @@ from pydub.utils import mediainfo
 log = logging.getLogger(__name__)
 
 
-def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannels=1):
+def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannels=1, overwrite=False):
     """ Downsample WAV file to 16kHz
     Source: https://github.com/rpinsler/deep-speechgen/blob/master/downsample.py
     """
+
+    # Skip if target file already exists
+    if os.path.exists(dst) and not overwrite:
+        return dst
 
     try:
         os.remove(dst)
@@ -61,7 +65,11 @@ def calculate_frame(time_in_seconds, sampling_rate=16000):
     return frame
 
 
-def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1):
+def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1, overwrite=False):
+    # Skip if target file already exists
+    if os.path.exists(outfile) and not overwrite:
+        return outfile
+
     info = mediainfo(infile)
     inrate = int(float(info['sample_rate']))
     inchannels = int(info['channels'])

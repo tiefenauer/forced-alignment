@@ -2,15 +2,8 @@ import gzip
 import os
 import pickle
 
-CORPUS_DIR = "D:/code/ip8/corpora"
 
-
-def save_corpus(corpus_entries, filename, gzip=False):
-    corpus_file = os.path.join(CORPUS_DIR, filename)
-    corpus_dir = os.path.dirname(corpus_file)
-    if not os.path.exists(corpus_dir):
-        os.makedirs(corpus_dir)
-
+def save_corpus(corpus_entries, corpus_file, gzip=False):
     if gzip:
         corpus_file += '.gz'
         with gzip.open(corpus_file, 'wb') as corpus:
@@ -20,10 +13,9 @@ def save_corpus(corpus_entries, filename, gzip=False):
             pickle.dump(corpus_entries, corpus)
 
 
-def load_corpus(filename):
-    print(f'loading {filename} ...')
-    corpus_file = os.path.join(CORPUS_DIR, filename);
-    if filename.endswith('.gz'):
+def load_corpus(corpus_file):
+    print(f'loading {corpus_file} ...')
+    if corpus_file.endswith('.gz'):
         with gzip.open(corpus_file, 'rb') as corpus:
             corpus_entries = pickle.loads(corpus.read())
     else:

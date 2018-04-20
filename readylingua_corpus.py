@@ -5,13 +5,12 @@ import os
 import sys
 import wave
 from pathlib import Path
-from shutil import copyfile
 
 from lxml import etree
 from tqdm import tqdm
 
 from audio_util import recalculate_frame, resample_wav
-from corpus import Corpus, CorpusEntry, Alignment, Segment
+from corpus import CorpusEntry, Alignment, Segment
 from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
@@ -69,13 +68,11 @@ def create_readylingua_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, 
 
         # Calculate speech pauses
         segmentation_file = os.path.join(directory, files['segmentation'])
-        segmentation_file = copyfile(segmentation_file, os.path.join(target_root, files['segmentation']))
         speech_pauses = create_segments(segmentation_file)
 
         # Calculate alignments
         transcript = Path(directory, files['text']).read_text(encoding='utf-8')
         index_file = os.path.join(directory, files['index'])
-        index_file = copyfile(index_file, os.path.join(target_root, files['index']))
         transcript, alignments = create_alignments(transcript, index_file)
 
         # Create corpus entry
@@ -83,7 +80,7 @@ def create_readylingua_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, 
         corpus_entries.append(corpus_entry)
 
     corpus_file = os.path.join(target_root, 'readylingua.corpus')
-    save_corpus(corpus, corpus_file)
+    save_corpus(corpus_entries, corpus_file)
     print(f'Corpus files saved to {corpus_file}')
     return corpus_file
 

@@ -76,14 +76,13 @@ def create_librispeech_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, 
         audio_file = mp3_to_wav(infile, outfile)
 
         # create segments
-        segments, transcript = create_segments(segments_file, transcription_file)
+        speech_segments, transcript = create_speech_segments(segments_file, transcription_file)
 
         # create alignments
-        alignments = create_alignments(segments, transcript)
+        alignments = create_alignments(speech_segments, transcript)
 
         # create speech pauses
-        # speech_pauses = create_speech_pauses(segments)
-        speech_pauses = []
+        speech_pauses = create_speech_pauses(speech_segments)
 
         # Create corpus entry
         corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses, directory, parms)
@@ -196,7 +195,7 @@ def collect_corpus_entry_files(directory, parms):
     return segments_file, transcription_file, mp3_file
 
 
-def create_segments(segments_file, transcription_file):
+def create_speech_segments(segments_file, transcription_file):
     segments = []
     segment_texts = {}
     with open(segments_file) as f_segments, open(transcription_file) as f_transcription:
@@ -239,16 +238,21 @@ def create_alignments(segments, transcription):
     return alignments
 
 
-def create_speech_pauses(segments):
-    speech_pauses = []
-    for segment in segments:
-        start_frame = segment['start_frame']
-        end_frame = segment['end_frame']
-        speech = Segment(start_frame=start_frame, end_frame=end_frame, segment_type='speech')
-        pause = Segment(start_frame=start_frame, end_frame=end_frame, segment_type='pause')
-        speech_pauses.append(speech)
-        speech_pauses.append(pause)
-    return speech_pauses
+def create_speech_pauses(speech_segments):
+    speech_pause_segments = []
+    for i, speech in enumerate(speech_segments):
+        if i > 0:
+            prev_speech = speech_segments[i-1]
+            start_frame = prev_speech['end_frame'] + 1
+            end_frame = speech['start_frame'] - 1
+            pause_segment = Segment(start_frame=start_frame, end_frame=end_frame, segment_type='pause')
+            speech_pause_segments.append(pause_segment)
+
+        start_frame = speech['start_frame']
+        end_frame = speech['end_frame']
+        speech_segment = Segment(start_frame=start_frame, end_frame=end_frame, segment_type='speech')
+        speech_pause_segments.append(speech_segment)
+    return speech_pause_segments
 
 
 if __name__ == '__main__':

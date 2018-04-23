@@ -10,7 +10,7 @@ from lxml import etree
 from tqdm import tqdm
 
 from audio_util import recalculate_frame, resample_wav
-from corpus import CorpusEntry, Alignment, Segment
+from corpus import CorpusEntry, Alignment, Segment, Corpus
 from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
@@ -79,8 +79,9 @@ def create_readylingua_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, 
         corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses, directory, parms)
         corpus_entries.append(corpus_entry)
 
+    corpus = Corpus('LibriSpeech', corpus_entries)
     corpus_file = os.path.join(target_root, 'readylingua.corpus')
-    save_corpus(corpus_entries, corpus_file)
+    save_corpus(corpus, corpus_file)
     print(f'Corpus files saved to {corpus_file}')
     return corpus_file
 

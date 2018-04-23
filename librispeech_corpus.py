@@ -20,19 +20,33 @@ log = logging.getLogger(__name__)
 SOURCE_ROOT = r'D:\corpus\librispeech-raw\audio'  # location of raw audio files
 TARGET_ROOT = r'E:\librispeech-corpus'  # target location of corpus
 
-books_pattern = re.compile('(?P<book_id>.*)\|(?P<book_title>.*)\|')
-speakers_pattern = re.compile('(?P<speaker_id>.*)\|'
-                              '(?P<sex>.*)\|'
-                              '(?P<subset>.*)\|'
-                              '(?P<minutes>.*)\|'
+books_pattern = re.compile('(?P<book_id>\d+)'
+                           '\s*\|\s*'
+                           '(?P<book_title>.*?)'
+                           '\s*\|\s*')
+speakers_pattern = re.compile('(?P<speaker_id>\d+)'
+                              '\s*\|\s*'
+                              '(?P<sex>[MF])'
+                              '\s*\|\s*'
+                              '(?P<subset>.*?)'
+                              '\s*\|\s*'
+                              '(?P<minutes>\d[\d.]*)'
+                              '\s*\|\s*'
                               '(?P<speaker_name>.*)')
-chapters_pattern = re.compile("(?P<chapter_id>.*)\|"
-                              "(?P<reader_id>.*)\|"
-                              "(?P<minutes>.*)\|"
-                              "(?P<subset>.*)\|"
-                              "(?P<project_id>.*)\|"
-                              "(?P<book_id>.*)\|"
-                              "(?P<chapter_title>.*)\|"
+chapters_pattern = re.compile("(?P<chapter_id>\d+)"
+                              "\s*\|\s*"
+                              "(?P<reader_id>\d+)"
+                              "\s*\|\s*"
+                              "(?P<minutes>\d[\d.]*)"
+                              "\s*\|\s*"
+                              "(?P<subset>.*?)"
+                              "\s*\|\s*"
+                              "(?P<project_id>\d+)"
+                              "\s*\|\s*"
+                              "(?P<book_id>\d+)"
+                              "\s*\|\s*"
+                              "(?P<chapter_title>.*)"
+                              "\s*\|\s*"
                               "(?P<project_title>.*)")
 segment_pattern = re.compile('(?P<segment_id>.*)\s(?P<segment_start>.*)\s(?P<segment_end>.*)\n')
 
@@ -124,8 +138,8 @@ def collect_info(file, pattern):
 def collect_books(books_file):
     books = {}
     for result in collect_info(books_file, books_pattern):
-        book_id = result.group('book_id').strip() if result.group('book_id') else 'unknown'
-        book_title = result.group('book_title').strip() if result.group('book_title') else 'unknown'
+        book_id = result.group('book_id') if result.group('book_id') else 'unknown'
+        book_title = result.group('book_title') if result.group('book_title') else 'unknown'
         books[book_id] = book_title
     books['unknown'] = 'unknown'
     return books
@@ -134,15 +148,15 @@ def collect_books(books_file):
 def collect_chapters(chapters_file):
     chapters = {}
     for result in collect_info(chapters_file, chapters_pattern):
-        chapter_id = result.group('chapter_id').strip()
+        chapter_id = result.group('chapter_id')
         chapter = {
-            'reader_id': result.group('reader_id').strip(),
+            'reader_id': result.group('reader_id'),
             'length': float(result.group('minutes')),
-            'subset': result.group('subset').strip(),
-            'project_id': result.group('project_id').strip(),
-            'book_id': result.group('book_id').strip(),
-            'chapter_title': result.group('chapter_title').strip(),
-            'project_title': result.group('project_title').strip()
+            'subset': result.group('subset'),
+            'project_id': result.group('project_id'),
+            'book_id': result.group('book_id'),
+            'chapter_title': result.group('chapter_title'),
+            'project_title': result.group('project_title')
         }
         chapters[chapter_id] = chapter
     chapters['unknown'] = 'unknown'
@@ -152,12 +166,12 @@ def collect_chapters(chapters_file):
 def collect_speakers(speakers_file):
     speakers = {}
     for result in collect_info(speakers_file, speakers_pattern):
-        speaker_id = result.group('speaker_id').strip()
+        speaker_id = result.group('speaker_id')
         speaker = {
-            'sex': result.group('sex').strip(),
-            'subset': result.group('subset').strip(),
+            'sex': result.group('sex'),
+            'subset': result.group('subset'),
             'length': float(result.group('minutes')),
-            'name': result.group('speaker_name').strip(),
+            'name': result.group('speaker_name'),
         }
         speakers[speaker_id] = speaker
     speakers['unknown'] = 'unknown'

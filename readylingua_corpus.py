@@ -32,7 +32,7 @@ LANGUAGES = {
 def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
     if not os.path.exists(SOURCE_ROOT):
         print(f"ERROR: Source root {source_root} does not exist!")
-        exit(1)
+        exit(0)
     if not os.path.exists(TARGET_ROOT):
         os.makedirs(TARGET_ROOT)
 

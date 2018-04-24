@@ -179,7 +179,7 @@ def collect_speakers(speakers_file):
 
 
 def collect_corpus_entry_parms(directory, books, chapters, speakers):
-    files_pattern = re.compile(re.escape(SOURCE_ROOT) + "\\\\mp3\\\\(?P<speaker_id>\d*)\\\\(?P<chapter_id>\d*)")
+    files_pattern = re.compile("[\\\/]mp3[\\\/](?P<speaker_id>\d*)[\\\/](?P<chapter_id>\d*)")
     result = re.search(files_pattern, directory)
     if result:
         speaker_id = result.group('speaker_id')

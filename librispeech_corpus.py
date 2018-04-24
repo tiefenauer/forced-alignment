@@ -17,9 +17,6 @@ logfile = 'librispeech_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-SOURCE_ROOT = r'D:\corpus\librispeech-raw\audio'  # location of raw audio files
-TARGET_ROOT = r'E:\librispeech-corpus'  # target location of corpus
-
 books_pattern = re.compile('(?P<book_id>\d+)'
                            '\s*\|\s*'
                            '(?P<book_title>.*?)'
@@ -50,8 +47,12 @@ chapters_pattern = re.compile("(?P<chapter_id>\d+)"
                               "(?P<project_title>.*)")
 segment_pattern = re.compile('(?P<segment_id>.*)\s(?P<segment_start>.*)\s(?P<segment_end>.*)\n')
 
+source_root = r'D:\corpus\librispeech-raw' if os.name == 'nt' else '/home/daniel_tiefenauer/ip8/corpora/librispeech-raw'
+target_root = r'E:\librispeech-corpus' if os.name == 'nt' else '/home/daniel_tiefenauer/corpora/librispeech-corpus'
+max_entries = None
 
-def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
+
+def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):
     if not os.path.exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
@@ -61,11 +62,13 @@ def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=
     return create_librispeech_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
 
 
-def create_librispeech_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
-    books, chapters, speakers = collect_corpus_info(source_root)
+def create_librispeech_corpus(source_root, target_root, max_entries):
+    audio_root = os.path.join(source_root, 'audio')
+    books_root = os.path.join(source_root, 'books')
+    books, chapters, speakers = collect_corpus_info(audio_root)
     corpus_entries = []
 
-    directories = [root for root, subdirs, files in os.walk(source_root) if not subdirs]
+    directories = [root for root, subdirs, files in os.walk(audio_root) if not subdirs]
     progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr)
 
     for directory in progress:
@@ -256,7 +259,7 @@ def create_speech_pauses(speech_segments):
     speech_pause_segments = []
     for i, speech in enumerate(speech_segments):
         if i > 0:
-            prev_speech = speech_segments[i-1]
+            prev_speech = speech_segments[i - 1]
             start_frame = prev_speech['end_frame'] + 1
             end_frame = speech['start_frame'] - 1
             pause_segment = Segment(start_frame=start_frame, end_frame=end_frame, segment_type='pause')
@@ -270,4 +273,5 @@ def create_speech_pauses(speech_segments):
 
 
 if __name__ == '__main__':
-    create_corpus()
+    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}')
+    create_corpus(source_root, target_root, max_entries)

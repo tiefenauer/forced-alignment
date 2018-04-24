@@ -18,8 +18,10 @@ logfile = 'readylingua_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-SOURCE_ROOT = r'D:\corpus\readylingua-raw'
-TARGET_ROOT = r'E:\readylingua-corpus'
+source_root = r'D:\corpus\readylingua-raw' if os.name == 'nt' else '/home/daniel_tiefenauer/ip8/corpora/readylingua-raw'
+target_root = r'E:\readylingua-corpus' if os.name == 'nt' else '/home/daniel_tiefenauer/corpora/readylingua-corpus'
+max_entries = None
+
 LANGUAGES = {
     'Deutsch': 'de',
     'Englisch': 'en',
@@ -29,17 +31,17 @@ LANGUAGES = {
 }
 
 
-def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
+def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):
     if not os.path.exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
     if not os.path.exists(target_root):
         os.makedirs(target_root)
 
-    return create_readylingua_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
+    return create_readylingua_corpus(source_root, target_root, max_entries)
 
 
-def create_readylingua_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
+def create_readylingua_corpus(source_root, target_root, max_entries):
     """ Iterate through all leaf directories that contain the audio and the alignment files """
     log.info('Collecting files')
     corpus_entries = []
@@ -188,4 +190,5 @@ def create_alignments(text, index_file):
 
 
 if __name__ == '__main__':
-    create_corpus()
+    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}')
+    create_corpus(source_root, target_root, max_entries)

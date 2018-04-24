@@ -19,7 +19,7 @@ log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
 source_root = r'D:\corpus\readylingua-raw' if os.name == 'nt' else '/home/daniel_tiefenauer/ip8/corpora/readylingua-raw'
-target_root = r'E:\readylingua-corpus' if os.name == 'nt' else '/home/daniel_tiefenauer/corpora/readylingua-corpus'
+target_root = r'E:\readylingua-corpus' if os.name == 'nt' else '/home/daniel_tiefenauer/ip8/corpora/readylingua-corpus'
 max_entries = None
 
 LANGUAGES = {

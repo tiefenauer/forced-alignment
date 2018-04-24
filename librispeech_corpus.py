@@ -55,8 +55,8 @@ def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=
     if not os.path.exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
-    if not os.path.exists(TARGET_ROOT):
-        os.makedirs(TARGET_ROOT)
+    if not os.path.exists(target_root):
+        os.makedirs(target_root)
 
     return create_librispeech_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
 

@@ -30,7 +30,7 @@ LANGUAGES = {
 
 
 def create_corpus(source_root=SOURCE_ROOT, target_root=TARGET_ROOT, max_entries=None):
-    if not os.path.exists(SOURCE_ROOT):
+    if not os.path.exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
     if not os.path.exists(TARGET_ROOT):

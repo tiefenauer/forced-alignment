@@ -105,10 +105,10 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses, directory, parms)
         corpus_entries.append(corpus_entry)
 
-    corpus = Corpus('LibriSpeech', corpus_entries)
+    corpus = LibriSpeechCorpus(corpus_entries)
     corpus_file = os.path.join(target_root, 'librispeech.corpus')
     save_corpus(corpus, corpus_file)
-    return corpus_file
+    return corpus, corpus_file
 
 
 def collect_corpus_info(directory):
@@ -188,13 +188,15 @@ def collect_corpus_entry_parms(directory, books, chapters, speakers):
         speaker_id = result.group('speaker_id')
         chapter_id = result.group('chapter_id')
 
-        chapter = chapters[chapter_id] if chapter_id in chapters else {'chapter_title': 'unknown', 'book_id': 'unknown'}
+        chapter = chapters[chapter_id] if chapter_id in chapters else {'chapter_title': 'unknown', 'book_id': 'unknown',
+                                                                       'subset': 'unknown'}
         speaker = speakers[speaker_id] if speaker_id in speakers else 'unknown'
 
         book_id = chapter['book_id']
 
         book_title = books[book_id] if book_id in books else chapter['project_title']
         chapter_title = chapter['chapter_title']
+        subset = chapter['subset']
         speaker_name = speaker['name']
 
         return {'name': book_title,
@@ -203,7 +205,8 @@ def collect_corpus_entry_parms(directory, books, chapters, speakers):
                 'book_id': book_id,
                 'speaker_id': speaker_id,
                 'chapter_id': chapter_id,
-                'speaker_name': speaker_name}
+                'speaker_name': speaker_name,
+                'subset': subset}
 
 
 def collect_corpus_entry_files(directory, parms):
@@ -277,4 +280,5 @@ def create_speech_pauses(speech_segments):
 
 if __name__ == '__main__':
     print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}')
-    create_corpus(source_root, target_root, max_entries)
+    corpus, corpus_file = create_corpus(source_root, target_root, max_entries)
+    print(f'Saved corpus with {len(corpus)} corpus entries to {corpus_file}')

@@ -1,7 +1,10 @@
+from abc import ABC, abstractmethod
+
 from audio_util import read_wav_file
+from corpus_util import filter_corpus_entry_by_subset_prefix
 
 
-class Corpus(object):
+class Corpus(ABC):
 
     def __init__(self, name, corpus_entries):
         self.name = name
@@ -16,6 +19,35 @@ class Corpus(object):
 
     def __len__(self):
         return len(self.corpus_entries)
+
+    @abstractmethod
+    def train_dev_test_split(self):
+        """return training-, validation- and test-set
+        Since these sets are constructed
+        """
+        pass
+
+
+class ReadyLinguaCorpus(Corpus):
+
+    def __init__(self, corpus_entries):
+        super().__init__('ReadyLingua', corpus_entries)
+
+    def train_dev_test_split(self):
+        # TODO: Implement split
+        pass
+
+
+class LibriSpeechCorpus(Corpus):
+
+    def __init__(self, corpus_entries):
+        super().__init__('LibriSpeech', corpus_entries)
+
+    def train_dev_test_split(self):
+        train_set = filter_corpus_entry_by_subset_prefix(self.corpus_entries, 'train-')
+        dev_set = filter_corpus_entry_by_subset_prefix(self.corpus_entries, 'dev-')
+        test_set = filter_corpus_entry_by_subset_prefix(self.corpus_entries, ['test-', 'unknown'])
+        return train_set, dev_set, test_set
 
 
 class CorpusEntry(object):
@@ -34,6 +66,7 @@ class CorpusEntry(object):
         self.language = parms['language'] if 'language' in parms else 'unknown'
         self.original_sampling_rate = parms['rate'] if 'rate' in parms else 'unknown'
         self.original_channels = parms['channels'] if 'channels' in parms else 'unknown'
+        self.subset = parms['subset'] if 'subset' in parms else 'unknown'
 
     def __iter__(self):
         for alignment in self.alignments:

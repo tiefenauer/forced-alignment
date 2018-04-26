@@ -9,7 +9,7 @@ from operator import itemgetter
 from tqdm import tqdm
 
 from audio_util import calculate_frame, mp3_to_wav
-from corpus import Corpus, Alignment, Segment, CorpusEntry
+from corpus import Alignment, Segment, CorpusEntry, LibriSpeechCorpus
 from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 books_pattern = re.compile('(?P<book_id>\d+)'
                            '\s*\|\s*'
                            '(?P<book_title>.*?)'
-                           '\s*\|\s*')
+                           '\s*(\|\s*|\n)')
 speakers_pattern = re.compile('(?P<speaker_id>\d+)'
                               '\s*\|\s*'
                               '(?P<sex>[MF])'
@@ -189,18 +189,21 @@ def collect_corpus_entry_parms(directory, books, chapters, speakers):
         chapter_id = result.group('chapter_id')
 
         chapter = chapters[chapter_id] if chapter_id in chapters else {'chapter_title': 'unknown', 'book_id': 'unknown'}
+        speaker = speakers[speaker_id] if speaker_id in speakers else 'unknown'
+
         book_id = chapter['book_id']
 
-        speaker = speakers[speaker_id] if speaker_id in speakers else 'unknown'
-        book_title = books[book_id] if book_id in books else 'unknown'
+        book_title = books[book_id] if book_id in books else chapter['project_title']
+        chapter_title = chapter['chapter_title']
+        speaker_name = speaker['name']
 
         return {'name': book_title,
-                'chapter_title': chapter['chapter_title'],
+                'chapter_title': chapter_title,
                 'language': 'en',
                 'book_id': book_id,
                 'speaker_id': speaker_id,
                 'chapter_id': chapter_id,
-                'speaker_name': speaker['name']}
+                'speaker_name': speaker_name}
 
 
 def collect_corpus_entry_files(directory, parms):

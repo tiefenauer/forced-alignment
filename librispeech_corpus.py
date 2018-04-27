@@ -47,8 +47,8 @@ chapters_pattern = re.compile("(?P<chapter_id>\d+)"
                               "(?P<project_title>.*)")
 segment_pattern = re.compile('(?P<segment_id>.*)\s(?P<segment_start>.*)\s(?P<segment_end>.*)\n')
 
-source_root = r'D:\corpus\librispeech-raw' if os.name == 'nt' else '/home/daniel_tiefenauer/ip8/corpora/librispeech-raw'
-target_root = r'E:\librispeech-corpus' if os.name == 'nt' else '/home/daniel_tiefenauer/ip8/corpora/librispeech-corpus'
+source_root = r'D:\corpus\librispeech-raw' if os.name == 'nt' else '/media/all/D1/librispeech-raw'
+target_root = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
 max_entries = None
 
 

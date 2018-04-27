@@ -3,7 +3,9 @@ import logging
 import os
 import wave
 
+import numpy as np
 import scipy.io.wavfile
+import scipy.signal
 from pydub import AudioSegment
 from pydub.utils import mediainfo
 
@@ -49,8 +51,7 @@ def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannel
 
 
 def read_wav_file(file_path):
-    rate, data = scipy.io.wavfile.read(file_path)
-    return data
+    return scipy.io.wavfile.read(file_path)
 
 
 def recalculate_frame(old_frame, old_sampling_rate=44100, new_sampling_rate=16000):
@@ -80,3 +81,27 @@ def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1, overwrite=False):
         os.remove(outfile)
         os.rename(outfile_resampled, outfile)
     return outfile
+
+
+def calculate_spectrogram(wav_file, nfft=200, fs=8000, noverlap=120):
+    """
+    Calculates the spectrogram of a WAV file
+    :param wav_file: absolute path to the WAV file
+    :param nfft: Length of each window segment
+    :param fs: Sampling frequencies
+    :param noverlap: Overlap between windows
+    :return: (freqs, t, spec) the frequencies, times and spectrogram
+    """
+    rate, data = read_wav_file(wav_file)
+
+    # only use one channel if WAV file is stereo
+    x = data[:, 0] if data.ndim > 1 else data
+
+    # calculate spectrogram
+    freqs, t, spec = scipy.signal.spectrogram(x, nperseg=nfft, fs=fs, noverlap=noverlap)
+
+    # rescale values to dB scale
+    spec = 10. * np.log10(spec)
+    spec = np.flipud(spec)
+
+    return freqs, t, spec

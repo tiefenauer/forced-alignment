@@ -281,4 +281,4 @@ def create_speech_pauses(speech_segments):
 if __name__ == '__main__':
     print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}')
     corpus, corpus_file = create_corpus(source_root, target_root, max_entries)
-    print(f'Saved corpus with {len(corpus)} corpus entries to {corpus_file}')
+    print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')

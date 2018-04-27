@@ -86,7 +86,7 @@ class Alignment(object):
 
     @property
     def audio(self):
-        audio = read_wav_file(self.corpus_entry.audio_file)
+        _, audio = read_wav_file(self.corpus_entry.audio_file)
         return audio[self.start_frame:self.end_frame]
 
     @property
@@ -103,5 +103,5 @@ class Segment(object):
 
     @property
     def audio(self):
-        audio = read_wav_file(self.corpus_entry.audio_file)
+        _, audio = read_wav_file(self.corpus_entry.audio_file)
         return audio[self.start_frame:self.end_frame]

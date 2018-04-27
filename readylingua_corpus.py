@@ -84,8 +84,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
     corpus = ReadyLinguaCorpus(corpus_entries)
     corpus_file = os.path.join(target_root, 'readylingua.corpus')
     save_corpus(corpus, corpus_file)
-    print(f'Corpus files saved to {corpus_file}')
-    return corpus_file
+    return corpus, corpus_file
 
 
 def collect_files(directory):
@@ -191,4 +190,5 @@ def create_alignments(text, index_file):
 
 if __name__ == '__main__':
     print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}')
-    create_corpus(source_root, target_root, max_entries)
+    corpus, corpus_file = create_corpus(source_root, target_root, max_entries)
+    print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')

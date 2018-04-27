@@ -1,6 +1,5 @@
 import logging
 import os
-import pickle
 from os import makedirs
 
 from os.path import exists
@@ -8,6 +7,7 @@ from tqdm import tqdm
 
 from audio_util import calculate_spectrogram
 from corpus_util import load_corpus
+from data_util import save_subset
 from util import log_setup
 
 logfile = 'create_labelled_data.log'
@@ -47,16 +47,6 @@ def create_X_Y(corpus_entries):
         Xs.append(X)
         Ys.append(Y)
     return Xs, Ys
-
-
-def save_subset(X, Y, target_root, infix, subset_name):
-    X_path = os.path.join(target_root, 'X.' + infix + '.' + subset_name)
-    Y_path = os.path.join(target_root, 'Y.' + infix + '.' + subset_name)
-    with open(X_path, 'wb') as X_f, open(Y_path, 'wb') as Y_f:
-        pickle.dump(X, X_f)
-        pickle.dump(Y, Y_f)
-    print(f'\t saved {len(X)} X-{subset_name} samples to {X_path}')
-    print(f'\t saved {len(Y)} Y-{subset_name} samples to {Y_path}')
 
 
 def create_subsets(corpus, target_root, filename_infix):

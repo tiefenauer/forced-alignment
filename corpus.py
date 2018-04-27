@@ -35,7 +35,7 @@ class ReadyLinguaCorpus(Corpus):
 
     def train_dev_test_split(self):
         # TODO: Implement split
-        pass
+        return [], [], []
 
 
 class LibriSpeechCorpus(Corpus):

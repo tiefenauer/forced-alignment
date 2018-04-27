@@ -25,7 +25,7 @@ rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
 
 # for debugging only: set to a numeric value to limit the amount of processed corpus entries.
 # Set to None to process all data
-max_samples = 1
+max_samples = None
 
 # number of time steps in the output of the model
 Ty = 1375

@@ -2,12 +2,13 @@ import logging
 import os
 from os import makedirs
 
+import numpy as np
 from os.path import exists
 from tqdm import tqdm
 
 from audio_util import calculate_spectrogram
 from corpus_util import load_corpus
-from data_util import save_subset
+from data_util import save_spectrogram
 from util import log_setup
 
 logfile = 'create_labelled_data.log'
@@ -26,6 +27,9 @@ rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
 # Set to None to process all data
 max_samples = 1
 
+# number of time steps in the output of the model
+Ty = 1375
+
 
 def create_X(corpus_entry):
     _, _, spectrogram = calculate_spectrogram(corpus_entry.audio_file)
@@ -33,23 +37,22 @@ def create_X(corpus_entry):
 
 
 def create_Y(corpus_entry):
+    return 0 #to be implemented
+    Y = np.zeros(Ty, 'int16')
     for segment in corpus_entry.speech_pauses:
-        pass
-    return 0
+        if segment.segment_type == 'pause':
+            Y[start:end] = 1
+    return Y
 
 
 def create_X_Y(corpus_entries):
-    Xs = []
-    Ys = []
     for corpus_entry in tqdm(corpus_entries, unit='corpus entry'):
         X = create_X(corpus_entry)
         Y = create_Y(corpus_entry)
-        Xs.append(X)
-        Ys.append(Y)
-    return Xs, Ys
+        yield X, Y, corpus_entry
 
 
-def create_subsets(corpus, target_root, filename_infix):
+def create_subsets(corpus, target_root, corpus_infix):
     if not exists(target_root):
         makedirs(target_root)
 
@@ -61,16 +64,19 @@ def create_subsets(corpus, target_root, filename_infix):
     test_set = test_set[:max_samples] if max_samples else test_set
 
     print('Creating training data...')
-    X_train, Y_train = create_X_Y(train_set)
+    for x, y, corpus_entry in create_X_Y(train_set):
+        save_spectrogram(x, target_root, corpus_entry.chapter_id, 'train')
     print('Creating validation data...')
-    X_dev, Y_dev = create_X_Y(dev_set)
+    for x, y, corpus_entry in create_X_Y(dev_set):
+        save_spectrogram(x, target_root, corpus_entry.chapter_id, 'dev')
     print('Creating test data...')
-    X_test, Y_test = create_X_Y(test_set)
+    for x, y, corpus_entry in create_X_Y(test_set):
+        save_spectrogram(x, target_root, corpus_entry.chapter_id, 'test')
 
-    save_subset(X_train, Y_train, target_root, filename_infix, 'train')
-    save_subset(X_dev, Y_dev, target_root, filename_infix, 'dev')
-    save_subset(X_test, Y_test, target_root, filename_infix, 'test')
-    return X_train, Y_train, X_dev, Y_dev, X_test, Y_test
+    # save_subset(X_train, Y_train, target_root, filename_infix, 'train')
+    # save_subset(X_dev, Y_dev, target_root, filename_infix, 'dev')
+    # save_subset(X_test, Y_test, target_root, filename_infix, 'test')
+    return x, y, x, y, x, y
 
 
 if __name__ == '__main__':
@@ -81,7 +87,7 @@ if __name__ == '__main__':
     print('Done!')
 
     # ReadyLingua
-    rl_corpus = load_corpus(rl_corpus_file)
-    print(f'Creating labelled data for corpus {ls_corpus.name}')
-    create_subsets(rl_corpus, RL_TARGET_ROOT, 'rl')
-    print('Done!')
+    # rl_corpus = load_corpus(rl_corpus_file)
+    # print(f'Creating labelled data for corpus {ls_corpus.name}')
+    # create_subsets(rl_corpus, RL_TARGET_ROOT, 'rl')
+    # print('Done!')

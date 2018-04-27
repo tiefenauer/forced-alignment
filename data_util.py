@@ -3,6 +3,11 @@ import os
 import numpy as np
 
 
+def save_spectrogram(spectrogram, target_root, audio_name, subset_name):
+    file_path = os.path.join(target_root, audio_name + '.' + subset_name)
+    np.save(file_path, spectrogram)
+
+
 def save_subset(X, Y, target_root, infix, subset_name):
     X_path = os.path.join(target_root, create_subset_file_name('X', subset_name, infix))
     Y_path = os.path.join(target_root, create_subset_file_name('Y', subset_name, infix))

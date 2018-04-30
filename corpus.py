@@ -69,6 +69,7 @@ class CorpusEntry(object):
         self.original_sampling_rate = parms['rate'] if 'rate' in parms else 'unknown'
         self.original_channels = parms['channels'] if 'channels' in parms else 'unknown'
         self.subset = parms['subset'] if 'subset' in parms else 'unknown'
+        self.media_info = parms['media_info'] if 'media_info' in parms else {}
 
     def __iter__(self):
         for alignment in self.alignments:

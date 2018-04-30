@@ -1,4 +1,5 @@
 # Create ReadyLingua Corpus
+import argparse
 import logging
 import math
 import os
@@ -7,10 +8,11 @@ import wave
 from pathlib import Path
 
 from lxml import etree
+from os.path import exists
 from tqdm import tqdm
 
-from audio_util import recalculate_frame, resample_wav
-from corpus import CorpusEntry, Alignment, Segment, ReadyLinguaCorpus
+from audio_util import recalculate_frame, resample_wav, crop_wav
+from corpus import CorpusEntry, Alignment, ReadyLinguaCorpus, Speech, Pause
 from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
@@ -18,9 +20,18 @@ logfile = 'readylingua_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
+parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from raw files""")
+parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
+parser.add_argument('-m', '--max_entries', type=int, default=None,
+                    help='(optional) maximum number of corpus entries to process. Default=None=\'all\'')
+parser.add_argument('-o', '--overwrite', default=False, action='store_true',
+                    help='(optional) overwrite existing audio data if already present. Default=False)')
+args = parser.parse_args()
+
 source_root = r'D:\corpus\readylingua-raw' if os.name == 'nt' else '/media/all/D1/readylingua-raw'
 target_root = r'E:\readylingua-corpus' if os.name == 'nt' else '/media/all/D1/readylingua-corpus'
-max_entries = None
+max_entries = args.max_entries
+overwrite = args.overwrite
 
 LANGUAGES = {
     'Deutsch': 'de',
@@ -60,25 +71,28 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
             log.warning(f'Skipping directory (not all files found): {directory}')
             continue
 
+        # segmentation_file = os.path.join(directory, files['segmentation'])
+        index_file = os.path.join(directory, files['index'])
+        transcript_file = os.path.join(directory, files['text'])
+
         parms = collect_corpus_entry_parms(directory, files)
 
-        # Downsample audio
+        # speech_pauses = create_segments(segmentation_file)
+
+        transcript, alignments = create_alignments(index_file, transcript_file)
+
+        # Resample and crop audio
         wav_file = files['audio']
-        src = os.path.join(directory, wav_file)
-        dst = os.path.join(target_root, wav_file.split(".")[0] + "_16.wav")
-        audio_file = resample_wav(src, dst, inrate=parms['rate'], inchannels=parms['channels'])
-
-        # Calculate speech pauses
-        segmentation_file = os.path.join(directory, files['segmentation'])
-        speech_pauses = create_segments(segmentation_file)
-
-        # Calculate alignments
-        transcript = Path(directory, files['text']).read_text(encoding='utf-8')
-        index_file = os.path.join(directory, files['index'])
-        transcript, alignments = create_alignments(transcript, index_file)
+        out_file = os.path.join(target_root, wav_file.split(".")[0] + "_16.wav")
+        if not exists(out_file) or overwrite:
+            in_file = os.path.join(directory, wav_file)
+            resample_wav(in_file, out_file, inrate=parms['rate'], inchannels=parms['channels'])
+            audio_file = crop_wav(out_file)
+        else:
+            audio_file = out_file
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses, directory, parms)
+        corpus_entry = CorpusEntry(audio_file, transcript, alignments, directory, parms)
         corpus_entries.append(corpus_entry)
 
     corpus = ReadyLinguaCorpus(corpus_entries)
@@ -165,30 +179,42 @@ def create_segments(segmentation_file):
         start_frame = recalculate_frame(int(element.attrib['start']))
         end_frame = recalculate_frame(int(element.attrib['end']))
 
-        segment = Segment(start_frame, end_frame, element.attrib['class'])
+        segment = Alignment(start_frame, end_frame, element.attrib['class'])
         segments.append(segment)
 
     return segments
 
 
-def create_alignments(text, index_file):
+def create_alignments(index_file, transcript_file):
     alignments = []
     doc = etree.parse(index_file)
-    for element in doc.findall('TextAudioIndex'):
+    nodes = doc.findall('TextAudioIndex')
+    end_prev = -1
+    for i, element in enumerate(nodes):
         start_text = int(element.find('TextStartPos').text)
         end_text = int(element.find('TextEndPos').text)
-        audio_start = int(element.find('AudioStartPos').text)
-        audio_end = int(element.find('AudioEndPos').text)
-        start_frame = recalculate_frame(audio_start)
-        end_frame = recalculate_frame(audio_end)
+        start_frame = int(element.find('AudioStartPos').text)
+        end_frame = int(element.find('AudioEndPos').text)
+        start_frame = recalculate_frame(start_frame)
+        end_frame = recalculate_frame(end_frame)
 
-        alignment = Alignment(start_frame, end_frame, start_text, end_text)
-        alignments.append(alignment)
+        # add pause segment
+        if i > 0:
+            start_pause = end_prev + 1
+            end_pause = start_frame - 1
+            if end_pause - start_pause > 0:
+                pause = Pause(start_pause, end_pause)
+                alignments.append(pause)
 
-    return text, alignments
+        speech = Speech(start_frame, end_frame, start_text, end_text)
+        alignments.append(speech)
+        end_prev = end_frame
+
+    transcript = Path(transcript_file).read_text(encoding='utf-8')
+    return transcript, alignments
 
 
 if __name__ == '__main__':
-    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}')
+    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}, overwrite={overwrite}')
     corpus, corpus_file = create_corpus(source_root, target_root, max_entries)
     print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')

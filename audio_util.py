@@ -7,29 +7,24 @@ import numpy as np
 import scipy.io.wavfile
 import scipy.signal
 from pydub import AudioSegment
-from pydub.utils import mediainfo
 
 log = logging.getLogger(__name__)
 
 
-def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannels=1, overwrite=False):
+def resample_wav(in_file, out_file, inrate=44100, outrate=16000, inchannels=1, outchannels=1):
     """ Downsample WAV file to 16kHz
     Source: https://github.com/rpinsler/deep-speechgen/blob/master/downsample.py
     """
 
-    # Skip if target file already exists
-    if os.path.exists(dst) and not overwrite:
-        return dst
-
     try:
-        os.remove(dst)
+        os.remove(out_file)
     except OSError:
         pass
 
-    if not os.path.exists(os.path.dirname(dst)):
-        os.makedirs(os.path.dirname(dst))
+    if not os.path.exists(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file))
 
-    with wave.open(src, 'r') as s_read:
+    with wave.open(in_file, 'r') as s_read:
         try:
             n_frames = s_read.getnframes()
             data = s_read.readframes(n_frames)
@@ -38,20 +33,35 @@ def resample_wav(src, dst, inrate=44100, outrate=16000, inchannels=1, outchannel
             if outchannels == 1 and inchannels != 1:
                 converted = audioop.tomono(converted, 2, 1, 0)
         except BaseException as e:
-            log.error(f'Could not resample audio file {src}: {e}')
+            log.error(f'Could not resample audio file {in_file}: {e}')
 
-    with wave.open(dst, 'w') as s_write:
+    with wave.open(out_file, 'w') as s_write:
         try:
             s_write.setparams((outchannels, 2, outrate, 0, 'NONE', 'Uncompressed'))
             s_write.writeframes(converted)
         except BaseException as e:
-            log.error(f'Could not write resampled data {dst}: {e}')
+            log.error(f'Could not write resampled data {out_file}: {e}')
 
-    return dst
+
+def crop_wav(wav_file, alignments):
+    wav_rate, wav_data = read_wav_file(wav_file)
+    crop_start = min(segment.start_frame for segment in alignments)
+    crop_end = max(segment.end_frame for segment in alignments)
+    write_wav_file(wav_file, wav_rate, wav_data[crop_start:crop_end])
+
+    for alignment in alignments:
+        alignment.start_frame -= crop_start
+        alignment.end_frame -= crop_start
+        pass
 
 
 def read_wav_file(file_path):
     return scipy.io.wavfile.read(file_path)
+
+
+def write_wav_file(file_path, wav_rate, wav_data):
+    scipy.io.wavfile.write(file_path, wav_rate, wav_data)
+    return file_path
 
 
 def recalculate_frame(old_frame, old_sampling_rate=44100, new_sampling_rate=16000):
@@ -67,14 +77,10 @@ def calculate_frame(time_in_seconds, sampling_rate=16000):
 
 
 def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1, overwrite=False):
-    # Skip if target file already exists
-    if not os.path.exists(outfile) or overwrite:
-        AudioSegment.from_mp3(infile) \
-            .set_frame_rate(outrate) \
-            .set_channels(outchannels) \
-            .export(outfile, format="wav")
-
-    return mediainfo(outfile)
+    AudioSegment.from_mp3(infile) \
+        .set_frame_rate(outrate) \
+        .set_channels(outchannels) \
+        .export(outfile, format="wav")
 
 
 def calculate_spectrogram(wav_file, nfft=200, fs=8000, noverlap=120):

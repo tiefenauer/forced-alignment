@@ -28,6 +28,27 @@ class Corpus(ABC):
         pass
 
 
+class Alignment(ABC):
+    def __init__(self, start_frame, end_frame, start_text, end_text, alignment_type):
+        self.start_frame = start_frame
+        self.end_frame = end_frame
+        self.start_text = start_text
+        self.end_text = end_text
+        self.alignment_type = alignment_type
+        self.corpus_entry = None
+
+    @property
+    def audio(self):
+        _, audio = read_wav_file(self.corpus_entry.audio_file)
+        return audio[self.start_frame:self.end_frame]
+
+    @property
+    def text(self):
+        if self.start_text and self.end_text:
+            return self.corpus_entry.transcript[self.start_text: self.end_text]
+        return ''
+
+
 class ReadyLinguaCorpus(Corpus):
 
     def __init__(self, corpus_entries):
@@ -51,15 +72,12 @@ class LibriSpeechCorpus(Corpus):
 
 
 class CorpusEntry(object):
-    def __init__(self, audio_file, transcript, alignments, speech_pauses, original_path='', parms={}):
+    def __init__(self, audio_file, transcript, alignments, original_path='', parms={}):
         self.audio_file = audio_file
         self.transcript = transcript
         for alignment in alignments:
             alignment.corpus_entry = self
         self.alignments = alignments
-        for speech_pause in speech_pauses:
-            speech_pause.corpus_entry = self
-        self.speech_pauses = speech_pauses
 
         self.original_path = original_path
         self.name = parms['name'] if 'name' in parms else ''
@@ -72,39 +90,26 @@ class CorpusEntry(object):
         self.media_info = parms['media_info'] if 'media_info' in parms else {}
 
     def __iter__(self):
-        for alignment in self.alignments:
+        for alignment in self.speech_segments:
             yield alignment
 
     def __getitem__(self, item):
-        return self.alignments[item]
+        return self.speech_segments[item]
+
+    @property
+    def speech_segments(self):
+        return [alignment for alignment in self.alignments if alignment.alignment_type == 'speech']
+
+    @property
+    def pause_segments(self):
+        return [alignment for alignment in self.alignments if alignment.alignment_type == 'pause']
 
 
-class Alignment(object):
+class Speech(Alignment):
     def __init__(self, start_frame, end_frame, start_text, end_text):
-        self.start_frame = start_frame
-        self.end_frame = end_frame
-        self.start_text = start_text
-        self.end_text = end_text
-        self.corpus_entry = None
-
-    @property
-    def audio(self):
-        _, audio = read_wav_file(self.corpus_entry.audio_file)
-        return audio[self.start_frame:self.end_frame]
-
-    @property
-    def text(self):
-        return self.corpus_entry.transcript[self.start_text: self.end_text]  # komische Indizierung...
+        super().__init__(start_frame, end_frame, start_text, end_text, 'speech')
 
 
-class Segment(object):
-    def __init__(self, start_frame, end_frame, segment_type):
-        self.start_frame = start_frame
-        self.end_frame = end_frame
-        self.segment_type = segment_type
-        self.corpus_entry = None
-
-    @property
-    def audio(self):
-        _, audio = read_wav_file(self.corpus_entry.audio_file)
-        return audio[self.start_frame:self.end_frame]
+class Pause(Alignment):
+    def __init__(self, start_frame, end_frame):
+        super().__init__(start_frame, end_frame, None, None, 'pause')

@@ -1,21 +1,31 @@
 # Create ReadyLingua Corpus
+import argparse
 import logging
 import math
 import os
 import re
 import sys
-from operator import itemgetter
 
+from os.path import exists
+from pydub.utils import mediainfo
 from tqdm import tqdm
 
-from audio_util import calculate_frame, mp3_to_wav
-from corpus import Alignment, Segment, CorpusEntry, LibriSpeechCorpus
+from audio_util import mp3_to_wav, crop_wav, calculate_frame
+from corpus import Pause, CorpusEntry, LibriSpeechCorpus, Speech
 from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
 logfile = 'librispeech_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
+
+parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from raw files""")
+parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
+parser.add_argument('-m', '--max_entries', type=int, default=None,
+                    help='(optional) maximum number of corpus entries to process. Default=None=\'all\'')
+parser.add_argument('-o', '--overwrite', default=False, action='store_true',
+                    help='(optional) overwrite existing audio data if already present. Default=False)')
+args = parser.parse_args()
 
 books_pattern = re.compile('(?P<book_id>\d+)'
                            '\s*\|\s*'
@@ -49,7 +59,8 @@ segment_pattern = re.compile('(?P<segment_id>.*)\s(?P<segment_start>.*)\s(?P<seg
 
 source_root = r'D:\corpus\librispeech-raw' if os.name == 'nt' else '/media/all/D1/librispeech-raw'
 target_root = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
-max_entries = None
+max_entries = args.max_entries
+overwrite = args.overwrite
 
 
 def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):
@@ -69,7 +80,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
     corpus_entries = []
 
     directories = [root for root, subdirs, files in os.walk(audio_root) if not subdirs]
-    progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr)
+    progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr, unit='entries')
 
     for directory in progress:
         if max_entries and len(corpus_entries) >= max_entries:
@@ -87,23 +98,18 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
             log.warning(f'Skipping directory (not all files found): {directory}')
             break
 
-        # Downsample audio
-        infile = os.path.join(directory, mp3_file)
+        alignments, transcript = create_alignments(segments_file, transcription_file)
+
+        # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
-        outfile_info = mp3_to_wav(infile, audio_file)
-        parms['media_info'] = outfile_info
-
-        # create segments
-        speech_segments, transcript = create_speech_segments(segments_file, transcription_file)
-
-        # create alignments
-        alignments = create_alignments(speech_segments, transcript)
-
-        # create speech pauses
-        speech_pauses = create_speech_pauses(speech_segments)
+        if not exists(audio_file) or overwrite:
+            in_file = os.path.join(directory, mp3_file)
+            mp3_to_wav(in_file, audio_file)
+            crop_wav(audio_file, alignments)
+            parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, transcript, alignments, speech_pauses, directory, parms)
+        corpus_entry = CorpusEntry(audio_file, transcript, alignments, directory, parms)
         corpus_entries.append(corpus_entry)
 
     corpus = LibriSpeechCorpus(corpus_entries)
@@ -219,67 +225,49 @@ def collect_corpus_entry_files(directory, parms):
     return segments_file, transcription_file, mp3_file
 
 
-def create_speech_segments(segments_file, transcription_file):
-    segments = []
+def create_alignments(segments_file, transcription_file):
     segment_texts = {}
-    with open(segments_file) as f_segments, open(transcription_file) as f_transcription:
+    with open(transcription_file) as f_transcription:
         for line in f_transcription.readlines():
             segment_id, segment_text = line.split(' ', 1)
             segment_texts[segment_id] = segment_text.replace('\n', '')
-
-        for line in f_segments.readlines():
-            result = re.search(segment_pattern, line)
-            if result:
-                segment_id = result.group('segment_id')
-                segment_start = result.group('segment_start')
-                segment_end = result.group('segment_end')
-
-                segment_text = segment_texts[segment_id] if segment_id in segment_texts else None
-
-                if segment_text:
-                    start_frame = calculate_frame(segment_start)
-                    end_frame = calculate_frame(segment_end)
-                    segment = {'id': segment_id,
-                               'start_frame': start_frame,
-                               'end_frame': end_frame,
-                               'text': segment_text}
-                    segments.append(segment)
     transcription = '\n'.join(segment_texts.values())
-    return segments, transcription
 
-
-def create_alignments(segments, transcription):
     alignments = []
-    segments = sorted(segments, key=itemgetter('start_frame'))
-    for segment in segments:
-        segment_text = segment['text']
-        start_frame = segment['start_frame']
-        end_frame = segment['end_frame']
-        start_text = transcription.index(segment_text)
-        end_text = start_text + len(segment_text)
-        alignment = Alignment(start_frame=start_frame, end_frame=end_frame, start_text=start_text, end_text=end_text)
-        alignments.append(alignment)
-    return alignments
+    with open(segments_file) as f_segments:
+        lines = f_segments.readlines()
+        for i, line in enumerate(lines):
+            segment_id, start_frame, end_frame = parse_segment_line(line)
+
+            # add pause between speeches (if there is one)
+            if i > 0:
+                _, prev_start, prev_end = parse_segment_line(lines[i - 1])
+                pause_start = prev_end + 1
+                pause_end = start_frame - 1
+                if pause_end - pause_start > 0:
+                    pause = Pause(start_frame=pause_start, end_frame=pause_end)
+                    alignments.append(pause)
+
+            segment_text = segment_texts[segment_id] if segment_id in segment_texts else None
+            start_text = transcription.index(segment_text)
+            end_text = start_text + len(segment_text)
+            speech = Speech(start_frame=start_frame, end_frame=end_frame, start_text=start_text, end_text=end_text)
+            alignments.append(speech)
+
+    return alignments, transcription
 
 
-def create_speech_pauses(speech_segments):
-    speech_pause_segments = []
-    for i, speech in enumerate(speech_segments):
-        if i > 0:
-            prev_speech = speech_segments[i - 1]
-            start_frame = prev_speech['end_frame'] + 1
-            end_frame = speech['start_frame'] - 1
-            pause_segment = Segment(start_frame=start_frame, end_frame=end_frame, segment_type='pause')
-            speech_pause_segments.append(pause_segment)
-
-        start_frame = speech['start_frame']
-        end_frame = speech['end_frame']
-        speech_segment = Segment(start_frame=start_frame, end_frame=end_frame, segment_type='speech')
-        speech_pause_segments.append(speech_segment)
-    return speech_pause_segments
+def parse_segment_line(line):
+    result = re.search(segment_pattern, line)
+    if result:
+        segment_id = result.group('segment_id')
+        segment_start = calculate_frame(result.group('segment_start'))
+        segment_end = calculate_frame(result.group('segment_end'))
+        return segment_id, segment_start, segment_end
+    return None, None, None
 
 
 if __name__ == '__main__':
-    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}')
+    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}, overwrite={overwrite}')
     corpus, corpus_file = create_corpus(source_root, target_root, max_entries)
     print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')

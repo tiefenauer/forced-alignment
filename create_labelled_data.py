@@ -18,6 +18,7 @@ log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='Create labelled train-, dev- and test-data (X and Y) for all corpora')
+parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-o', '--overwrite', default=False, action='store_true',
                     help='(optional) overwrite existing data if already present. Default=False)')
 parser.add_argument('-m', '--max_samples', type=int, default=None,

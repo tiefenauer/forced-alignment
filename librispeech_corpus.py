@@ -89,8 +89,9 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
 
         # Downsample audio
         infile = os.path.join(directory, mp3_file)
-        outfile = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
-        audio_file = mp3_to_wav(infile, outfile)
+        audio_file = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
+        outfile_info = mp3_to_wav(infile, audio_file)
+        parms['media_info'] = outfile_info
 
         # create segments
         speech_segments, transcript = create_speech_segments(segments_file, transcription_file)

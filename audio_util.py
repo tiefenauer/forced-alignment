@@ -68,19 +68,13 @@ def calculate_frame(time_in_seconds, sampling_rate=16000):
 
 def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1, overwrite=False):
     # Skip if target file already exists
-    if os.path.exists(outfile) and not overwrite:
-        return outfile
+    if not os.path.exists(outfile) or overwrite:
+        AudioSegment.from_mp3(infile) \
+            .set_frame_rate(outrate) \
+            .set_channels(outchannels) \
+            .export(outfile, format="wav")
 
-    info = mediainfo(infile)
-    inrate = int(float(info['sample_rate']))
-    inchannels = int(info['channels'])
-    AudioSegment.from_mp3(infile).export(outfile, format="wav", parameters="-sample_rate 16000")
-    if inrate != outrate:
-        outfile_resampled = outfile + '.resampled'
-        resample_wav(outfile, outfile_resampled, inrate, outrate, inchannels, outchannels)
-        os.remove(outfile)
-        os.rename(outfile_resampled, outfile)
-    return outfile
+    return mediainfo(outfile)
 
 
 def calculate_spectrogram(wav_file, nfft=200, fs=8000, noverlap=120):

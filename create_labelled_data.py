@@ -1,18 +1,29 @@
+import argparse
 import logging
+import math
 import os
 from os import makedirs
 
 import numpy as np
 from os.path import exists
+from pydub.utils import mediainfo
 from tqdm import tqdm
 
-from audio_util import calculate_spectrogram
+from audio_util import calculate_spectrogram, read_wav_file
 from corpus_util import load_corpus
 from util import log_setup
 
 logfile = 'create_labelled_data.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
+
+parser = argparse.ArgumentParser(description='Create labelled train-, dev- and test-data (X and Y) for all corpora')
+parser.add_argument('-o', '--overwrite', default=False, action='store_true',
+                    help='(optional) overwrite existing data if already present. Default=False)')
+parser.add_argument('-m', '--max_samples', type=int, default=None,
+                    help='(optional) maximum number of samples to process. Default=None=\'all\'')
+parser.add_argument('-ty', '--Ty', type=int, default=1375, help='Number of steps in the RNN output layer (T_y)')
+args = parser.parse_args()
 
 LS_SOURCE_ROOT = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
 RL_SOURCE_ROOT = r'E:\readylingua-corpus' if os.name == 'nt' else '/media/all/D1/readylingua-corpus'
@@ -23,29 +34,9 @@ ls_corpus_file = os.path.join(LS_SOURCE_ROOT, 'librispeech.corpus')
 rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
 
 # for debugging only: set to a numeric value to limit the amount of processed corpus entries.
-# Set to None to process all data
-max_samples = None
-
-# number of time steps in the output of the model
-Ty = 1375
-
-
-def create_X(corpus_entry, target_root, subset_name, overwrite=False):
-    x_path = os.path.join(target_root, corpus_entry.chapter_id + '.X.' + subset_name + '.npy')
-    if not exists(x_path) or overwrite:
-        _, _, x = calculate_spectrogram(corpus_entry.audio_file)
-        np.save(x_path, x)
-    else:
-        print(f'Skipping {x_path} because it already exists')
-
-
-def create_Y(corpus_entry, target_root, subset_name, overwrite=False):
-    return 0  # to be implemented
-    Y = np.zeros(Ty, 'int16')
-    for segment in corpus_entry.speech_pauses:
-        if segment.segment_type == 'pause':
-            Y[start:end] = 1
-    return Y
+overwrite = args.overwrite
+max_samples = args.max_samples
+T_y = args.Ty
 
 
 def create_subsets(corpus, target_root):
@@ -60,27 +51,63 @@ def create_subsets(corpus, target_root):
     test_set = test_set[:max_samples] if max_samples else test_set
 
     print('Creating training data...')
-    for corpus_entry in tqdm(train_set, unit='corpus entry'):
+    for corpus_entry in tqdm(train_set, total=min(len(train_set), max_samples or math.inf), unit='corpus entry'):
         create_X(corpus_entry, target_root, 'train')
         create_Y(corpus_entry, target_root, 'train')
     print('Creating validation data...')
-    for corpus_entry in tqdm(dev_set, unit='corpus entry'):
+    for corpus_entry in tqdm(dev_set, total=min(len(dev_set), max_samples or math.inf), unit='corpus entry'):
         create_X(corpus_entry, target_root, 'dev')
         create_Y(corpus_entry, target_root, 'dev')
     print('Creating test data...')
-    for corpus_entry in tqdm(test_set, unit='corpus entry'):
+    for corpus_entry in tqdm(test_set, total=min(len(test_set), max_samples or math.inf), unit='corpus entry'):
         create_X(corpus_entry, target_root, 'test')
         create_Y(corpus_entry, target_root, 'test')
 
 
+def create_X(corpus_entry, target_root, subset_name):
+    x_path = os.path.join(target_root, corpus_entry.chapter_id + '.X.' + subset_name + '.npy')
+    if not exists(x_path) or overwrite:
+        _, _, x = calculate_spectrogram(corpus_entry.audio_file)
+        np.save(x_path, x)
+    else:
+        print(f'Skipping {x_path} because it already exists')
+
+
+def create_Y(corpus_entry, target_root, subset_name):
+    y_path = os.path.join(target_root, corpus_entry.chapter_id + '.Y.' + subset_name + '.npy')
+    if not exists(y_path) or overwrite:
+        rate, data = read_wav_file(corpus_entry.audio_file)
+        info = mediainfo(corpus_entry.audio_file)
+        duration = float(corpus_entry.media_info['duration'])
+        sample_rate = float(corpus_entry.media_info['sample_rate'])
+        n_frames = duration * sample_rate
+        y = np.zeros(T_y, 'int16')
+        for pause_segment in (segment for segment in corpus_entry.segments if segment.segment_type == 'pause'):
+            start = round(pause_segment.start_frame * T_y / n_frames)
+            end = round(pause_segment.end_frame * T_y / n_frames)
+            y[start:end] = 1
+        np.save(y_path, y)
+
+        # sum up segment lengths for sanity checks:
+        total_len = sum(segment.end_frame - segment.start_frame for segment in corpus_entry.segments)
+        difference = abs(n_frames - total_len)
+        if difference > n_frames * 0.01:
+            msg = f"""Total length of segments ({total_len}) deviated from number of frames in audio ({n_frames}) 
+                by {difference}%! Training data might contain errors."""
+            print(msg)
+            log.warning(msg)
+    else:
+        print(f'Skipping {y_path} because it already exists')
+
+
 if __name__ == '__main__':
-    # LibriSpeech
+    # create LibriSpeech train-/dev-/test-data
     ls_corpus = load_corpus(ls_corpus_file)
     print(f'Creating labelled data for corpus {ls_corpus.name}')
     create_subsets(ls_corpus, LS_TARGET_ROOT)
     print('Done!')
 
-    # ReadyLingua
+    # create ReadyLingua train-/dev-/test-data
     # rl_corpus = load_corpus(rl_corpus_file)
     # print(f'Creating labelled data for corpus {ls_corpus.name}')
     # create_subsets(rl_corpus, RL_TARGET_ROOT, 'rl')

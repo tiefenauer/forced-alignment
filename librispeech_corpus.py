@@ -98,18 +98,18 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
             log.warning(f'Skipping directory (not all files found): {directory}')
             break
 
-        alignments, transcript = create_alignments(segments_file, transcription_file)
+        segments, transcript = create_segments(segments_file, transcription_file)
 
         # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
         if not exists(audio_file) or overwrite:
             in_file = os.path.join(directory, mp3_file)
             mp3_to_wav(in_file, audio_file)
-            crop_wav(audio_file, alignments)
+            crop_wav(audio_file, segments)
             parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, transcript, alignments, directory, parms)
+        corpus_entry = CorpusEntry(audio_file, transcript, segments, directory, parms)
         corpus_entries.append(corpus_entry)
 
     corpus = LibriSpeechCorpus(corpus_entries)
@@ -225,7 +225,7 @@ def collect_corpus_entry_files(directory, parms):
     return segments_file, transcription_file, mp3_file
 
 
-def create_alignments(segments_file, transcription_file):
+def create_segments(segments_file, transcription_file):
     segment_texts = {}
     with open(transcription_file) as f_transcription:
         for line in f_transcription.readlines():
@@ -233,7 +233,7 @@ def create_alignments(segments_file, transcription_file):
             segment_texts[segment_id] = segment_text.replace('\n', '')
     transcription = '\n'.join(segment_texts.values())
 
-    alignments = []
+    segments = []
     with open(segments_file) as f_segments:
         lines = f_segments.readlines()
         for i, line in enumerate(lines):
@@ -246,15 +246,15 @@ def create_alignments(segments_file, transcription_file):
                 pause_end = start_frame - 1
                 if pause_end - pause_start > 0:
                     pause = Pause(start_frame=pause_start, end_frame=pause_end)
-                    alignments.append(pause)
+                    segments.append(pause)
 
             segment_text = segment_texts[segment_id] if segment_id in segment_texts else None
             start_text = transcription.index(segment_text)
             end_text = start_text + len(segment_text)
             speech = Speech(start_frame=start_frame, end_frame=end_frame, start_text=start_text, end_text=end_text)
-            alignments.append(speech)
+            segments.append(speech)
 
-    return alignments, transcription
+    return segments, transcription
 
 
 def parse_segment_line(line):

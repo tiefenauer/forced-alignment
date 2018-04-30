@@ -28,13 +28,13 @@ class Corpus(ABC):
         pass
 
 
-class Alignment(ABC):
+class Segment(ABC):
     def __init__(self, start_frame, end_frame, start_text, end_text, alignment_type):
         self.start_frame = start_frame
         self.end_frame = end_frame
         self.start_text = start_text
         self.end_text = end_text
-        self.alignment_type = alignment_type
+        self.segment_type = alignment_type
         self.corpus_entry = None
 
     @property
@@ -45,7 +45,7 @@ class Alignment(ABC):
     @property
     def text(self):
         if self.start_text and self.end_text:
-            return self.corpus_entry.transcript[self.start_text: self.end_text]
+            return self.corpus_entry.transcription[self.start_text: self.end_text]
         return ''
 
 
@@ -72,12 +72,12 @@ class LibriSpeechCorpus(Corpus):
 
 
 class CorpusEntry(object):
-    def __init__(self, audio_file, transcript, alignments, original_path='', parms={}):
+    def __init__(self, audio_file, transcription, segments, original_path='', parms={}):
         self.audio_file = audio_file
-        self.transcript = transcript
-        for alignment in alignments:
-            alignment.corpus_entry = self
-        self.alignments = alignments
+        self.transcription = transcription
+        for segment in segments:
+            segment.corpus_entry = self
+        self.segments = segments
 
         self.original_path = original_path
         self.name = parms['name'] if 'name' in parms else ''
@@ -98,18 +98,18 @@ class CorpusEntry(object):
 
     @property
     def speech_segments(self):
-        return [alignment for alignment in self.alignments if alignment.alignment_type == 'speech']
+        return [segment for segment in self.segments if segment.segment_type == 'speech']
 
     @property
     def pause_segments(self):
-        return [alignment for alignment in self.alignments if alignment.alignment_type == 'pause']
+        return [segment for segment in self.segments if segment.segment_type == 'pause']
 
 
-class Speech(Alignment):
-    def __init__(self, start_frame, end_frame, start_text, end_text):
+class Speech(Segment):
+    def __init__(self, start_frame, end_frame, start_text=None, end_text=None):
         super().__init__(start_frame, end_frame, start_text, end_text, 'speech')
 
 
-class Pause(Alignment):
+class Pause(Segment):
     def __init__(self, start_frame, end_frame):
         super().__init__(start_frame, end_frame, None, None, 'pause')

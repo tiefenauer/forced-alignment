@@ -9,10 +9,11 @@ from pathlib import Path
 
 from lxml import etree
 from os.path import exists
+from pydub.utils import mediainfo
 from tqdm import tqdm
 
 from audio_util import recalculate_frame, resample_wav, crop_wav
-from corpus import CorpusEntry, Alignment, ReadyLinguaCorpus, Speech, Pause
+from corpus import CorpusEntry, ReadyLinguaCorpus, Speech, Pause
 from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
@@ -58,7 +59,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
     corpus_entries = []
 
     directories = [root for root, subdirs, files in os.walk(source_root) if not subdirs]
-    progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr)
+    progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr, unit='entries')
 
     for directory in progress:
         if max_entries and len(corpus_entries) >= max_entries:
@@ -71,28 +72,24 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
             log.warning(f'Skipping directory (not all files found): {directory}')
             continue
 
-        # segmentation_file = os.path.join(directory, files['segmentation'])
-        index_file = os.path.join(directory, files['index'])
-        transcript_file = os.path.join(directory, files['text'])
-
         parms = collect_corpus_entry_parms(directory, files)
 
-        # speech_pauses = create_segments(segmentation_file)
-
-        transcript, alignments = create_alignments(index_file, transcript_file)
+        segmentation_file = os.path.join(directory, files['segmentation'])
+        index_file = os.path.join(directory, files['index'])
+        transcript_file = os.path.join(directory, files['text'])
+        segments, transcription = create_segments(index_file, transcript_file, segmentation_file)
 
         # Resample and crop audio
         wav_file = files['audio']
-        out_file = os.path.join(target_root, wav_file.split(".")[0] + "_16.wav")
-        if not exists(out_file) or overwrite:
+        audio_file = os.path.join(target_root, wav_file.split(".")[0] + "_16.wav")
+        if not exists(audio_file) or overwrite:
             in_file = os.path.join(directory, wav_file)
-            resample_wav(in_file, out_file, inrate=parms['rate'], inchannels=parms['channels'])
-            audio_file = crop_wav(out_file)
-        else:
-            audio_file = out_file
+            resample_wav(in_file, audio_file, inrate=parms['rate'], inchannels=parms['channels'])
+            crop_wav(audio_file, segments)
+            parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, transcript, alignments, directory, parms)
+        corpus_entry = CorpusEntry(audio_file, transcription, segments, directory, parms)
         corpus_entries.append(corpus_entry)
 
     corpus = ReadyLinguaCorpus(corpus_entries)
@@ -170,27 +167,46 @@ def collect_corpus_entry_parms(directory, files):
     return {'name': name, 'language': language, 'rate': rate, 'channels': channels}
 
 
-def create_segments(segmentation_file):
-    """ re-calculate speech pauses for downsampled WAV file """
+def find_speech_within_segment(segment, speeches):
+    return next(iter([speech for speech in speeches
+                      if speech.start_frame >= segment.start_frame and speech.end_frame <= segment.end_frame]), None)
+
+
+def create_segments(index_file, transcription_file, segmentation_file):
+    segments = collect_segments(segmentation_file)
+    speeches = collect_speeches(index_file)
+
+    # merge information from index file (speech parts) with segmentation information
+    for speech_segment in [segment for segment in segments if segment.segment_type == 'speech']:
+        speech = find_speech_within_segment(speech_segment, speeches)
+        if speech:
+            speech_segment.start_text = speech.start_text
+            speech_segment.end_text = speech.end_text + 1  # komische Indizierung
+
+    transcription = Path(transcription_file).read_text(encoding='utf-8')
+    return segments, transcription
+
+
+def collect_segments(segmentation_file):
     segments = []
     doc = etree.parse(segmentation_file)
     for element in doc.findall('Segments/Segment'):
-        # calculate new start and end frame positions
         start_frame = recalculate_frame(int(element.attrib['start']))
         end_frame = recalculate_frame(int(element.attrib['end']))
 
-        segment = Alignment(start_frame, end_frame, element.attrib['class'])
+        if element.attrib['class'] == 'Speech':
+            segment = Speech(start_frame, end_frame)
+        else:
+            segment = Pause(start_frame, end_frame)
         segments.append(segment)
 
-    return segments
+    return sorted(segments, key=lambda s: s.start_frame)
 
 
-def create_alignments(index_file, transcript_file):
-    alignments = []
+def collect_speeches(index_file):
+    speeches = []
     doc = etree.parse(index_file)
-    nodes = doc.findall('TextAudioIndex')
-    end_prev = -1
-    for i, element in enumerate(nodes):
+    for element in doc.findall('TextAudioIndex'):
         start_text = int(element.find('TextStartPos').text)
         end_text = int(element.find('TextEndPos').text)
         start_frame = int(element.find('AudioStartPos').text)
@@ -198,20 +214,9 @@ def create_alignments(index_file, transcript_file):
         start_frame = recalculate_frame(start_frame)
         end_frame = recalculate_frame(end_frame)
 
-        # add pause segment
-        if i > 0:
-            start_pause = end_prev + 1
-            end_pause = start_frame - 1
-            if end_pause - start_pause > 0:
-                pause = Pause(start_pause, end_pause)
-                alignments.append(pause)
-
         speech = Speech(start_frame, end_frame, start_text, end_text)
-        alignments.append(speech)
-        end_prev = end_frame
-
-    transcript = Path(transcript_file).read_text(encoding='utf-8')
-    return transcript, alignments
+        speeches.append(speech)
+    return sorted(speeches, key=lambda s: s.start_frame)
 
 
 if __name__ == '__main__':

@@ -43,16 +43,15 @@ def resample_wav(in_file, out_file, inrate=44100, outrate=16000, inchannels=1, o
             log.error(f'Could not write resampled data {out_file}: {e}')
 
 
-def crop_wav(wav_file, alignments):
+def crop_wav(wav_file, segments):
     wav_rate, wav_data = read_wav_file(wav_file)
-    crop_start = min(segment.start_frame for segment in alignments)
-    crop_end = max(segment.end_frame for segment in alignments)
+    crop_start = min(segment.start_frame for segment in segments)
+    crop_end = max(segment.end_frame for segment in segments)
     write_wav_file(wav_file, wav_rate, wav_data[crop_start:crop_end])
 
-    for alignment in alignments:
-        alignment.start_frame -= crop_start
-        alignment.end_frame -= crop_start
-        pass
+    for segment in segments:
+        segment.start_frame -= crop_start
+        segment.end_frame -= crop_start
 
 
 def read_wav_file(file_path):

@@ -58,7 +58,11 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
     log.info('Collecting files')
     corpus_entries = []
 
-    directories = [root for root, subdirs, files in os.walk(source_root) if not subdirs]
+    directories = [root for root, subdirs, files in os.walk(source_root)
+                   if not subdirs  # only include leaf directories
+                   and not root.endswith(os.sep + 'old')  # '/old' leaf-folders are considered not reliable
+                   and not os.sep + 'old' + os.sep in root]  # also exclude /old/ non-leaf folders
+
     progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr, unit='entries')
 
     for directory in progress:

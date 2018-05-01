@@ -16,7 +16,3 @@ def load_subset(subset_name, root_path):
             x = np.load(x_path)
             y = np.load(y_path)
             yield x, y
-
-
-def create_subset_file_name(X_or_Y, subset_name, infix):
-    return '_'.join([X_or_Y, subset_name]) + '.' + infix

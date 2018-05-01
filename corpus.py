@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from random import randint
 
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
@@ -55,8 +56,15 @@ class ReadyLinguaCorpus(Corpus):
         super().__init__('ReadyLingua', corpus_entries)
 
     def train_dev_test_split(self):
-        # TODO: Implement split
-        return [], [], []
+        n_entries = len(self.corpus_entries)
+        # 80/10/10 split
+        train_split = int(n_entries * 0.8)
+        test_split = int(train_split + (n_entries - train_split) / 2)
+
+        train_set = self.corpus_entries[:train_split]
+        dev_set = self.corpus_entries[train_split:test_split]
+        test_set = self.corpus_entries[test_split:]
+        return train_set, dev_set, test_set
 
 
 class LibriSpeechCorpus(Corpus):
@@ -81,7 +89,7 @@ class CorpusEntry(object):
 
         self.original_path = original_path
         self.name = parms['name'] if 'name' in parms else ''
-        self.id = parms['id'] if 'id' in parms else ''
+        self.id = parms['id'] if 'id' in parms else str(randint(1, 999999))
         self.language = parms['language'] if 'language' in parms else 'unknown'
         self.chapter_id = parms['chapter_id'] if 'chapter_id' in parms else 'unknown'
         self.speaker_id = parms['speaker_id'] if 'speaker_id' in parms else 'unkown'

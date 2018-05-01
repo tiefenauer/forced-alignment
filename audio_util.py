@@ -82,25 +82,38 @@ def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1, overwrite=False):
         .export(outfile, format="wav")
 
 
-def calculate_spectrogram(wav_file, nfft=200, fs=8000, noverlap=120):
+def calculate_spectrogram(audio, sample_rate, nperseg=200, noverlap=120):
     """
     Calculates the spectrogram of a WAV file
-    :param wav_file: absolute path to the WAV file
-    :param nfft: Length of each window segment
-    :param fs: Sampling frequencies
-    :param noverlap: Overlap between windows
-    :return: (freqs, t, spec) the frequencies, times and spectrogram
+    :param audio: numpy array containing the audio data
+    :param sample_rate: sampling rate of the audio data
+    :param nperseg: length of each window segment
+    :param noverlap: overlap between windows
+    :return: (freqs, times, spec) the frequencies (numpy 1D array), time steps (numpy 1-D array) and spectrogram (numpy 2D array)
     """
-    rate, data = read_wav_file(wav_file)
 
     # only use one channel if WAV file is stereo
-    x = data[:, 0] if data.ndim > 1 else data
+    audio = audio[:, 0] if audio.ndim > 1 else audio
 
     # calculate spectrogram
-    freqs, t, spec = scipy.signal.spectrogram(x, nperseg=nfft, fs=fs, noverlap=noverlap)
+    freqs, times, spec = scipy.signal.spectrogram(audio, fs=sample_rate, nperseg=nperseg, noverlap=noverlap)
 
     # rescale values to dB scale
     spec = 10. * np.log10(spec)
     spec = np.flipud(spec)
 
-    return freqs, t, spec
+    return freqs, times, spec
+
+
+def log_specgram(audio, sample_rate, window_size=20, step_size=10, eps=1e-10):
+    # https://www.kaggle.com/davids1992/speech-representation-and-data-exploration
+
+    nperseg = int(round(window_size * sample_rate / 1e3))
+    noverlap = int(round(step_size * sample_rate / 1e3))
+    freqs, times, spec = scipy.signal.spectrogram(audio,
+                                                  fs=sample_rate,
+                                                  window='hann',
+                                                  nperseg=nperseg,
+                                                  noverlap=noverlap,
+                                                  detrend=False)
+    return freqs, times, np.log(spec.T.astype(np.float32) + eps)

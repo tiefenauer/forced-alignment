@@ -6,7 +6,6 @@ from os import makedirs
 
 import numpy as np
 from os.path import exists
-from pydub.utils import mediainfo
 from tqdm import tqdm
 
 from audio_util import calculate_spectrogram, read_wav_file
@@ -68,7 +67,8 @@ def create_subsets(corpus, target_root):
 def create_x(corpus_entry, target_root, subset_name):
     x_path = os.path.join(target_root, corpus_entry.id + '.X.' + subset_name + '.npy')
     if not exists(x_path) or overwrite:
-        _, _, x = calculate_spectrogram(corpus_entry.audio_file)
+        sample_rate, audio = read_wav_file(corpus_entry.audio_file)
+        _, _, x = calculate_spectrogram(audio, sample_rate)
         np.save(x_path, x)
     else:
         print(f'Skipping {x_path} because it already exists')

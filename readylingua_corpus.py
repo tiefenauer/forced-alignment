@@ -99,7 +99,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
         corpus_entry = CorpusEntry(audio_file, transcription, segments, directory, parms)
         corpus_entries.append(corpus_entry)
 
-    corpus = ReadyLinguaCorpus(corpus_entries)
+    corpus = ReadyLinguaCorpus(corpus_entries, target_root)
     corpus_file = os.path.join(target_root, 'readylingua.corpus')
     save_corpus(corpus, corpus_file)
     return corpus, corpus_file

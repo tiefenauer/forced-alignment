@@ -7,9 +7,12 @@ from corpus_util import filter_corpus_entry_by_subset_prefix
 
 class Corpus(ABC):
 
-    def __init__(self, name, corpus_entries):
+    def __init__(self, name, corpus_entries, root_path):
         self.name = name
+        for corpus_entry in corpus_entries:
+            corpus_entry.corpus = self
         self.corpus_entries = corpus_entries
+        self.root_path = root_path
 
     def __iter__(self):
         for corpus_entry in self.corpus_entries:
@@ -52,8 +55,8 @@ class Segment(ABC):
 
 class ReadyLinguaCorpus(Corpus):
 
-    def __init__(self, corpus_entries):
-        super().__init__('ReadyLingua', corpus_entries)
+    def __init__(self, corpus_entries, root_path):
+        super().__init__('ReadyLingua', corpus_entries, root_path)
 
     def train_dev_test_split(self):
         n_entries = len(self.corpus_entries)
@@ -69,8 +72,8 @@ class ReadyLinguaCorpus(Corpus):
 
 class LibriSpeechCorpus(Corpus):
 
-    def __init__(self, corpus_entries):
-        super().__init__('LibriSpeech', corpus_entries)
+    def __init__(self, corpus_entries, root_path):
+        super().__init__('LibriSpeech', corpus_entries, root_path)
 
     def train_dev_test_split(self):
         train_set = filter_corpus_entry_by_subset_prefix(self.corpus_entries, 'train-')
@@ -81,6 +84,7 @@ class LibriSpeechCorpus(Corpus):
 
 class CorpusEntry(object):
     def __init__(self, audio_file, transcription, segments, original_path='', parms={}):
+        self.corpus = None
         self.audio_file = audio_file
         self.transcription = transcription
         for segment in segments:

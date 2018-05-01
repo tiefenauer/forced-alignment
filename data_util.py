@@ -1,7 +1,9 @@
 import os
 import re
-import numpy as np
 from glob import glob
+from os import listdir
+
+import numpy as np
 
 
 def load_subset(subset_name, root_path):
@@ -16,3 +18,19 @@ def load_subset(subset_name, root_path):
             x = np.load(x_path)
             y = np.load(y_path)
             yield x, y
+
+
+def load_labelled_data(corpus_entry, root_path):
+    x = y = subset_name = None
+
+    x_pattern = re.compile(corpus_entry.id + '\.X\.(?P<subset_name>train|dev|test)\.npy')
+    y_pattern = re.compile(corpus_entry.id + '\.Y\.(?P<subset_name>train|dev|test)\.npy')
+    for file_name in listdir(root_path):
+        x_result = x_pattern.search(file_name)
+        y_result = y_pattern.search(file_name)
+        if x_result:
+            subset_name = x_result.group('subset_name')
+            x = np.load(os.path.join(root_path, file_name))
+        if y_result:
+            y = np.load(os.path.join(root_path, file_name))
+    return x, y, subset_name

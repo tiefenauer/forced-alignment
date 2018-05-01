@@ -112,7 +112,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         corpus_entry = CorpusEntry(audio_file, transcript, segments, directory, parms)
         corpus_entries.append(corpus_entry)
 
-    corpus = LibriSpeechCorpus(corpus_entries)
+    corpus = LibriSpeechCorpus(corpus_entries, target_root)
     corpus_file = os.path.join(target_root, 'librispeech.corpus')
     save_corpus(corpus, corpus_file)
     return corpus, corpus_file

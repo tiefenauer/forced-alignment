@@ -3,6 +3,7 @@ import argparse
 import logging
 import math
 import os
+import re
 import sys
 import wave
 from pathlib import Path
@@ -41,6 +42,8 @@ LANGUAGES = {
     'Italienisch': 'it',
     'Spanisch': 'es'
 }
+
+non_alphanumeric_pattern = re.compile('[^0-9a-zA-Z]+')
 
 
 def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):
@@ -152,10 +155,11 @@ def scan_content_dir(content_dir):
 def collect_corpus_entry_parms(directory, files):
     index_file_path = os.path.join(directory, files['index'])
     audio_file_path = os.path.join(directory, files['audio'])
-    folders = directory.split('\\')
+    folders = directory.split(os.sep)
 
-    # find name
+    # find name and create id
     name = folders[-1]
+    corpus_entry_id = non_alphanumeric_pattern.sub('', name.lower())
 
     # find language
     lang = [folder for folder in folders if folder in LANGUAGES.keys()]
@@ -168,7 +172,7 @@ def collect_corpus_entry_parms(directory, files):
     # find number of channels
     channels = wave.open(audio_file_path, 'rb').getnchannels()
 
-    return {'name': name, 'language': language, 'rate': rate, 'channels': channels}
+    return {'id': corpus_entry_id, 'name': name, 'language': language, 'rate': rate, 'channels': channels}
 
 
 def find_speech_within_segment(segment, speeches):

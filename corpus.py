@@ -81,6 +81,7 @@ class CorpusEntry(object):
 
         self.original_path = original_path
         self.name = parms['name'] if 'name' in parms else ''
+        self.id = parms['id'] if 'id' in parms else ''
         self.language = parms['language'] if 'language' in parms else 'unknown'
         self.chapter_id = parms['chapter_id'] if 'chapter_id' in parms else 'unknown'
         self.speaker_id = parms['speaker_id'] if 'speaker_id' in parms else 'unkown'

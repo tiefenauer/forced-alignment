@@ -207,6 +207,7 @@ def collect_corpus_entry_parms(directory, books, chapters, speakers):
         speaker_name = speaker['name']
 
         return {'name': book_title,
+                'id': chapter_id,
                 'chapter_title': chapter_title,
                 'language': 'en',
                 'book_id': book_id,

@@ -102,10 +102,10 @@ def create_y(corpus_entry, target_root, subset_name):
 
 if __name__ == '__main__':
     # create LibriSpeech train-/dev-/test-data
-    # ls_corpus = load_corpus(ls_corpus_file)
-    # print(f'Creating labelled data for corpus {ls_corpus.name}')
-    # create_subsets(ls_corpus, LS_TARGET_ROOT)
-    # print('Done!')
+    ls_corpus = load_corpus(ls_corpus_file)
+    print(f'Creating labelled data for corpus {ls_corpus.name}')
+    create_subsets(ls_corpus, LS_TARGET_ROOT)
+    print('Done!')
 
     # create ReadyLingua train-/dev-/test-data
     rl_corpus = load_corpus(rl_corpus_file)

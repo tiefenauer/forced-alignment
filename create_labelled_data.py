@@ -81,7 +81,7 @@ def create_y(corpus_entry, target_root, subset_name):
         duration = float(corpus_entry.media_info['duration'])
         sample_rate = float(corpus_entry.media_info['sample_rate'])
         n_frames = int(duration * sample_rate)
-        y = np.zeros(T_y, 'int16')
+        y = np.zeros((1, T_y), 'int16')
         for pause_segment in (segment for segment in corpus_entry.segments if segment.segment_type == 'pause'):
             start = round(pause_segment.start_frame * T_y / n_frames)
             end = round(pause_segment.end_frame * T_y / n_frames)

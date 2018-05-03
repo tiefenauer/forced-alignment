@@ -28,14 +28,13 @@ def load_x(corpus_entry, root_path):
     file_path, subset_name = find_file_by_corpus_entry_id(corpus_entry.id, 'X', root_path)
     if file_path:
         (freqs, times, spec) = np.load(file_path)
-        return freqs, times, spec, subset_name
+        return freqs, times, spec
 
 
 def load_y(corpus_entry, root_path):
     file_path, subset_name = find_file_by_corpus_entry_id(corpus_entry.id, 'Y', root_path)
     if file_path:
-        y = np.load(file_path)
-        return y, subset_name
+        return np.load(file_path)
 
 
 def find_file_by_corpus_entry_id(corpus_entry_id, X_or_Y, root_path):

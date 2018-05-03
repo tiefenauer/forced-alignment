@@ -18,7 +18,10 @@ class TestDataUtil(TestCase):
         rl_corpus = load_corpus(r'E:\readylingua-corpus\readylingua.corpus')
         root_path = r'E:\readylingua-data'
         corpus_entry = rl_corpus[0]
-        X, Y, subset_name = data_util.load_labelled_data(corpus_entry, root_path)
-        print(X.shape)
-        print(Y.shape)
+        freqs, times, spec, subset_name = data_util.load_x(corpus_entry, root_path)
+        y, subset_name = data_util.load_y(corpus_entry, root_path)
+        print(freqs.shape)
+        print(times.shape)
+        print(spec.shape)
+        print(y.shape)
         print(subset_name)

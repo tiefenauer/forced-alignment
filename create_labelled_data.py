@@ -8,8 +8,9 @@ import numpy as np
 from os.path import exists
 from tqdm import tqdm
 
-from audio_util import calculate_spectrogram, read_wav_file
+from audio_util import log_specgram
 from corpus_util import load_corpus
+from data_util import save_x
 from util import log_setup
 
 logfile = 'create_labelled_data.log'
@@ -67,9 +68,9 @@ def create_subsets(corpus, target_root):
 def create_x(corpus_entry, target_root, subset_name):
     x_path = os.path.join(target_root, corpus_entry.id + '.X.' + subset_name + '.npy')
     if not exists(x_path) or overwrite:
-        sample_rate, audio = read_wav_file(corpus_entry.audio_file)
-        _, _, x = calculate_spectrogram(audio, sample_rate)
-        np.save(x_path, x)
+        rate, audio = corpus_entry.audio
+        freqs, times, spec = log_specgram(audio, rate)
+        save_x(freqs, times, spec, x_path)
     else:
         print(f'Skipping {x_path} because it already exists')
 

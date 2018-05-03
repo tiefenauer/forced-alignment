@@ -93,7 +93,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
             in_file = os.path.join(directory, wav_file)
             resample_wav(in_file, audio_file, inrate=parms['rate'], inchannels=parms['channels'])
             crop_wav(audio_file, segments)
-            parms['media_info'] = mediainfo(audio_file)
+        parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
         corpus_entry = CorpusEntry(audio_file, transcription, segments, directory, parms)

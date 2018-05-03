@@ -60,13 +60,11 @@ def read_wav_file(file_path):
 
 def write_wav_file(file_path, wav_rate, wav_data):
     scipy.io.wavfile.write(file_path, wav_rate, wav_data)
-    return file_path
 
 
 def recalculate_frame(old_frame, old_sampling_rate=44100, new_sampling_rate=16000):
     factor = new_sampling_rate / old_sampling_rate
-    new_frame = int(old_frame * factor)
-    return new_frame
+    return int(old_frame * factor)
 
 
 def calculate_frame(time_in_seconds, sampling_rate=16000):
@@ -75,7 +73,7 @@ def calculate_frame(time_in_seconds, sampling_rate=16000):
     return frame
 
 
-def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1, overwrite=False):
+def mp3_to_wav(infile, outfile, outrate=16000, outchannels=1):
     AudioSegment.from_mp3(infile) \
         .set_frame_rate(outrate) \
         .set_channels(outchannels) \

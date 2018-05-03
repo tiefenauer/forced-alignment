@@ -1,8 +1,26 @@
 from abc import ABC, abstractmethod
+from copy import copy
 from random import randint
 
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
+
+
+def calculate_crop(segments):
+    crop_start = min(segment.start_frame for segment in segments)
+    crop_end = max(segment.end_frame for segment in segments)
+    return crop_start, crop_end
+
+
+def crop_segments(segments):
+    cropped_segments = []
+    crop_start, crop_end = calculate_crop(segments)
+    for segment in segments:
+        cropped_segment = copy(segment)
+        cropped_segment.start_frame -= crop_start
+        cropped_segment.end_frame -= crop_start
+        cropped_segments.append(cropped_segment)
+    return cropped_segments
 
 
 class Corpus(ABC):
@@ -43,8 +61,8 @@ class Segment(ABC):
 
     @property
     def audio(self):
-        _, audio = read_wav_file(self.corpus_entry.audio_file)
-        return audio[self.start_frame:self.end_frame]
+        rate, audio = self.corpus_entry.audio
+        return rate, audio[self.start_frame:self.end_frame]
 
     @property
     def text(self):
@@ -83,6 +101,10 @@ class LibriSpeechCorpus(Corpus):
 
 
 class CorpusEntry(object):
+    # cache values
+    _audio = None
+    _rate = None
+
     def __init__(self, audio_file, transcription, segments, original_path='', parms={}):
         self.corpus = None
         self.audio_file = audio_file
@@ -116,6 +138,19 @@ class CorpusEntry(object):
     @property
     def pause_segments(self):
         return [segment for segment in self.segments if segment.segment_type == 'pause']
+
+    @property
+    def audio(self):
+        if self._audio is None:
+            self._rate, self._audio = read_wav_file(self.audio_file)
+        return self._rate, self._audio
+
+    def __getstate__(self):
+        # prevent caches from being pickled
+        state = dict(self.__dict__)
+        if '_audio' in state: del state['_audio']
+        if '_rate' in state: del state['_rate']
+        return state
 
 
 class Speech(Segment):

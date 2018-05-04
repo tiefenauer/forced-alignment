@@ -5,6 +5,7 @@ import math
 import os
 import re
 import sys
+from pathlib import Path
 
 from os.path import exists
 from pydub.utils import mediainfo
@@ -57,6 +58,10 @@ chapters_pattern = re.compile("(?P<chapter_id>\d+)"
                               "(?P<project_title>.*)")
 segment_pattern = re.compile('(?P<segment_id>.*)\s(?P<segment_start>.*)\s(?P<segment_end>.*)\n')
 
+non_ascii_pattern = re.compile(r'[^\x00-\x7F]+')
+punctuation_pattern = re.compile(r'[^\w\s]')
+whitespace_pattern = re.compile(r'\s+')
+
 source_root = r'D:\corpus\librispeech-raw' if os.name == 'nt' else '/media/all/D1/librispeech-raw'
 target_root = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
 max_entries = args.max_entries
@@ -71,6 +76,15 @@ def create_corpus(source_root=source_root, target_root=target_root, max_entries=
         os.makedirs(target_root)
 
     return create_librispeech_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
+
+
+def find_book_file(book_id, books_root):
+    book_root, files = next(iter([(root, files) for root, subdirs, files in os.walk(books_root)
+                                  if not subdirs and root.endswith(os.sep + book_id)
+                                  and len(files) == 1]), None)
+    if book_root and files:
+        return os.path.join(book_root, files[0])
+    return None
 
 
 def create_librispeech_corpus(source_root, target_root, max_entries):
@@ -93,12 +107,15 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         segments_file, transcription_file, mp3_file = collect_corpus_entry_files(directory, parms)
         segments_file = os.path.join(directory, segments_file)
         transcription_file = os.path.join(directory, transcription_file)
+        book_file = find_book_file(parms['book_id'], books_root)
 
         if not segments_file or not transcription_file or not mp3_file:
             log.warning(f'Skipping directory (not all files found): {directory}')
             break
+        if not book_file:
+            log.warning(f'No book file found. Processing directory, but alignment might be incomplete.')
 
-        segments, transcript = create_segments(segments_file, transcription_file)
+        segments, transcript = create_segments(segments_file, transcription_file, book_file)
 
         # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
@@ -226,33 +243,74 @@ def collect_corpus_entry_files(directory, parms):
     return segments_file, transcription_file, mp3_file
 
 
-def create_segments(segments_file, transcription_file):
+def normalize_text(text):
+    text = text.upper()
+    text = text.replace('-', ' ')
+    text = re.sub(non_ascii_pattern, '', text)
+    text = re.sub(punctuation_pattern, '', text)
+    text = re.sub(whitespace_pattern, ' ', text)
+    return text
+
+
+def find_text_between(prev_text, next_text, book_text):
+    prev_text = normalize_text(prev_text)
+    next_text = normalize_text(next_text)
+
+    if prev_text in book_text and next_text in book_text:
+        # find occurrences of prev_text and nex_text which are closes to each other
+        prev_indices = [(m.start(), m.end()) for m in re.finditer(prev_text, book_text)]
+        min_distance = math.inf
+        start = end = 0
+        for prev_start, prev_end in prev_indices:
+            next_indices = [(m.start(), m.end()) for m in re.finditer(next_text, book_text) if m.start() > prev_end]
+            for next_start, next_end in next_indices:
+                distance = next_start - prev_end
+                if distance < min_distance:
+                    min_distance = distance
+                    start = prev_end + 1
+                    end = next_start - 1
+
+        between_text = book_text[start:end]
+        return between_text
+    return None
+
+
+def create_segments(segments_file, transcription_file, book_file):
+    book_text = Path(book_file).read_text(encoding='utf-8')
+    book_text = normalize_text(book_text)
+
     segment_texts = {}
-    with open(transcription_file) as f_transcription:
+    with open(transcription_file, 'r') as f_transcription:
         for line in f_transcription.readlines():
             segment_id, segment_text = line.split(' ', 1)
             segment_texts[segment_id] = segment_text.replace('\n', '')
     transcription = '\n'.join(segment_texts.values())
 
     segments = []
-    with open(segments_file) as f_segments:
+    with open(segments_file, 'r') as f_segments:
         lines = f_segments.readlines()
         for i, line in enumerate(lines):
-            segment_id, start_frame, end_frame = parse_segment_line(line)
-
-            # add pause between speeches (if there is one)
-            if i > 0:
-                _, prev_start, prev_end = parse_segment_line(lines[i - 1])
-                pause_start = prev_end + 1
-                pause_end = start_frame - 1
-                if pause_end - pause_start > 0:
-                    pause = Pause(start_frame=pause_start, end_frame=pause_end)
-                    segments.append(pause)
-
+            segment_id, next_start, next_end = parse_segment_line(line)
             segment_text = segment_texts[segment_id] if segment_id in segment_texts else None
+
+            # add pause or missing speech segment between speeches (if there is one)
+            if i > 0:
+                prev_id, prev_start, prev_end = parse_segment_line(lines[i - 1])
+                prev_text = segment_texts[prev_id] if prev_id in segment_texts else None
+                between_text = find_text_between(prev_text, segment_text, book_text)
+
+                between_start = prev_end + 1
+                between_end = next_start - 1
+                if between_end - between_start > 0:
+                    if between_text:
+                        between_segment = Speech(start_frame=between_start, end_frame=between_end, segment_text=between_text)
+                    else:
+                        between_segment = Pause(start_frame=between_start, end_frame=between_end)
+                    segments.append(between_segment)
+
             start_text = transcription.index(segment_text)
             end_text = start_text + len(segment_text)
-            speech = Speech(start_frame=start_frame, end_frame=end_frame, start_text=start_text, end_text=end_text)
+            speech = Speech(start_frame=next_start, end_frame=next_end, start_text=start_text, end_text=end_text)
             segments.append(speech)
 
     return segments, transcription

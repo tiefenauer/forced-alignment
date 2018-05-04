@@ -51,11 +51,12 @@ class Corpus(ABC):
 
 
 class Segment(ABC):
-    def __init__(self, start_frame, end_frame, start_text, end_text, alignment_type):
+    def __init__(self, start_frame, end_frame, start_text, end_text, segment_text, alignment_type):
         self.start_frame = start_frame
         self.end_frame = end_frame
         self.start_text = start_text
         self.end_text = end_text
+        self.segment_text = segment_text
         self.segment_type = alignment_type
         self.corpus_entry = None
 
@@ -68,6 +69,8 @@ class Segment(ABC):
     def text(self):
         if self.start_text and self.end_text:
             return self.corpus_entry.transcription[self.start_text: self.end_text]
+        elif self.segment_text:
+            return self.segment_text
         return ''
 
 
@@ -154,10 +157,10 @@ class CorpusEntry(object):
 
 
 class Speech(Segment):
-    def __init__(self, start_frame, end_frame, start_text=None, end_text=None):
-        super().__init__(start_frame, end_frame, start_text, end_text, 'speech')
+    def __init__(self, start_frame, end_frame, start_text=None, end_text=None, segment_text=''):
+        super().__init__(start_frame, end_frame, start_text, end_text, segment_text, 'speech')
 
 
 class Pause(Segment):
     def __init__(self, start_frame, end_frame):
-        super().__init__(start_frame, end_frame, None, None, 'pause')
+        super().__init__(start_frame, end_frame, None, None, None, 'pause')

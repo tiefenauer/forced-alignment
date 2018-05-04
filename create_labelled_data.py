@@ -1,6 +1,5 @@
 import argparse
 import logging
-import math
 import os
 from os import makedirs
 
@@ -60,15 +59,15 @@ def create_subsets(corpus, target_root, no_spectrograms=no_spectrograms, no_labe
     test_set = test_set[:max_samples] if max_samples else test_set
 
     print('Creating training data...')
-    for corpus_entry in tqdm(train_set, total=min(len(train_set), max_samples or math.inf), unit='corpus entry'):
+    for corpus_entry in tqdm(train_set, unit='corpus entry'):
         if not no_spectrograms: create_x(corpus_entry, target_root, 'train')
         if not no_labels: create_y(corpus_entry, target_root, 'train')
     print('Creating validation data...')
-    for corpus_entry in tqdm(dev_set, total=min(len(dev_set), max_samples or math.inf), unit='corpus entry'):
+    for corpus_entry in tqdm(dev_set, unit='corpus entry'):
         if not no_spectrograms: create_x(corpus_entry, target_root, 'dev')
         if not no_labels: create_y(corpus_entry, target_root, 'dev')
     print('Creating test data...')
-    for corpus_entry in tqdm(test_set, total=min(len(test_set), max_samples or math.inf), unit='corpus entry'):
+    for corpus_entry in tqdm(test_set, unit='corpus entry'):
         if not no_spectrograms: create_x(corpus_entry, target_root, 'test')
         if not no_labels: create_y(corpus_entry, target_root, 'test')
 
@@ -90,10 +89,10 @@ def create_y(corpus_entry, target_root, subset_name):
         sample_rate = float(corpus_entry.media_info['sample_rate'])
         n_frames = int(duration * sample_rate)
         y = np.zeros((1, T_y), 'int16')
-        for pause_segment in (segment for segment in corpus_entry.segments if segment.segment_type == 'pause'):
+        for pause_segment in corpus_entry.pause_segments:
             start = round(pause_segment.start_frame * T_y / n_frames)
             end = round(pause_segment.end_frame * T_y / n_frames)
-            y[start:end] = 1
+            y[:, start:end] = 1
         np.save(y_path, y)
 
         # sum up segment lengths for sanity checks:

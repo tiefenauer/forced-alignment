@@ -108,7 +108,8 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
             log.warning(f'Skipping directory (not all files found): {directory}')
             break
 
-        book_text = books[parms['book_id']]
+        book_id = parms['book_id']
+        book_text = books[book_id] if book_id in books else ''
         if not book_text:
             log.warning(f'No book text found. Processing directory, but speech pauses might be wrong.')
 
@@ -209,7 +210,7 @@ def collect_book_texts(books_root):
         book_path = os.path.join(root, files[0])
         encoding = 'latin-1' if 'ascii' in book_path else 'utf-8'  # use latin-1 for ascii files because of encoding problems
 
-        book_id = book_path.split(os.sep)[-1]
+        book_id = root.split(os.sep)[-1]
         book_text = Path(book_path).read_text(encoding=encoding)
         book_texts[book_id] = book_text
     return book_texts

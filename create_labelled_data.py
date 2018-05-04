@@ -18,11 +18,17 @@ log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='Create labelled train-, dev- and test-data (X and Y) for all corpora')
+parser.add_argument('corpus', nargs='?', type=str, choices=['rl', 'ls'],
+                    help='(optional) select which corpus to process (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-o', '--overwrite', default=False, action='store_true',
                     help='(optional) overwrite existing data if already present. Default=False)')
 parser.add_argument('-m', '--max_samples', type=int, default=None,
                     help='(optional) maximum number of samples to process. Default=None=\'all\'')
+parser.add_argument('-s', '--no_spectrograms', default=False, action='store_true',
+                    help='(optional) don\'t create spectrograms')
+parser.add_argument('-l', '--no_labels', default=False, action='store_true',
+                    help='(optional) don\'t create labels')
 parser.add_argument('-ty', '--Ty', type=int, default=1375, help='Number of steps in the RNN output layer (T_y)')
 args = parser.parse_args()
 
@@ -37,10 +43,12 @@ rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
 # for debugging only: set to a numeric value to limit the amount of processed corpus entries.
 overwrite = args.overwrite
 max_samples = args.max_samples
+no_spectrograms = args.no_spectrograms
+no_labels = args.no_labels
 T_y = args.Ty
 
 
-def create_subsets(corpus, target_root):
+def create_subsets(corpus, target_root, no_spectrograms=no_spectrograms, no_labels=no_labels):
     if not exists(target_root):
         makedirs(target_root)
 
@@ -53,16 +61,16 @@ def create_subsets(corpus, target_root):
 
     print('Creating training data...')
     for corpus_entry in tqdm(train_set, total=min(len(train_set), max_samples or math.inf), unit='corpus entry'):
-        create_x(corpus_entry, target_root, 'train')
-        create_y(corpus_entry, target_root, 'train')
+        if not no_spectrograms: create_x(corpus_entry, target_root, 'train')
+        if not no_labels: create_y(corpus_entry, target_root, 'train')
     print('Creating validation data...')
     for corpus_entry in tqdm(dev_set, total=min(len(dev_set), max_samples or math.inf), unit='corpus entry'):
-        create_x(corpus_entry, target_root, 'dev')
-        create_y(corpus_entry, target_root, 'dev')
+        if not no_spectrograms: create_x(corpus_entry, target_root, 'dev')
+        if not no_labels: create_y(corpus_entry, target_root, 'dev')
     print('Creating test data...')
     for corpus_entry in tqdm(test_set, total=min(len(test_set), max_samples or math.inf), unit='corpus entry'):
-        create_x(corpus_entry, target_root, 'test')
-        create_y(corpus_entry, target_root, 'test')
+        if not no_spectrograms: create_x(corpus_entry, target_root, 'test')
+        if not no_labels: create_y(corpus_entry, target_root, 'test')
 
 
 def create_x(corpus_entry, target_root, subset_name):
@@ -102,13 +110,15 @@ def create_y(corpus_entry, target_root, subset_name):
 
 if __name__ == '__main__':
     # create LibriSpeech train-/dev-/test-data
-    ls_corpus = load_corpus(ls_corpus_file)
-    print(f'Creating labelled data for corpus {ls_corpus.name}')
-    create_subsets(ls_corpus, LS_TARGET_ROOT)
-    print('Done!')
+    if not args.corpus or args.corpus == 'ls':
+        print(f'source={LS_SOURCE_ROOT}, target={LS_TARGET_ROOT}, max_entries={max_samples}, overwrite={overwrite}')
+        ls_corpus = load_corpus(ls_corpus_file)
+        create_subsets(ls_corpus, LS_TARGET_ROOT, no_spectrograms, no_labels)
+        print('Done!')
 
     # create ReadyLingua train-/dev-/test-data
-    rl_corpus = load_corpus(rl_corpus_file)
-    print(f'Creating labelled data for corpus {rl_corpus.name}')
-    create_subsets(rl_corpus, RL_TARGET_ROOT)
-    print('Done!')
+    if not args.corpus or args.corpus == 'rl':
+        print(f'source={RL_SOURCE_ROOT}, target={RL_TARGET_ROOT}, max_entries={max_samples}, overwrite={overwrite}')
+        rl_corpus = load_corpus(rl_corpus_file)
+        create_subsets(rl_corpus, RL_TARGET_ROOT, no_spectrograms, no_labels)
+        print('Done!')

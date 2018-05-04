@@ -49,6 +49,17 @@ class Corpus(ABC):
         """
         pass
 
+    def summary(self):
+        total_segments = [seg for corpus_entry in self.corpus_entries for seg in corpus_entry.segments]
+        speech_segments = [speech for corpus_entry in self.corpus_entries for speech in corpus_entry.speech_segments]
+        pause_segments = [speech for corpus_entry in self.corpus_entries for speech in corpus_entry.pause_segments]
+        print(f'Corpus: {self.name}')
+        print('-----------------------------------------------------------')
+        print(f'# corpus entries: {len(self.corpus_entries)}')
+        print(f'# total segments: {len(total_segments)}')
+        print(f'# speech segments: {len(speech_segments)}')
+        print(f'# pause segments: {len(pause_segments)}')
+
 
 class Segment(ABC):
     def __init__(self, start_frame, end_frame, start_text, end_text, segment_text, alignment_type):
@@ -128,8 +139,8 @@ class CorpusEntry(object):
         self.media_info = parms['media_info'] if 'media_info' in parms else {}
 
     def __iter__(self):
-        for alignment in self.speech_segments:
-            yield alignment
+        for speech in self.segments:
+            yield speech
 
     def __getitem__(self, item):
         return self.speech_segments[item]

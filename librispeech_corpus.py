@@ -78,19 +78,15 @@ def create_corpus(source_root=source_root, target_root=target_root, max_entries=
     return create_librispeech_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
 
 
-def find_book_file(book_id, books_root):
-    book_root, files = next(iter([(root, files) for root, subdirs, files in os.walk(books_root)
-                                  if not subdirs and root.endswith(os.sep + book_id)
-                                  and len(files) == 1]), None)
-    if book_root and files:
-        return os.path.join(book_root, files[0])
-    return None
-
-
 def create_librispeech_corpus(source_root, target_root, max_entries):
     audio_root = os.path.join(source_root, 'audio')
+    book_info, chapter_info, speaker_info = collect_corpus_info(audio_root)
+
+    print('loading book texts')
     books_root = os.path.join(source_root, 'books')
-    books, chapters, speakers = collect_corpus_info(audio_root)
+    books = collect_book_texts(books_root)
+
+    print('creating corpus entries')
     corpus_entries = []
 
     directories = [root for root, subdirs, files in os.walk(audio_root) if not subdirs]
@@ -102,20 +98,21 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
 
         progress.set_description(f'{directory:{100}}')
 
-        parms = collect_corpus_entry_parms(directory, books, chapters, speakers)
+        parms = collect_corpus_entry_parms(directory, book_info, chapter_info, speaker_info)
 
         segments_file, transcription_file, mp3_file = collect_corpus_entry_files(directory, parms)
         segments_file = os.path.join(directory, segments_file)
         transcription_file = os.path.join(directory, transcription_file)
-        book_file = find_book_file(parms['book_id'], books_root)
 
         if not segments_file or not transcription_file or not mp3_file:
             log.warning(f'Skipping directory (not all files found): {directory}')
             break
-        if not book_file:
-            log.warning(f'No book file found. Processing directory, but alignment might be incomplete.')
 
-        segments, transcript = create_segments(segments_file, transcription_file, book_file)
+        book_text = books[parms['book_id']]
+        if not book_text:
+            log.warning(f'No book text found. Processing directory, but speech pauses might be wrong.')
+
+        segments, transcript = create_segments(segments_file, transcription_file, book_text)
 
         # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
@@ -205,20 +202,34 @@ def collect_speakers(speakers_file):
     return speakers
 
 
-def collect_corpus_entry_parms(directory, books, chapters, speakers):
+def collect_book_texts(books_root):
+    book_texts = {}
+    for root, files in tqdm([(root, files) for root, subdirs, files in os.walk(books_root)
+                             if not subdirs and len(files) == 1], unit='books'):
+        book_path = os.path.join(root, files[0])
+        encoding = 'latin-1' if 'ascii' in book_path else 'utf-8'  # use latin-1 for ascii files because of encoding problems
+
+        book_id = book_path.split(os.sep)[-1]
+        book_text = Path(book_path).read_text(encoding=encoding)
+        book_texts[book_id] = book_text
+    return book_texts
+
+
+def collect_corpus_entry_parms(directory, book_info, chapter_info, speaker_info):
     files_pattern = re.compile("[\\\/]mp3[\\\/](?P<speaker_id>\d*)[\\\/](?P<chapter_id>\d*)")
     result = re.search(files_pattern, directory)
     if result:
         speaker_id = result.group('speaker_id')
         chapter_id = result.group('chapter_id')
 
-        chapter = chapters[chapter_id] if chapter_id in chapters else {'chapter_title': 'unknown', 'book_id': 'unknown',
-                                                                       'subset': 'unknown'}
-        speaker = speakers[speaker_id] if speaker_id in speakers else 'unknown'
+        chapter = chapter_info[chapter_id] if chapter_id in chapter_info else {'chapter_title': 'unknown',
+                                                                               'book_id': 'unknown',
+                                                                               'subset': 'unknown'}
+        speaker = speaker_info[speaker_id] if speaker_id in speaker_info else 'unknown'
 
         book_id = chapter['book_id']
 
-        book_title = books[book_id] if book_id in books else chapter['project_title']
+        book_title = book_info[book_id] if book_id in book_info else chapter['project_title']
         chapter_title = chapter['chapter_title']
         subset = chapter['subset']
         speaker_name = speaker['name']
@@ -275,8 +286,7 @@ def find_text_between(prev_text, next_text, book_text):
     return None
 
 
-def create_segments(segments_file, transcription_file, book_file):
-    book_text = Path(book_file).read_text(encoding='utf-8')
+def create_segments(segments_file, transcription_file, book_text):
     book_text = normalize_text(book_text)
 
     segment_texts = {}
@@ -303,7 +313,8 @@ def create_segments(segments_file, transcription_file, book_file):
                 between_end = next_start - 1
                 if between_end - between_start > 0:
                     if between_text:
-                        between_segment = Speech(start_frame=between_start, end_frame=between_end, segment_text=between_text)
+                        between_segment = Speech(start_frame=between_start, end_frame=between_end,
+                                                 segment_text=between_text)
                     else:
                         between_segment = Pause(start_frame=between_start, end_frame=between_end)
                     segments.append(between_segment)

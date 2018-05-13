@@ -5,14 +5,15 @@ import wave
 import collections
 import webrtcvad
 
+import webrtc_util
 from corpus_util import load_corpus
 
 
 class Frame(object):
     """Represents a "frame" of audio data."""
 
-    def __init__(self, bytes, timestamp, duration):
-        self.bytes = bytes
+    def __init__(self, audio, timestamp, duration):
+        self.audio = audio
         self.timestamp = timestamp
         self.duration = duration
 
@@ -33,7 +34,7 @@ def frame_generator(frame_duration_ms, audio, sample_rate):
         offset += n
 
 
-def vad_collector(sample_rate, frame_duration_ms, padding_duration_ms, vad, frames):
+def vad_collector(sample_rate, vad, frames, frame_duration_ms, padding_duration_ms, ):
     """Filters out non-voiced audio frames.
     Given a webrtcvad.Vad and a source of audio frames, yields only
     the voiced audio.
@@ -62,7 +63,7 @@ def vad_collector(sample_rate, frame_duration_ms, padding_duration_ms, vad, fram
 
     voiced_frames = []
     for frame in frames:
-        is_speech = vad.is_speech(frame.bytes, sample_rate)
+        is_speech = vad.is_speech(frame.audio, sample_rate)
 
         sys.stdout.write('1' if is_speech else '0')
         if not triggered:
@@ -92,7 +93,7 @@ def vad_collector(sample_rate, frame_duration_ms, padding_duration_ms, vad, fram
             if num_unvoiced > 0.9 * ring_buffer.maxlen:
                 sys.stdout.write('-(%s)' % (frame.timestamp + frame.duration))
                 triggered = False
-                yield b''.join([f.bytes for f in voiced_frames])
+                yield b''.join([f.audio for f in voiced_frames])
                 ring_buffer.clear()
                 voiced_frames = []
     if triggered:
@@ -101,7 +102,7 @@ def vad_collector(sample_rate, frame_duration_ms, padding_duration_ms, vad, fram
     # If we have any leftover voiced audio when we run out of input,
     # yield it.
     if voiced_frames:
-        yield b''.join([f.bytes for f in voiced_frames])
+        yield b''.join([f.audio for f in voiced_frames])
 
 
 def write_wave(path, audio, sample_rate):
@@ -127,7 +128,8 @@ def main():
     frames = frame_generator(30, audio, sample_rate)
     frames = list(frames)
     print(f'frames: {len(frames)}')
-    segments = vad_collector(sample_rate, 30, 30, vad, frames)
+    # segments = vad_collector(sample_rate, vad, frames, 30, 30)
+    segments = webrtc_util.create_segments(sample_rate, vad, frames, 30, 30)
     for i, segment in enumerate(segments):
         path = 'chunk-%002d.wav' % (i,)
         print(' Writing %s' % (path,))

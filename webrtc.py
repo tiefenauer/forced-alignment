@@ -129,7 +129,7 @@ def main():
     frames = list(frames)
     print(f'frames: {len(frames)}')
     # segments = vad_collector(sample_rate, vad, frames, 30, 30)
-    segments = webrtc_util.create_segments(sample_rate, vad, frames, 30, 30)
+    segments = webrtc_util.create_voiced_segments(sample_rate, frames, vad, 30, 30)
     for i, segment in enumerate(segments):
         path = 'chunk-%002d.wav' % (i,)
         print(' Writing %s' % (path,))

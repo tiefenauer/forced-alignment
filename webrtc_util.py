@@ -61,11 +61,11 @@ def split_segments(corpus_entry, aggressiveness=3, window_duration_ms=30, frame_
 
 
 def generate_frames(audio, sample_rate, frame_duration_ms=30):
-    n_frames = int(sample_rate * (frame_duration_ms / 1000.0)) * 2
+    frame_length = int(sample_rate * frame_duration_ms / 1000) * 2
     offset = 0
     timestamp = 0.0
-    duration = (float(n_frames) / sample_rate) / 2.0
-    while offset + n_frames < len(audio):
-        yield Frame(audio[offset:offset + n_frames], timestamp, duration)
+    duration = (float(frame_length) / sample_rate) / 2.0
+    while offset + frame_length < len(audio):
+        yield Frame(audio[offset:offset + frame_length], timestamp, duration)
         timestamp += duration
-        offset += n_frames
+        offset += frame_length

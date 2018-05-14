@@ -22,7 +22,7 @@ def main():
     corpus_entry = rl_corpus[0]
 
     sample_rate, audio = corpus_entry.audio
-    voiced_segments, unvoiced_segments = webrtc_util.split_into_segments(audio, sample_rate)
+    voiced_segments, unvoiced_segments = webrtc_util.split_segments(corpus_entry)
     for i, voiced_segment in enumerate(voiced_segments):
         audio = b''.join([frame.audio for frame in voiced_segment])
         path = 'chunk-%002d.wav' % (i,)

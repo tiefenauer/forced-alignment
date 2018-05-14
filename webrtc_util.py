@@ -10,28 +10,10 @@ class Frame(object):
         self.duration = duration
 
 
-def calculate_boundaries(corpus_entry, vad=Vad(3)):
-    sample_rate, audio = corpus_entry.audio
-
-    voiced_segments, unvoiced_segments = split_into_segments(audio, sample_rate, vad)
-
-    speech_boundaries = calculate_boundaries_from_segments(voiced_segments, sample_rate)
-    pause_boundaries = calculate_boundaries_from_segments(unvoiced_segments, sample_rate)
-
-    return speech_boundaries, pause_boundaries
-
-
-def calculate_boundaries_from_segments(voiced_segments, sample_rate):
-    boundaries = []
-    for frames in voiced_segments:
-        start = frames[0].timestamp * sample_rate
-        end = (frames[-1].timestamp + frames[-1].duration) * sample_rate
-        boundaries.append((start, end))
-    return boundaries
-
-
-def split_into_segments(audio, sample_rate, vad=Vad(3), window_duration_ms=30, frame_duration_ms=30):
+def split_segments(corpus_entry, aggressiveness=3, window_duration_ms=30, frame_duration_ms=30):
     # https://github.com/wiseman/py-webrtcvad/blob/master/example.py
+    sample_rate, audio = corpus_entry.audio
+    vad = Vad(aggressiveness)
 
     # create sliding window
     num_window_frames = int(window_duration_ms / frame_duration_ms)

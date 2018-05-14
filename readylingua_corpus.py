@@ -88,7 +88,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
 
         # Resample and crop audio
         wav_file = files['audio']
-        audio_file = os.path.join(target_root, wav_file.split(".")[0] + "_16.wav")
+        audio_file = os.path.join(target_root, parms['id'] + "_16.wav")
         if not exists(audio_file) or overwrite:
             in_file = os.path.join(directory, wav_file)
             resample_wav(in_file, audio_file, inrate=parms['rate'], inchannels=parms['channels'])
@@ -158,8 +158,8 @@ def collect_corpus_entry_parms(directory, files):
     folders = directory.split(os.sep)
 
     # find name and create id
-    name = folders[-1]
-    corpus_entry_id = non_alphanumeric_pattern.sub('', name.lower())
+    corpus_entry_name = folders[-1]
+    corpus_entry_id = non_alphanumeric_pattern.sub('', files['audio'].split('.wav')[0].lower())
 
     # find language
     lang = [folder for folder in folders if folder in LANGUAGES.keys()]
@@ -172,7 +172,7 @@ def collect_corpus_entry_parms(directory, files):
     # find number of channels
     channels = wave.open(audio_file_path, 'rb').getnchannels()
 
-    return {'id': corpus_entry_id, 'name': name, 'language': language, 'rate': rate, 'channels': channels}
+    return {'id': corpus_entry_id, 'name': corpus_entry_name, 'language': language, 'rate': rate, 'channels': channels}
 
 
 def find_speech_within_segment(segment, speeches):

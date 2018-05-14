@@ -1,5 +1,7 @@
-numpy==1.14.0
-scipy==1.0.0
-pydub==0.21.0
-lxml==4.2.1
 tqdm==4.19.4
+pydub==0.21.0
+numpy==1.14.0
+webrtcvad==2.0.10
+mpld3==0.3
+scipy==1.0.0
+lxml==4.2.1

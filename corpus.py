@@ -36,8 +36,12 @@ class Corpus(ABC):
         for corpus_entry in self.corpus_entries:
             yield corpus_entry
 
-    def __getitem__(self, item):
-        return self.corpus_entries[item]
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.corpus_entries[index]
+        if isinstance(index, str):
+            return next(iter([corpus_entry for corpus_entry in self.corpus_entries if corpus_entry.id == index]), None)
+        return None
 
     def __len__(self):
         return len(self.corpus_entries)
@@ -139,8 +143,8 @@ class CorpusEntry(object):
         self.media_info = parms['media_info'] if 'media_info' in parms else {}
 
     def __iter__(self):
-        for speech in self.segments:
-            yield speech
+        for segment in self.segments:
+            yield segment
 
     def __getitem__(self, item):
         return self.speech_segments[item]

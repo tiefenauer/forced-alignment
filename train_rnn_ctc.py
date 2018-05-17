@@ -1,4 +1,5 @@
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
+import random
 import time
 
 import numpy as np
@@ -7,7 +8,7 @@ import tensorflow as tf
 # Some configs
 from corpus_util import load_corpus
 from file_logger import FileLogger
-from utils import FIRST_INDEX
+from rnn_utils import FIRST_INDEX, convert_inputs_to_ctc_format
 
 num_features = 13
 # Accounting the 0th index +  space + blank label + 3 umlauts = 31 characters
@@ -22,7 +23,7 @@ batch_size = 1
 num_examples = 1
 num_batches_per_epoch = int(num_examples / batch_size)
 
-file_logger = FileLogger('out.tsv', ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler', 'random_shift'])
+file_logger = FileLogger('out.tsv', ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
 
 rl_corpus = load_corpus(r'E:\readylingua-corpus\readylingua.corpus')
 rl_train, rl_dev, rl_test = rl_corpus.train_dev_test_split()
@@ -89,33 +90,6 @@ def train_rnn_ctc():
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
-    def next_training_batch():
-        import random
-        from utils import convert_inputs_to_ctc_format
-        random_entry = random.choice(rl_train)
-        random_speech = random.choice(random_entry.speech_segments)
-        rate, audio = random_speech.audio
-        text = random_speech.text
-
-        print('corpus text: '.ljust(50) + text)
-        train_inputs, train_targets, train_seq_len, input_text = convert_inputs_to_ctc_format(audio, rate, text)
-        print('Input text for RNN: '.ljust(50) + input_text)
-        return train_inputs, train_targets, train_seq_len, input_text
-
-    def next_testing_batch():
-        import random
-        from utils import convert_inputs_to_ctc_format
-        random_shift = 0
-        random_entry = random.choice(rl_dev)
-        random_speech = random.choice(random_entry.speech_segments)
-        rate, audio = random_speech.audio
-        text = random_speech.text
-
-        print('corpus text: '.ljust(50) + text)
-        train_inputs, train_targets, train_seq_len, input_text = convert_inputs_to_ctc_format(audio, rate, text)
-        print('Input text for RNN: '.ljust(50) + input_text)
-        return train_inputs, train_targets, train_seq_len, input_text, random_shift
-
     with tf.Session(graph=graph) as session:
 
         tf.global_variables_initializer().run()
@@ -126,9 +100,7 @@ def train_rnn_ctc():
 
             for batch in range(num_batches_per_epoch):
                 train_inputs, train_targets, train_seq_len, original = next_training_batch()
-                feed = {inputs: train_inputs,
-                        targets: train_targets,
-                        seq_len: train_seq_len}
+                feed = {inputs: train_inputs, targets: train_targets, seq_len: train_seq_len}
 
                 batch_cost, _ = session.run([cost, optimizer], feed)
                 train_cost += batch_cost * batch_size
@@ -148,7 +120,7 @@ def train_rnn_ctc():
             train_cost /= num_examples
             train_ler /= num_examples
 
-            val_inputs, val_targets, val_seq_len, val_original, random_shift = next_testing_batch()
+            val_inputs, val_targets, val_seq_len, val_original = next_testing_batch()
             val_feed = {inputs: val_inputs, targets: val_targets, seq_len: val_seq_len}
 
             val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
@@ -167,9 +139,29 @@ def train_rnn_ctc():
             log = "Epoch {}/{}, train_cost = {:.3f}, train_ler = {:.3f}, " \
                   "val_cost = {:.3f}, val_ler = {:.3f}, time = {:.3f}"
 
-            file_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler, random_shift])
+            file_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
             print(log.format(curr_epoch + 1, num_epochs, train_cost, train_ler, val_cost, val_ler, time.time() - start))
+
+
+def next_training_batch():
+    return next_batch(rl_train)
+
+
+def next_testing_batch():
+    return next_batch(rl_test)
+
+
+def next_batch(corpus_subset):
+    random_entry = random.choice(corpus_subset)
+    random_speech = random.choice(random_entry.speech_segments)
+    rate, audio = random_speech.audio
+    text = random_speech.text
+
+    print('corpus text: '.ljust(50) + text)
+    train_inputs, train_targets, train_seq_len, input_text = convert_inputs_to_ctc_format(audio, rate, text)
+    print('Input text for RNN: '.ljust(50) + input_text)
+    return train_inputs, train_targets, train_seq_len, input_text
 
 
 if __name__ == "__main__":

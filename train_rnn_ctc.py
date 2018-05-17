@@ -1,4 +1,6 @@
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
+import argparse
+import os
 import random
 import time
 
@@ -8,9 +10,25 @@ import tensorflow as tf
 # Some configs
 from corpus_util import load_corpus
 from file_logger import FileLogger
-from rnn_utils import FIRST_INDEX, convert_inputs_to_ctc_format
 from log_util import log_prediction
+from rnn_utils import FIRST_INDEX, convert_inputs_to_ctc_format
 
+parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
+parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
+                    help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
+parser.add_argument('language', type=str,
+                    help='language on which to train the RNN')
+args = parser.parse_args()
+
+LS_SOURCE_ROOT = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
+RL_SOURCE_ROOT = r'E:\readylingua-corpus' if os.name == 'nt' else '/media/all/D1/readylingua-corpus'
+LS_TARGET_ROOT = r'E:\librispeech-data' if os.name == 'nt' else '/media/all/D1/librispeech-data'
+RL_TARGET_ROOT = r'E:\readylingua-data' if os.name == 'nt' else '/media/all/D1/readylingua-data'
+
+ls_corpus_file = os.path.join(LS_SOURCE_ROOT, 'librispeech.corpus')
+rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
+
+# Hyper-parameters
 num_features = 13
 # Accounting the 0th index +  space + blank label + 3 umlauts = 31 characters
 num_classes = ord('z') - ord('a') + 1 + 1 + 1 + 3
@@ -26,11 +44,10 @@ num_batches_per_epoch = int(num_examples / batch_size)
 
 file_logger = FileLogger('out.tsv', ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
 
-rl_corpus = load_corpus(r'E:\readylingua-corpus\readylingua.corpus')
-rl_train, rl_dev, rl_test = rl_corpus.train_dev_test_split()
 
+def train_rnn_ctc(corpus):
+    corpus.summary()
 
-def train_rnn_ctc():
     graph = tf.Graph()
     with graph.as_default():
         # Input sequences
@@ -147,7 +164,7 @@ def next_training_batch():
 
 
 def next_validation_batch():
-    return next_batch(rl_test)
+    return next_batch(rl_dev)
 
 
 def next_batch(corpus_subset):
@@ -161,4 +178,10 @@ def next_batch(corpus_subset):
 
 
 if __name__ == "__main__":
-    train_rnn_ctc()
+    if args.corpus == 'rl':
+        corpus = load_corpus(rl_corpus_file)
+    elif args.corpus == 'ls':
+        corpus = load_corpus(ls_corpus_file)
+    corpus = corpus(args.language)
+    rl_train, rl_dev, rl_test = corpus.train_dev_test_split()
+    train_rnn_ctc(corpus)

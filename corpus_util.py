@@ -16,13 +16,13 @@ def save_corpus(corpus_entries, corpus_file, gzip=False):
 def load_corpus(corpus_file):
     print(f'loading {corpus_file} ...')
     if corpus_file.endswith('.gz'):
-        with gzip.open(corpus_file, 'rb') as corpus:
-            corpus_entries = pickle.loads(corpus.read())
+        with gzip.open(corpus_file, 'rb') as corpus_f:
+            corpus = pickle.loads(corpus_f.read())
     else:
-        with open(corpus_file, 'rb') as corpus:
-            corpus_entries = pickle.load(corpus)
-    print(f'...done! Loaded {corpus_entries.name}: {len(corpus_entries)} corpus entries')
-    return corpus_entries
+        with open(corpus_file, 'rb') as corpus_f:
+            corpus = pickle.load(corpus_f)
+    print(f'...done! Loaded {corpus.name}: {len(corpus)} corpus entries')
+    return corpus
 
 
 def find_file_by_extension(directory, extension):

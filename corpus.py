@@ -1,9 +1,12 @@
+import re
 from abc import ABC, abstractmethod
-from copy import copy
+from copy import copy, deepcopy
 from random import randint
 
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
+
+non_alphanumeric = re.compile('[^a-zA-Zäöü ]+')
 
 
 def calculate_crop(segments):
@@ -26,6 +29,7 @@ def crop_segments(segments):
 class Corpus(ABC):
 
     def __init__(self, name, corpus_entries, root_path):
+        self._name = ''
         self.name = name
         for corpus_entry in corpus_entries:
             corpus_entry.corpus = self
@@ -46,6 +50,27 @@ class Corpus(ABC):
     def __len__(self):
         return len(self.corpus_entries)
 
+    def __call__(self, *args, **kwargs):
+        if not args:
+            return self
+        languages = args
+        _copy = deepcopy(self)
+        _copy.corpus_entries = [entry for entry in self.corpus_entries if entry.language in languages]
+        return _copy
+
+    @property
+    def name(self):
+        languages = ', '.join(self.languages)
+        return self._name + f' (languages: {languages})'
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
+    @property
+    def languages(self):
+        return set(lang for lang in (corpus_entry.language for corpus_entry in self.corpus_entries))
+
     @abstractmethod
     def train_dev_test_split(self):
         """return training-, validation- and test-set
@@ -54,39 +79,18 @@ class Corpus(ABC):
         pass
 
     def summary(self):
-        total_segments = [seg for corpus_entry in self.corpus_entries for seg in corpus_entry.segments]
-        speech_segments = [speech for corpus_entry in self.corpus_entries for speech in corpus_entry.speech_segments]
-        pause_segments = [speech for corpus_entry in self.corpus_entries for speech in corpus_entry.pause_segments]
+        total_segments = [seg for entry in self.corpus_entries for seg in entry.segments]
+        speeches = [seg for entry in self.corpus_entries for seg in entry.speech_segments]
+        unaligned_speeches = [seg for entry in self.corpus_entries for seg in entry.unaligned_speech_segments]
+        pauses = [seg for entry in self.corpus_entries for seg in entry.pause_segments]
+        print('')
         print(f'Corpus: {self.name}')
         print('-----------------------------------------------------------')
         print(f'# corpus entries: {len(self.corpus_entries)}')
         print(f'# total segments: {len(total_segments)}')
-        print(f'# speech segments: {len(speech_segments)}')
-        print(f'# pause segments: {len(pause_segments)}')
-
-
-class Segment(ABC):
-    def __init__(self, start_frame, end_frame, start_text, end_text, segment_text, alignment_type):
-        self.start_frame = start_frame
-        self.end_frame = end_frame
-        self.start_text = start_text
-        self.end_text = end_text
-        self.segment_text = segment_text
-        self.segment_type = alignment_type
-        self.corpus_entry = None
-
-    @property
-    def audio(self):
-        rate, audio = self.corpus_entry.audio
-        return rate, audio[self.start_frame:self.end_frame]
-
-    @property
-    def text(self):
-        if self.start_text and self.end_text:
-            return self.corpus_entry.transcription[self.start_text: self.end_text]
-        elif self.segment_text:
-            return self.segment_text
-        return ''
+        print(f'# speech segments: {len(speeches)}')
+        print(f'# unaligned speech segments: {len(unaligned_speeches)}')
+        print(f'# pause segments: {len(pauses)}')
 
 
 class ReadyLinguaCorpus(Corpus):
@@ -123,10 +127,10 @@ class CorpusEntry(object):
     _audio = None
     _rate = None
 
-    def __init__(self, audio_file, transcription, segments, original_path='', parms={}):
+    def __init__(self, audio_file, segments, original_path='', parms={}):
         self.corpus = None
         self.audio_file = audio_file
-        self.transcription = transcription
+
         for segment in segments:
             segment.corpus_entry = self
         self.segments = segments
@@ -154,6 +158,10 @@ class CorpusEntry(object):
         return [segment for segment in self.segments if segment.segment_type == 'speech']
 
     @property
+    def unaligned_speech_segments(self):
+        return [segment for segment in self.segments if segment.segment_type == 'speech*']
+
+    @property
     def pause_segments(self):
         return [segment for segment in self.segments if segment.segment_type == 'pause']
 
@@ -163,6 +171,14 @@ class CorpusEntry(object):
             self._rate, self._audio = read_wav_file(self.audio_file)
         return self._rate, self._audio
 
+    @property
+    def transcription(self):
+        return '\n'.join(segment.transcription for segment in self.speech_segments)
+
+    @property
+    def text(self):
+        return '\n'.join(segment.text for segment in self.speech_segments)
+
     def __getstate__(self):
         # prevent caches from being pickled
         state = dict(self.__dict__)
@@ -170,12 +186,69 @@ class CorpusEntry(object):
         if '_rate' in state: del state['_rate']
         return state
 
+    def summary(self):
+        total_segments = [seg for seg in self.segments]
+        speech_segments = [speech for speech in self.speech_segments]
+        unaligned_speech_segments = [speech for speech in self.unaligned_speech_segments]
+        pause_segments = [pause for pause in self.pause_segments]
+        print('')
+        print(f'Corpus Entry: {self.name} (id={self.id})')
+        print('-----------------------------------------------------------')
+        print(f'# total segments: {len(total_segments)}')
+        print(f'# speech segments: {len(speech_segments)}')
+        print(f'# unaligned speech segments: {len(unaligned_speech_segments)}')
+        print(f'# pause segments: {len(pause_segments)}')
+        print(f'original path: {self.original_path}')
+        print(f'original sampling rate: {self.original_sampling_rate}')
+        print(f'original #channels: {self.original_channels}')
+        print(f'language: {self.language}')
+        print(f'chapter ID: {self.chapter_id}')
+        print(f'speaker_ID: {self.speaker_id}')
+        print(f'subset membership: {self.subset}')
+        print(f'media info: {self.media_info}')
+
+
+class Segment(ABC):
+    def __init__(self, start_frame, end_frame, transcription, alignment_type):
+        self.start_frame = start_frame
+        self.end_frame = end_frame
+
+        self.text = ''
+        self._transcription = ''
+        self.transcription = transcription.strip() if transcription else ''
+
+        self.segment_type = alignment_type
+        self.corpus_entry = None
+
+    @property
+    def audio(self):
+        rate, audio = self.corpus_entry.audio
+        return rate, audio[self.start_frame:self.end_frame]
+
+    @property
+    def transcription(self):
+        return self._transcription
+
+    @transcription.setter
+    def transcription(self, transcription):
+        self._transcription = transcription
+        self.text = re.sub(non_alphanumeric, '', transcription).lower()
+
 
 class Speech(Segment):
-    def __init__(self, start_frame, end_frame, start_text=None, end_text=None, segment_text=''):
-        super().__init__(start_frame, end_frame, start_text, end_text, segment_text, 'speech')
+    def __init__(self, start_frame, end_frame, transcription=''):
+        super().__init__(start_frame, end_frame, transcription, 'speech')
 
 
 class Pause(Segment):
     def __init__(self, start_frame, end_frame):
-        super().__init__(start_frame, end_frame, None, None, None, 'pause')
+        super().__init__(start_frame, end_frame, '', 'pause')
+
+
+class UnalignedSpeech(Segment):
+    """special class for speech segments where the text is derived from the original book text but the exact start
+    and end position of the speech in the audio signal is not known (segment may contain pauses at start, end or
+    anywhere inside the audio signal that were not aligned)"""
+
+    def __init__(self, start_frame, end_frame, transcription=''):
+        super().__init__(start_frame, end_frame, transcription, 'speech*')

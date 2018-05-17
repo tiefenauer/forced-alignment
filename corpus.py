@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from copy import copy
+from copy import copy, deepcopy
 from random import randint
 
 from audio_util import read_wav_file
@@ -46,6 +46,26 @@ class Corpus(ABC):
     def __len__(self):
         return len(self.corpus_entries)
 
+    def __call__(self, *args, **kwargs):
+        if not args:
+            return self
+        languages = args
+        _copy = deepcopy(self)
+        _copy.corpus_entries = [entry for entry in self.corpus_entries if entry.language in languages]
+        return _copy
+
+    @property
+    def name(self):
+        return self._name + f' (languages: {self.languages})'
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+    @property
+    def languages(self):
+        return set(lang for lang in (corpus_entry.language for corpus_entry in self.corpus_entries))
+
     @abstractmethod
     def train_dev_test_split(self):
         """return training-, validation- and test-set
@@ -57,6 +77,7 @@ class Corpus(ABC):
         total_segments = [seg for corpus_entry in self.corpus_entries for seg in corpus_entry.segments]
         speech_segments = [speech for corpus_entry in self.corpus_entries for speech in corpus_entry.speech_segments]
         pause_segments = [speech for corpus_entry in self.corpus_entries for speech in corpus_entry.pause_segments]
+        print('')
         print(f'Corpus: {self.name}')
         print('-----------------------------------------------------------')
         print(f'# corpus entries: {len(self.corpus_entries)}')

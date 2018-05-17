@@ -9,6 +9,7 @@ import tensorflow as tf
 from corpus_util import load_corpus
 from file_logger import FileLogger
 from rnn_utils import FIRST_INDEX, convert_inputs_to_ctc_format
+from log_util import log_prediction
 
 num_features = 13
 # Accounting the 0th index +  space + blank label + 3 umlauts = 31 characters
@@ -99,7 +100,7 @@ def train_rnn_ctc():
             start = time.time()
 
             for batch in range(num_batches_per_epoch):
-                train_inputs, train_targets, train_seq_len, original = next_training_batch()
+                train_inputs, train_targets, train_seq_len, train_txt, original_txt = next_training_batch()
                 feed = {inputs: train_inputs, targets: train_targets, seq_len: train_seq_len}
 
                 batch_cost, _ = session.run([cost, optimizer], feed)
@@ -114,13 +115,12 @@ def train_rnn_ctc():
                 # Replacing space label to space
                 str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
 
-                print('Original: %s' % original)
-                print('Decoded: %s' % str_decoded)
+                log_prediction(original_txt, train_txt, str_decoded, 'train-set')
 
             train_cost /= num_examples
             train_ler /= num_examples
 
-            val_inputs, val_targets, val_seq_len, val_original = next_testing_batch()
+            val_inputs, val_targets, val_seq_len, val_txt, original_txt = next_validation_batch()
             val_feed = {inputs: val_inputs, targets: val_targets, seq_len: val_seq_len}
 
             val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
@@ -133,22 +133,20 @@ def train_rnn_ctc():
             # Replacing space label to space
             str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
 
-            print(f'Original val: {val_original}')
-            print(f'Decoded val: {str_decoded}')
-
-            log = "Epoch {}/{}, train_cost = {:.3f}, train_ler = {:.3f}, " \
-                  "val_cost = {:.3f}, val_ler = {:.3f}, time = {:.3f}"
+            log_prediction(original_txt, val_txt, str_decoded, 'dev-set')
 
             file_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
-            print(log.format(curr_epoch + 1, num_epochs, train_cost, train_ler, val_cost, val_ler, time.time() - start))
+            log = f'=== Epoch {curr_epoch+1}/{num_epochs}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
+                  f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
+            print(log)
 
 
 def next_training_batch():
     return next_batch(rl_train)
 
 
-def next_testing_batch():
+def next_validation_batch():
     return next_batch(rl_test)
 
 
@@ -158,10 +156,8 @@ def next_batch(corpus_subset):
     rate, audio = random_speech.audio
     text = random_speech.text
 
-    print('corpus text: '.ljust(50) + text)
     train_inputs, train_targets, train_seq_len, input_text = convert_inputs_to_ctc_format(audio, rate, text)
-    print('Input text for RNN: '.ljust(50) + input_text)
-    return train_inputs, train_targets, train_seq_len, input_text
+    return train_inputs, train_targets, train_seq_len, input_text, text
 
 
 if __name__ == "__main__":

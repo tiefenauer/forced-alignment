@@ -14,7 +14,7 @@ from tqdm import tqdm
 from audio_util import mp3_to_wav, crop_wav, calculate_frame
 from corpus import Pause, CorpusEntry, LibriSpeechCorpus, Speech
 from corpus_util import save_corpus, find_file_by_extension
-from util import log_setup
+from log_util import log_setup
 
 logfile = 'librispeech_corpus.log'
 log_setup(filename=logfile)

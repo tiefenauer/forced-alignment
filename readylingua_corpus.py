@@ -16,7 +16,7 @@ from tqdm import tqdm
 from audio_util import recalculate_frame, resample_wav, crop_wav
 from corpus import CorpusEntry, ReadyLinguaCorpus, Speech, Pause
 from corpus_util import save_corpus, find_file_by_extension
-from util import log_setup
+from log_util import log_setup
 
 logfile = 'readylingua_corpus.log'
 log_setup(filename=logfile)

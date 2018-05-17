@@ -10,7 +10,7 @@ from tqdm import tqdm
 from audio_util import log_specgram
 from corpus_util import load_corpus
 from data_util import save_x
-from util import log_setup
+from log_util import log_setup
 
 logfile = 'create_labelled_data.log'
 log_setup(filename=logfile)

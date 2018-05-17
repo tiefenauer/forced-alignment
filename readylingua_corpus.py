@@ -84,7 +84,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
         segmentation_file = os.path.join(directory, files['segmentation'])
         index_file = os.path.join(directory, files['index'])
         transcript_file = os.path.join(directory, files['text'])
-        segments, transcription = create_segments(index_file, transcript_file, segmentation_file)
+        segments = create_segments(index_file, transcript_file, segmentation_file)
 
         # Resample and crop audio
         wav_file = files['audio']
@@ -96,7 +96,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
         parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, transcription, segments, directory, parms)
+        corpus_entry = CorpusEntry(audio_file, segments, directory, parms)
         corpus_entries.append(corpus_entry)
 
     corpus = ReadyLinguaCorpus(corpus_entries, target_root)
@@ -177,38 +177,43 @@ def collect_corpus_entry_parms(directory, files):
 
 def find_speech_within_segment(segment, speeches):
     return next(iter([speech for speech in speeches
-                      if speech.start_frame >= segment.start_frame and speech.end_frame <= segment.end_frame]), None)
+                      if speech['start_frame'] >= segment['start_frame']
+                      and speech['end_frame'] <= segment['end_frame']]), None)
 
 
 def create_segments(index_file, transcription_file, segmentation_file):
-    segments = collect_segments(segmentation_file)
+    segmentation = collect_segmentation(segmentation_file)
     speeches = collect_speeches(index_file)
+    transcription = Path(transcription_file).read_text(encoding='utf-8')
 
     # merge information from index file (speech parts) with segmentation information
-    for speech_segment in [segment for segment in segments if segment.segment_type == 'speech']:
-        speech = find_speech_within_segment(speech_segment, speeches)
-        if speech:
-            speech_segment.start_text = speech.start_text
-            speech_segment.end_text = speech.end_text + 1  # komische Indizierung
+    segments = []
+    for audio_segment in segmentation:
+        start_frame = audio_segment['start_frame']
+        end_frame = audio_segment['end_frame']
+        if audio_segment['class'] == 'Speech':
+            speech = find_speech_within_segment(audio_segment, speeches)
+            if speech:
+                start_text = speech['start_text']
+                end_text = speech['end_text'] + 1  # komische Indizierung
+                seg_transcription = transcription[start_text:end_text]
+                segments.append(Speech(start_frame=start_frame, end_frame=end_frame, transcription=seg_transcription))
+        else:
+            segments.append(Pause(start_frame=start_frame, end_frame=end_frame))
 
-    transcription = Path(transcription_file).read_text(encoding='utf-8')
-    return segments, transcription
+    return segments
 
 
-def collect_segments(segmentation_file):
+def collect_segmentation(segmentation_file):
     segments = []
     doc = etree.parse(segmentation_file)
     for element in doc.findall('Segments/Segment'):
         start_frame = recalculate_frame(int(element.attrib['start']))
         end_frame = recalculate_frame(int(element.attrib['end']))
-
-        if element.attrib['class'] == 'Speech':
-            segment = Speech(start_frame, end_frame)
-        else:
-            segment = Pause(start_frame, end_frame)
+        segment = {'class': element.attrib['class'], 'start_frame': start_frame, 'end_frame': end_frame}
         segments.append(segment)
 
-    return sorted(segments, key=lambda s: s.start_frame)
+    return sorted(segments, key=lambda s: s['start_frame'])
 
 
 def collect_speeches(index_file):
@@ -222,9 +227,9 @@ def collect_speeches(index_file):
         start_frame = recalculate_frame(start_frame)
         end_frame = recalculate_frame(end_frame)
 
-        speech = Speech(start_frame, end_frame, start_text, end_text)
+        speech = {'start_frame': start_frame, 'end_frame': end_frame, 'start_text': start_text, 'end_text': end_text}
         speeches.append(speech)
-    return sorted(speeches, key=lambda s: s.start_frame)
+    return sorted(speeches, key=lambda s: s['start_frame'])
 
 
 if __name__ == '__main__':

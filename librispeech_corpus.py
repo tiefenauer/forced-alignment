@@ -12,7 +12,7 @@ from pydub.utils import mediainfo
 from tqdm import tqdm
 
 from audio_util import mp3_to_wav, crop_wav, calculate_frame
-from corpus import Pause, CorpusEntry, LibriSpeechCorpus, Speech
+from corpus import Pause, CorpusEntry, LibriSpeechCorpus, Speech, UnalignedSpeech
 from corpus_util import save_corpus, find_file_by_extension
 from util import log_setup
 
@@ -113,7 +113,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         if not book_text:
             log.warning(f'No book text found. Processing directory, but speech pauses might be wrong.')
 
-        segments, transcript = create_segments(segments_file, transcription_file, book_text)
+        segments = create_segments(segments_file, transcription_file, book_text)
 
         # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + ".wav")
@@ -124,7 +124,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
             parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, transcript, segments, directory, parms)
+        corpus_entry = CorpusEntry(audio_file, segments, directory, parms)
         corpus_entries.append(corpus_entry)
 
     corpus = LibriSpeechCorpus(corpus_entries, target_root)
@@ -295,7 +295,6 @@ def create_segments(segments_file, transcription_file, book_text):
         for line in f_transcription.readlines():
             segment_id, segment_text = line.split(' ', 1)
             segment_texts[segment_id] = segment_text.replace('\n', '')
-    transcription = '\n'.join(segment_texts.values())
 
     segments = []
     with open(segments_file, 'r') as f_segments:
@@ -314,18 +313,16 @@ def create_segments(segments_file, transcription_file, book_text):
                 between_end = next_start - 1
                 if between_end - between_start > 0:
                     if between_text:
-                        between_segment = Speech(start_frame=between_start, end_frame=between_end,
-                                                 segment_text=between_text)
+                        between_segment = UnalignedSpeech(start_frame=between_start, end_frame=between_end,
+                                                          transcription=between_text)
                     else:
                         between_segment = Pause(start_frame=between_start, end_frame=between_end)
                     segments.append(between_segment)
 
-            start_text = transcription.index(segment_text)
-            end_text = start_text + len(segment_text)
-            speech = Speech(start_frame=next_start, end_frame=next_end, start_text=start_text, end_text=end_text)
+            speech = Speech(start_frame=next_start, end_frame=next_end, transcription=segment_text)
             segments.append(speech)
 
-    return segments, transcription
+    return segments
 
 
 def parse_segment_line(line):

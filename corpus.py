@@ -6,7 +6,7 @@ from random import randint
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
 
-non_alphanumeric = re.compile('[^a-zA-Zäöü ]+')
+non_alphanumeric = re.compile('[^a-zA-Zäöüß ]+')
 
 
 def calculate_crop(segments):

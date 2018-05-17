@@ -17,26 +17,18 @@ UE_INDEX = OE_INDEX + 1
 non_alphanumeric_pattern = re.compile('[^a-zA-Zäöü ]+')
 
 
-def convert_inputs_to_ctc_format(audio, rate, text):
+def create_x_y(audio, rate, text):
+    # create x from MFCC features
     inputs = mfcc(audio, samplerate=rate)
-    # Transform in 3D array
     train_inputs = np.asarray(inputs[np.newaxis, :])
-    train_inputs = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
-    train_seq_len = [train_inputs.shape[1]]
+    x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
 
-    targets = tokenize(text)
+    # create y from encoded text
+    tokens = tokenize(text)
+    targets = encode(tokens)
+    y = sparse_tuple_from([targets])
 
-    # Transform char into index
-    targets = np.asarray([SPACE_INDEX if x == SPACE_TOKEN
-                          else AE_INDEX if x == 'ä'
-    else OE_INDEX if x == 'ö'
-    else UE_INDEX if x == 'ü'
-    else ord(x) - FIRST_INDEX for x in targets])
-
-    # Creating sparse representation to feed the placeholder
-    train_targets = sparse_tuple_from([targets])
-
-    return train_inputs, train_targets, train_seq_len
+    return x, y
 
 
 def tokenize(text):
@@ -49,6 +41,26 @@ def tokenize(text):
 
     tokens = np.hstack([SPACE_TOKEN if x == '' else list(x) for x in words])
     return tokens
+
+
+def encode(tokens):
+    return [encode_token(token) for token in tokens]
+
+
+def encode_token(token):
+    if token == SPACE_TOKEN:
+        return SPACE_INDEX
+    if token == 'ä':
+        return AE_INDEX
+    if token == 'ö':
+        return OE_INDEX
+    if token == 'ü':
+        return UE_INDEX
+    return ord(token) - FIRST_INDEX
+
+
+def decode_token(ind):
+    return ' abcdefghijklmnopqrstuvwxyzäöü_'[ind]
 
 
 def sparse_tuple_from(sequences, dtype=np.int32):

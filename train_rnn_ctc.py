@@ -11,7 +11,7 @@ import tensorflow as tf
 from corpus_util import load_corpus
 from file_logger import FileLogger
 from log_util import log_prediction
-from rnn_utils import FIRST_INDEX, convert_inputs_to_ctc_format
+from rnn_utils import FIRST_INDEX, create_x_y
 
 parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
 parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
@@ -53,14 +53,14 @@ def train_rnn_ctc(corpus):
         # Input sequences
         # Has size [batch_size, max_step_size, num_features], but the
         # batch_size and max_step_size can vary along each step
-        inputs = tf.placeholder(tf.float32, [None, None, num_features])
+        inputs = tf.placeholder(tf.float32, [None, None, num_features], name='input')
 
         # Here we use sparse_placeholder that will generate a
         # SparseTensor required by ctc_loss op.
-        targets = tf.sparse_placeholder(tf.int32)
+        targets = tf.sparse_placeholder(tf.int32, name='targets')
 
         # Sequence length: 1d array of size [batch_size]
-        seq_len = tf.placeholder(tf.int32, [None])
+        seq_len = tf.placeholder(tf.int32, [None], name='seq_len')
 
         # single LSTM cell
         cell = tf.contrib.rnn.LSTMCell(num_hidden, state_is_tuple=True)
@@ -117,10 +117,11 @@ def train_rnn_ctc(corpus):
             start = time.time()
 
             for batch in range(num_batches_per_epoch):
-                train_inputs, train_targets, train_seq_len, ground_truth = next_training_batch()
-                feed = {inputs: train_inputs, targets: train_targets, seq_len: train_seq_len}
+                x_train, y_train, ground_truth = next_training_batch()
 
+                feed = {inputs: x_train, targets: y_train, seq_len: [x_train.shape[1]]}
                 batch_cost, _ = session.run([cost, optimizer], feed)
+
                 train_cost += batch_cost * batch_size
                 train_ler += session.run(ler, feed_dict=feed) * batch_size
 
@@ -128,7 +129,7 @@ def train_rnn_ctc(corpus):
                 d = session.run(decoded[0], feed_dict=feed)
                 str_decoded = ''.join([chr(x) for x in np.asarray(d[1]) + FIRST_INDEX])
                 # Replacing blank label to none
-                str_decoded = str_decoded.replace(chr(ord('z') + 1), '')
+                str_decoded = str_decoded.replace(chr(ord('z') + 1), '_')
                 # Replacing space label to space
                 str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
 
@@ -137,16 +138,16 @@ def train_rnn_ctc(corpus):
             train_cost /= num_examples
             train_ler /= num_examples
 
-            val_inputs, val_targets, val_seq_len, ground_truth = next_validation_batch()
-            val_feed = {inputs: val_inputs, targets: val_targets, seq_len: val_seq_len}
+            x_val, y_val, ground_truth = next_validation_batch()
 
+            val_feed = {inputs: x_val, targets: y_val, seq_len: [x_val.shape[1]]}
             val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
 
             # Decoding
             d = session.run(decoded[0], feed_dict=val_feed)
             str_decoded = ''.join([chr(x) for x in np.asarray(d[1]) + FIRST_INDEX])
             # Replacing blank label to none
-            str_decoded = str_decoded.replace(chr(ord('z') + 1), '')
+            str_decoded = str_decoded.replace(chr(ord('z') + 1), '_')
             # Replacing space label to space
             str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
 
@@ -173,8 +174,8 @@ def next_batch(corpus_subset):
     rate, audio = random_speech.audio
     text = ' '.join(random_speech.text.strip().lower().split())  # replace multiple adjacent spaces with one
 
-    train_inputs, train_targets, train_seq_len = convert_inputs_to_ctc_format(audio, rate, text)
-    return train_inputs, train_targets, train_seq_len, text
+    train_inputs, train_targets = create_x_y(audio, rate, text)
+    return train_inputs, train_targets, text
 
 
 if __name__ == "__main__":

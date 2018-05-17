@@ -117,7 +117,7 @@ def train_rnn_ctc(corpus):
             start = time.time()
 
             for batch in range(num_batches_per_epoch):
-                train_inputs, train_targets, train_seq_len, train_txt, original_txt = next_training_batch()
+                train_inputs, train_targets, train_seq_len, ground_truth = next_training_batch()
                 feed = {inputs: train_inputs, targets: train_targets, seq_len: train_seq_len}
 
                 batch_cost, _ = session.run([cost, optimizer], feed)
@@ -132,12 +132,12 @@ def train_rnn_ctc(corpus):
                 # Replacing space label to space
                 str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
 
-                log_prediction(original_txt, train_txt, str_decoded, 'train-set')
+                log_prediction(ground_truth, str_decoded, 'train-set')
 
             train_cost /= num_examples
             train_ler /= num_examples
 
-            val_inputs, val_targets, val_seq_len, val_txt, original_txt = next_validation_batch()
+            val_inputs, val_targets, val_seq_len, ground_truth = next_validation_batch()
             val_feed = {inputs: val_inputs, targets: val_targets, seq_len: val_seq_len}
 
             val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
@@ -150,7 +150,7 @@ def train_rnn_ctc(corpus):
             # Replacing space label to space
             str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
 
-            log_prediction(original_txt, val_txt, str_decoded, 'dev-set')
+            log_prediction(ground_truth, str_decoded, 'dev-set')
 
             file_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
@@ -171,10 +171,10 @@ def next_batch(corpus_subset):
     random_entry = random.choice(corpus_subset)
     random_speech = random.choice(random_entry.speech_segments)
     rate, audio = random_speech.audio
-    text = random_speech.text
+    text = ' '.join(random_speech.text.strip().lower().split())  # replace multiple adjacent spaces with one
 
-    train_inputs, train_targets, train_seq_len, input_text = convert_inputs_to_ctc_format(audio, rate, text)
-    return train_inputs, train_targets, train_seq_len, input_text, text
+    train_inputs, train_targets, train_seq_len = convert_inputs_to_ctc_format(audio, rate, text)
+    return train_inputs, train_targets, train_seq_len, text
 
 
 if __name__ == "__main__":

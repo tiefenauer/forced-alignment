@@ -12,10 +12,9 @@ def log_setup(filename=None):
     return logger
 
 
-def log_prediction(original_txt, rnn_txt, prediction_txt, subset_name):
-    print(f'Original text ({subset_name}): '.ljust(30) + original_txt)
-    print(f'RNN labels ({subset_name}): '.ljust(30) + rnn_txt)
-    print(f'RNN prediction ({subset_name}): '.ljust(30) + prediction_txt)
+def log_prediction(ground_truth, prediction, subset_name):
+    print(f'Ground truth ({subset_name}): '.ljust(30) + ground_truth)
+    print(f'Prediction ({subset_name}): '.ljust(30) + prediction)
 
 
 def get_commit_id():

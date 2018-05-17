@@ -24,25 +24,31 @@ def convert_inputs_to_ctc_format(audio, rate, text):
     train_inputs = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
     train_seq_len = [train_inputs.shape[1]]
 
-    input_text = ' '.join(text.strip().lower().split(' '))
-    input_text = re.sub(non_alphanumeric_pattern, '', input_text)
-    targets = input_text.replace(' ', '  ')
-    targets = targets.split(' ')
-
-    # Adding blank label
-    targets = np.hstack([SPACE_TOKEN if x == '' else list(x) for x in targets])
+    targets = tokenize(text)
 
     # Transform char into index
     targets = np.asarray([SPACE_INDEX if x == SPACE_TOKEN
                           else AE_INDEX if x == 'ä'
-                          else OE_INDEX if x == 'ö'
-                          else UE_INDEX if x == 'ü'
-                          else ord(x) - FIRST_INDEX for x in targets])
+    else OE_INDEX if x == 'ö'
+    else UE_INDEX if x == 'ü'
+    else ord(x) - FIRST_INDEX for x in targets])
 
     # Creating sparse representation to feed the placeholder
     train_targets = sparse_tuple_from([targets])
 
-    return train_inputs, train_targets, train_seq_len, input_text
+    return train_inputs, train_targets, train_seq_len
+
+
+def tokenize(text):
+    """Splits a text into tokens. The tokens are the words in the text and a special <space> token which is
+    added between the words. The text must only contain the following characters: [a-zA-Zäöü ]. This must be done
+    prior to calling this method (pre-processed for performance reasons)"""
+
+    text = text.replace(' ', '  ')
+    words = text.split(' ')
+
+    tokens = np.hstack([SPACE_TOKEN if x == '' else list(x) for x in words])
+    return tokens
 
 
 def sparse_tuple_from(sequences, dtype=np.int32):

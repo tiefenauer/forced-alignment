@@ -1,9 +1,12 @@
+import re
 from abc import ABC, abstractmethod
 from copy import copy, deepcopy
 from random import randint
 
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
+
+non_alphanumeric = re.compile('[^a-zA-Zäöü ]+')
 
 
 def calculate_crop(segments):
@@ -59,8 +62,8 @@ class Corpus(ABC):
         return self._name + f' (languages: {self.languages})'
 
     @name.setter
-    def name(self, value):
-        self._name = value
+    def name(self, name):
+        self._name = name
 
     @property
     def languages(self):
@@ -147,7 +150,7 @@ class CorpusEntry(object):
     def __init__(self, audio_file, transcription, segments, original_path='', parms={}):
         self.corpus = None
         self.audio_file = audio_file
-        self.transcription = transcription
+        self.transcription = transcription.strip()
         for segment in segments:
             segment.corpus_entry = self
         self.segments = segments
@@ -183,6 +186,10 @@ class CorpusEntry(object):
         if self._audio is None:
             self._rate, self._audio = read_wav_file(self.audio_file)
         return self._rate, self._audio
+
+    @property
+    def text(self):
+        return re.sub(non_alphanumeric, '', self.transcription)
 
     def __getstate__(self):
         # prevent caches from being pickled

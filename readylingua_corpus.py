@@ -88,7 +88,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
 
         # Resample and crop audio
         wav_file = files['audio']
-        audio_file = os.path.join(target_root, parms['id'] + "_16.wav")
+        audio_file = os.path.join(target_root, parms['id'] + ".wav")
         if not exists(audio_file) or overwrite:
             in_file = os.path.join(directory, wav_file)
             resample_wav(in_file, audio_file, inrate=parms['rate'], inchannels=parms['channels'])

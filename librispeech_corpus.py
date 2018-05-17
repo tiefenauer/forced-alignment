@@ -116,7 +116,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         segments, transcript = create_segments(segments_file, transcription_file, book_text)
 
         # Convert, resample and crop audio
-        audio_file = os.path.join(target_root, mp3_file.split(".")[0] + "_16.wav")
+        audio_file = os.path.join(target_root, mp3_file.split(".")[0] + ".wav")
         if not exists(audio_file) or overwrite:
             in_file = os.path.join(directory, mp3_file)
             mp3_to_wav(in_file, audio_file)

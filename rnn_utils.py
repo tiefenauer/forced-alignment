@@ -149,7 +149,7 @@ class DummyCorpus(object):
      This is useful for example for a POC where a RNN learns from only the first 5 speech segments of a single instance.
      """
 
-    def __init__(self, repeat_samples, times, num_segments=5):
+    def __init__(self, repeat_samples, times, num_segments=None):
         self.repeat_samples = repeat_samples
         self.times = times
         self.num_segments = num_segments
@@ -159,7 +159,9 @@ class DummyCorpus(object):
             segments_with_text = [speech for speech in repeat_sample.speech_segments_not_numeric
                                   if speech.text and len(speech.audio) > 0]
 
-            repeat_sample.segments = segments_with_text[:self.num_segments]
+            if self.num_segments:
+                segments_with_text = segments_with_text[:self.num_segments]
+            repeat_sample.segments = segments_with_text
             yield repeat_sample
 
     def __len__(self):

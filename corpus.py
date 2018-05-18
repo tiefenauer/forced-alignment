@@ -52,7 +52,7 @@ class Corpus(ABC):
 
     def __call__(self, *args, **kwargs):
         languages = kwargs['languages'] if 'languages' in kwargs else self.languages
-        include_numeric = kwargs['include_numeric'] if 'include_numeric' in kwargs else None
+        include_numeric = kwargs['include_numeric'] if 'include_numeric' in kwargs else True
         print(f'filtering languages={languages}')
         entries = [entry for entry in self.corpus_entries if entry.language in languages]
         print(f'found {len(entries)} entries for languages {languages}')

@@ -5,6 +5,7 @@ import random
 import time
 
 import tensorflow as tf
+import numpy as np
 
 # Some configs
 from corpus_util import load_corpus
@@ -156,14 +157,21 @@ def next_training_batch():
 
 
 def next_validation_batch():
-    return next_batch(rl_dev)
+    random_shift = np.random.randint(low=1, high=1000)
+    return next_batch(rl_train, random_shift)
 
 
-def next_batch(corpus_subset):
-    random_entry = random.choice(corpus_subset)
-    random_speech = random.choice(random_entry.speech_segments)
-    rate, audio = random_speech.audio
-    text = random_speech.text
+def next_batch(corpus_subset, random_shift=0):
+    # corpus_entry = random.choice(corpus_subset)
+    corpus_entry = corpus_subset[0]
+    segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]
+    speech_segment = random.choice(segments_with_text[:5])
+    rate, audio = speech_segment.audio
+    text = speech_segment.text
+
+    if random_shift:
+        print('random_shift =', random_shift)
+        audio = audio[random_shift:]
 
     train_inputs, train_targets = create_x_y(audio, rate, text)
     return train_inputs, train_targets, text
@@ -174,6 +182,6 @@ if __name__ == "__main__":
         corpus = load_corpus(rl_corpus_file)
     elif args.corpus == 'ls':
         corpus = load_corpus(ls_corpus_file)
-    corpus = corpus(languages=args.language, include_numeric=False)
+    corpus = corpus(languages=args.language)
     rl_train, rl_dev, rl_test = corpus.train_dev_test_split()
     train_rnn_ctc(corpus)

@@ -1,12 +1,10 @@
-import re
 from abc import ABC, abstractmethod
 from copy import copy, deepcopy
 from random import randint
 
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
-
-non_alphanumeric = re.compile('[^a-zA-Zäöüß ]+')
+from string_utils import normalize
 
 
 def calculate_crop(segments):
@@ -232,7 +230,7 @@ class Segment(ABC):
     @transcription.setter
     def transcription(self, transcription):
         self._transcription = transcription
-        self.text = re.sub(non_alphanumeric, '', transcription).lower()
+        self.text = normalize(transcription)
 
 
 class Speech(Segment):

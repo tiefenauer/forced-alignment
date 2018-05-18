@@ -3,7 +3,6 @@ import argparse
 import logging
 import math
 import os
-import re
 import sys
 import wave
 from pathlib import Path
@@ -17,6 +16,7 @@ from audio_util import recalculate_frame, resample_wav, crop_wav
 from corpus import CorpusEntry, ReadyLinguaCorpus, Speech, Pause
 from corpus_util import save_corpus, find_file_by_extension
 from log_util import log_setup
+from string_utils import create_filename
 
 logfile = 'readylingua_corpus.log'
 log_setup(filename=logfile)
@@ -42,8 +42,6 @@ LANGUAGES = {
     'Italienisch': 'it',
     'Spanisch': 'es'
 }
-
-non_alphanumeric_pattern = re.compile('[^0-9a-zA-Z]+')
 
 
 def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):
@@ -159,7 +157,7 @@ def collect_corpus_entry_parms(directory, files):
 
     # find name and create id
     corpus_entry_name = folders[-1]
-    corpus_entry_id = non_alphanumeric_pattern.sub('', files['audio'].split('.wav')[0].lower())
+    corpus_entry_id = create_filename(files['audio'].split('.wav')[0])
 
     # find language
     lang = [folder for folder in folders if folder in LANGUAGES.keys()]

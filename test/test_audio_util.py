@@ -4,7 +4,7 @@ import unittest
 import audio_util
 
 
-class AudioUtilTest(unittest.TestCase):
+class TestAudioUtil(unittest.TestCase):
 
     def test_mp3_to_wav(self):
         infile = os.path.abspath('208.mp3')

@@ -1,20 +1,11 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import re
+import string
 
 import numpy as np
 from python_speech_features import mfcc
 
 SPACE_TOKEN = '<space>'
-SPACE_INDEX = 0
-FIRST_INDEX = ord('a') - 1  # 0 is reserved to space
-AE_INDEX = ord('z') + 1 - FIRST_INDEX
-OE_INDEX = AE_INDEX + 1
-UE_INDEX = OE_INDEX + 1
-
-non_alphanumeric_pattern = re.compile('[^a-zA-Zäöü ]+')
+UNKNOWN_TOKEN = '<unk>'
+CHAR_TOKENS = string.ascii_lowercase
 
 
 def create_x_y(audio, rate, text):
@@ -24,22 +15,30 @@ def create_x_y(audio, rate, text):
     x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
 
     # create y from encoded text
+    # print(text)
     tokens = tokenize(text)
+    # print(tokens)
     targets = encode(tokens)
+    # print(targets)
     y = sparse_tuple_from([targets])
 
     return x, y
 
 
 def tokenize(text):
-    """Splits a text into tokens. The tokens are the words in the text and a special <space> token which is
-    added between the words. The text must only contain the following characters: [a-zA-Zäöü ]. This must be done
-    prior to calling this method (pre-processed for performance reasons)"""
+    """Splits a text into tokens.
+    The text must only contain the lowercase characters a-z and digits. This must be ensured prior to calling this
+    method for performance reasons. The tokens are the characters in the text. A special <space> token is added between
+    the words. Since numbers are a special case (e.g. '1' and '3' are 'one' and 'three' if pronounced separately, but
+    'thirteen' if the text is '13'), digits are mapped to the special '<unk>' token.
+    """
 
     text = text.replace(' ', '  ')
     words = text.split(' ')
 
     tokens = np.hstack([SPACE_TOKEN if x == '' else list(x) for x in words])
+    mask = np.isin(tokens, list(string.digits))
+    np.place(tokens, mask, UNKNOWN_TOKEN)
     return tokens
 
 
@@ -48,19 +47,15 @@ def encode(tokens):
 
 
 def encode_token(token):
-    if token == SPACE_TOKEN:
-        return SPACE_INDEX
-    if token == 'ä':
-        return AE_INDEX
-    if token == 'ö':
-        return OE_INDEX
-    if token == 'ü':
-        return UE_INDEX
-    return ord(token) - FIRST_INDEX
+    return 0 if token == SPACE_TOKEN else CHAR_TOKENS.index(token) + 1 if token in CHAR_TOKENS else len(CHAR_TOKENS) + 1
+
+
+def decode(tokens):
+    return ''.join([decode_token(x) for x in tokens])
 
 
 def decode_token(ind):
-    return ' abcdefghijklmnopqrstuvwxyzäöü_'[ind]
+    return CHAR_TOKENS[ind - 1] if ind in range(1, 27) else ' ' if ind == 0 else '#'
 
 
 def sparse_tuple_from(sequences, dtype=np.int32):

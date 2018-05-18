@@ -4,14 +4,13 @@ import os
 import random
 import time
 
-import numpy as np
 import tensorflow as tf
 
 # Some configs
 from corpus_util import load_corpus
 from file_logger import FileLogger
 from log_util import log_prediction
-from rnn_utils import FIRST_INDEX, create_x_y
+from rnn_utils import create_x_y, CHAR_TOKENS, decode
 
 parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
 parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
@@ -30,8 +29,8 @@ rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
 
 # Hyper-parameters
 num_features = 13
-# Accounting the 0th index +  space + blank label + 3 umlauts = 31 characters
-num_classes = ord('z') - ord('a') + 1 + 1 + 1 + 3
+# 26 lowercase ASCII chars + space + blank = 28 labels
+num_classes = len(CHAR_TOKENS) + 2
 
 # Hyper-parameters
 num_epochs = 10000
@@ -127,11 +126,7 @@ def train_rnn_ctc(corpus):
 
                 # Decoding
                 d = session.run(decoded[0], feed_dict=feed)
-                str_decoded = ''.join([chr(x) for x in np.asarray(d[1]) + FIRST_INDEX])
-                # Replacing blank label to none
-                str_decoded = str_decoded.replace(chr(ord('z') + 1), '_')
-                # Replacing space label to space
-                str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
+                str_decoded = decode(d[1])
 
                 log_prediction(ground_truth, str_decoded, 'train-set')
 
@@ -145,11 +140,7 @@ def train_rnn_ctc(corpus):
 
             # Decoding
             d = session.run(decoded[0], feed_dict=val_feed)
-            str_decoded = ''.join([chr(x) for x in np.asarray(d[1]) + FIRST_INDEX])
-            # Replacing blank label to none
-            str_decoded = str_decoded.replace(chr(ord('z') + 1), '_')
-            # Replacing space label to space
-            str_decoded = str_decoded.replace(chr(ord('a') - 1), ' ')
+            str_decoded = decode(d[1])
 
             log_prediction(ground_truth, str_decoded, 'dev-set')
 
@@ -172,7 +163,7 @@ def next_batch(corpus_subset):
     random_entry = random.choice(corpus_subset)
     random_speech = random.choice(random_entry.speech_segments)
     rate, audio = random_speech.audio
-    text = ' '.join(random_speech.text.strip().lower().split())  # replace multiple adjacent spaces with one
+    text = random_speech.text
 
     train_inputs, train_targets = create_x_y(audio, rate, text)
     return train_inputs, train_targets, text

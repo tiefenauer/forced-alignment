@@ -22,16 +22,21 @@ logfile = 'readylingua_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
+DEFAULT_SOURCE_ROOT = r'D:\\corpus\\' if os.name == 'nt' else '/media/all/D1/'
+DEFAULT_TARGET_ROOT = r'D:\\corpus\\' if os.name == 'nt' else '/media/all/D1/'
+
 parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from raw files""")
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
+parser.add_argument('-s', '--source_root', default=DEFAULT_SOURCE_ROOT,
+                    help=f'(optional) source root directory (default: {DEFAULT_SOURCE_ROOT}')
+parser.add_argument('-t', '--target_root', default=DEFAULT_TARGET_ROOT,
+                    help=f'(optional) target root directory (default: {DEFAULT_TARGET_ROOT})')
 parser.add_argument('-m', '--max_entries', type=int, default=None,
                     help='(optional) maximum number of corpus entries to process. Default=None=\'all\'')
 parser.add_argument('-o', '--overwrite', default=False, action='store_true',
                     help='(optional) overwrite existing audio data if already present. Default=False)')
 args = parser.parse_args()
 
-source_root = r'D:\corpus\readylingua-raw' if os.name == 'nt' else '/media/all/D1/readylingua-raw'
-target_root = r'E:\readylingua-corpus' if os.name == 'nt' else '/media/all/D1/readylingua-corpus'
 max_entries = args.max_entries
 overwrite = args.overwrite
 
@@ -42,6 +47,9 @@ LANGUAGES = {
     'Italienisch': 'it',
     'Spanisch': 'es'
 }
+
+source_root = os.path.join(args.source_root, 'readylingua-raw')
+target_root = os.path.join(args.target_root, 'readylingua-corpus')
 
 
 def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):

@@ -24,3 +24,7 @@ def replace_not_alphanumeric(string, repl=''):
 
 def replace_numeric(string, repl='#'):
     return re.sub(numeric, repl, string)
+
+
+def contains_numeric(string):
+    return any(char.isdigit() for char in string)

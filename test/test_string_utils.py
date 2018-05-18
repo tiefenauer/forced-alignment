@@ -2,7 +2,8 @@ from unittest import TestCase
 
 from hamcrest import assert_that, is_
 
-from string_utils import replace_not_alphanumeric, normalize, remove_multi_spaces, create_filename, replace_numeric
+from string_utils import replace_not_alphanumeric, normalize, remove_multi_spaces, create_filename, replace_numeric, \
+    contains_numeric
 
 
 class TestStringUtils(TestCase):
@@ -17,6 +18,10 @@ class TestStringUtils(TestCase):
 
     def test_replace_numeric(self):
         assert_that(replace_numeric('foo 123 bar'), is_('foo ### bar'))
+
+    def test_contains_numeric(self):
+        assert_that(contains_numeric('abc'), is_(False))
+        assert_that(contains_numeric('ab3c'), is_(True))
 
     def test_create_filename(self):
         assert_that(create_filename('a$b€c?d!e. fG'), is_('abcde_fg'))

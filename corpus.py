@@ -4,7 +4,7 @@ from random import randint
 
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
-from string_utils import normalize
+from string_utils import normalize, contains_numeric
 
 
 def calculate_crop(segments):
@@ -69,6 +69,10 @@ class Corpus(ABC):
     def languages(self):
         return set(lang for lang in (corpus_entry.language for corpus_entry in self.corpus_entries))
 
+    @property
+    def keys(self):
+        return [corpus_entry.id for corpus_entry in self.corpus_entries]
+
     @abstractmethod
     def train_dev_test_split(self):
         """return training-, validation- and test-set
@@ -79,7 +83,7 @@ class Corpus(ABC):
     def summary(self):
         total_segments = [seg for entry in self.corpus_entries for seg in entry.segments]
         speeches = [seg for entry in self.corpus_entries for seg in entry.speech_segments]
-        unaligned_speeches = [seg for entry in self.corpus_entries for seg in entry.unaligned_speech_segments]
+        unaligned_speeches = [seg for entry in self.corpus_entries for seg in entry.speech_segments_unaligned]
         pauses = [seg for entry in self.corpus_entries for seg in entry.pause_segments]
         print('')
         print(f'Corpus: {self.name}')
@@ -156,8 +160,16 @@ class CorpusEntry(object):
         return [segment for segment in self.segments if segment.segment_type == 'speech']
 
     @property
-    def unaligned_speech_segments(self):
+    def speech_segments_unaligned(self):
         return [segment for segment in self.segments if segment.segment_type == 'speech*']
+
+    @property
+    def speech_segments_numeric(self):
+        return [segment for segment in self.segments if contains_numeric(segment.text)]
+
+    @property
+    def speech_segments_not_numeric(self):
+        return [segment for segment in self.segments if not contains_numeric(segment.text)]
 
     @property
     def pause_segments(self):
@@ -184,18 +196,27 @@ class CorpusEntry(object):
         if '_rate' in state: del state['_rate']
         return state
 
+    def __call__(self, *args, **kwargs):
+        if not kwargs or 'numeric' not in kwargs:
+            return self
+        contains_num = kwargs['numeric']
+        _copy = deepcopy(self)
+        segments = self.speech_segments_numeric if contains_num else self.speech_segments_not_numeric
+        _copy.segments = segments
+        with_or_without = 'with' if contains_num else 'without'
+        _copy.name = self.name + f' ==> only segments {with_or_without} numeric values'
+        return _copy
+
     def summary(self):
-        total_segments = [seg for seg in self.segments]
-        speech_segments = [speech for speech in self.speech_segments]
-        unaligned_speech_segments = [speech for speech in self.unaligned_speech_segments]
-        pause_segments = [pause for pause in self.pause_segments]
         print('')
         print(f'Corpus Entry: {self.name} (id={self.id})')
         print('-----------------------------------------------------------')
-        print(f'# total segments: {len(total_segments)}')
-        print(f'# speech segments: {len(speech_segments)}')
-        print(f'# unaligned speech segments: {len(unaligned_speech_segments)}')
-        print(f'# pause segments: {len(pause_segments)}')
+        print(f'# speech segments: {len(self.speech_segments)}')
+        print(f'# pause segments: {len(self.pause_segments)}')
+        print(f'# total segments: {len(self.segments)}')
+        print(f'# unaligned speech segments: {len(self.speech_segments_unaligned)}')
+        print(f'# speech segments with numbers: {len(self.speech_segments_numeric)}')
+        print(f'# speech segments without numbers: {len(self.speech_segments_not_numeric)}')
         print(f'original path: {self.original_path}')
         print(f'original sampling rate: {self.original_sampling_rate}')
         print(f'original #channels: {self.original_channels}')

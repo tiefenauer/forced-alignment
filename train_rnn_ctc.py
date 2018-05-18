@@ -7,11 +7,10 @@ import time
 import tensorflow as tf
 import numpy as np
 
-# Some configs
 from corpus_util import load_corpus
 from file_logger import FileLogger
 from log_util import log_prediction
-from rnn_utils import create_x_y, CHAR_TOKENS, decode
+from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
 
 parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
 parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
@@ -34,20 +33,17 @@ num_features = 13
 num_classes = len(CHAR_TOKENS) + 2
 
 # Hyper-parameters
-num_epochs = 10000
 num_hidden = 100
 num_layers = 1
-batch_size = 1
+num_epochs = 10000
+max_shift = 2000  # maximum number of frames to shift the audio
 
-num_examples = 1
-num_batches_per_epoch = int(num_examples / batch_size)
-
+# other options
+batch_size = 100  # number of entries to process between validation
 file_logger = FileLogger('out.tsv', ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
 
 
-def train_rnn_ctc(corpus):
-    corpus.summary()
-
+def train_rnn_ctc(train_set, dev_set, test_set):
     graph = tf.Graph()
     with graph.as_default():
         # Input sequences
@@ -109,21 +105,19 @@ def train_rnn_ctc(corpus):
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
     with tf.Session(graph=graph) as session:
-
         tf.global_variables_initializer().run()
 
         for curr_epoch in range(num_epochs):
+
             train_cost = train_ler = 0
             start = time.time()
 
-            for batch in range(num_batches_per_epoch):
-                x_train, y_train, ground_truth = next_training_batch()
-
+            for x_train, y_train, ground_truth in generate_data(train_set, True):
                 feed = {inputs: x_train, targets: y_train, seq_len: [x_train.shape[1]]}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
-                train_cost += batch_cost * batch_size
-                train_ler += session.run(ler, feed_dict=feed) * batch_size
+                train_cost += batch_cost
+                train_ler += session.run(ler, feed_dict=feed)
 
                 # Decoding
                 d = session.run(decoded[0], feed_dict=feed)
@@ -131,10 +125,8 @@ def train_rnn_ctc(corpus):
 
                 log_prediction(ground_truth, str_decoded, 'train-set')
 
-            train_cost /= num_examples
-            train_ler /= num_examples
-
-            x_val, y_val, ground_truth = next_validation_batch()
+            validation_data = generate_data(dev_set, True)
+            x_val, y_val, ground_truth = random.choice(list(validation_data))
 
             val_feed = {inputs: x_val, targets: y_val, seq_len: [x_val.shape[1]]}
             val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
@@ -147,34 +139,25 @@ def train_rnn_ctc(corpus):
 
             file_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
-            log = f'=== Epoch {curr_epoch+1}/{num_epochs}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
+            log = f'=== Epoch {curr_epoch+1}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
                   f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
             print(log)
 
 
-def next_training_batch():
-    return next_batch(rl_train)
+def generate_data(corpus_entries, shift_audio):
+    for corpus_entry in corpus_entries:
+        segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric
+                              if speech.text and len(speech.audio) > 0]
+        for speech_segment in segments_with_text:
+            rate, audio = speech_segment.audio
+            ground_truth = speech_segment.text
 
+            if shift_audio:
+                shift = np.random.randint(low=1, high=max_shift)
+                audio = audio[shift:]
 
-def next_validation_batch():
-    random_shift = np.random.randint(low=1, high=1000)
-    return next_batch(rl_train, random_shift)
-
-
-def next_batch(corpus_subset, random_shift=0):
-    # corpus_entry = random.choice(corpus_subset)
-    corpus_entry = corpus_subset[0]
-    segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]
-    speech_segment = random.choice(segments_with_text[:5])
-    rate, audio = speech_segment.audio
-    text = speech_segment.text
-
-    if random_shift:
-        print('random_shift =', random_shift)
-        audio = audio[random_shift:]
-
-    train_inputs, train_targets = create_x_y(audio, rate, text)
-    return train_inputs, train_targets, text
+            x, y = create_x_y(audio, rate, ground_truth)
+            yield x, y, ground_truth
 
 
 if __name__ == "__main__":
@@ -183,5 +166,13 @@ if __name__ == "__main__":
     elif args.corpus == 'ls':
         corpus = load_corpus(ls_corpus_file)
     corpus = corpus(languages=args.language)
-    rl_train, rl_dev, rl_test = corpus.train_dev_test_split()
-    train_rnn_ctc(corpus)
+    corpus.summary()
+
+    train_set, dev_set, test_set = corpus.train_dev_test_split()
+
+    # for test purposes only: train only on first corpus entry
+    repeat_samples = train_set[:1]
+    train_set = DummyCorpus(repeat_samples, 1)
+    dev_set = DummyCorpus(repeat_samples, 1)
+
+    train_rnn_ctc(train_set, train_set, test_set)

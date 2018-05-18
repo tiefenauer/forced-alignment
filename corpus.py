@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from copy import copy, deepcopy
 from random import randint
 
+from tqdm import tqdm
+
 from audio_util import read_wav_file
 from corpus_util import filter_corpus_entry_by_subset_prefix
 from string_utils import normalize, contains_numeric
@@ -49,11 +51,18 @@ class Corpus(ABC):
         return len(self.corpus_entries)
 
     def __call__(self, *args, **kwargs):
-        if not args:
-            return self
-        languages = args
+        languages = kwargs['languages'] if 'languages' in kwargs else self.languages
+        include_numeric = kwargs['include_numeric'] if 'include_numeric' in kwargs else None
+        print(f'filtering languages={languages}')
+        entries = [entry for entry in self.corpus_entries if entry.language in languages]
+        print(f'found {len(entries)} entries for languages {languages}')
+
+        if not include_numeric:
+            print(f'filtering out speech segments with numbers in transcription')
+            entries = [entry(include_numeric=include_numeric) for entry in tqdm(entries, unit=' entries')]
+
         _copy = deepcopy(self)
-        _copy.corpus_entries = [entry for entry in self.corpus_entries if entry.language in languages]
+        _copy.corpus_entries = entries
         return _copy
 
     @property
@@ -197,14 +206,12 @@ class CorpusEntry(object):
         return state
 
     def __call__(self, *args, **kwargs):
-        if not kwargs or 'numeric' not in kwargs:
+        if not kwargs or 'include_numeric' not in kwargs or kwargs['include_numeric'] is True:
             return self
-        contains_num = kwargs['numeric']
         _copy = deepcopy(self)
-        segments = self.speech_segments_numeric if contains_num else self.speech_segments_not_numeric
+        segments = self.speech_segments_not_numeric
         _copy.segments = segments
-        with_or_without = 'with' if contains_num else 'without'
-        _copy.name = self.name + f' ==> only segments {with_or_without} numeric values'
+        _copy.name = self.name + f' ==> only segments without numeric values'
         return _copy
 
     def summary(self):

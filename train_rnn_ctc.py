@@ -174,6 +174,6 @@ if __name__ == "__main__":
         corpus = load_corpus(rl_corpus_file)
     elif args.corpus == 'ls':
         corpus = load_corpus(ls_corpus_file)
-    corpus = corpus(args.language)
+    corpus = corpus(languages=args.language, include_numeric=False)
     rl_train, rl_dev, rl_test = corpus.train_dev_test_split()
     train_rnn_ctc(corpus)

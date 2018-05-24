@@ -1,6 +1,5 @@
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
 import argparse
-import os
 import random
 import time
 from _datetime import datetime
@@ -11,7 +10,7 @@ from os.path import exists
 
 from corpus_util import load_corpus
 from file_logger import FileLogger
-from log_util import print_prediction, create_args_str, get_commit_id, log_prediction
+from log_util import *
 from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
 
 parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
@@ -200,7 +199,7 @@ def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger, 
 
             cost_logger.write_tabbed([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
-            log = f'=== Epoch {curr_epoch+1}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
+            log = f'=== Epoch {curr_epoch}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
                   f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
             print(log)
             print_prediction(ground_truth, prediction, 'dev-set')
@@ -239,11 +238,13 @@ def create_epoch_logger(log_dir, now=None):
 def create_file_logger(log_dir, file_name, now=datetime.now()):
     if not exists(log_dir):
         os.makedirs(log_dir)
+    revision, branch_name, timestamp, message = get_commit()
     file_path = os.path.join(log_dir, file_name)
     file_logger = FileLogger(file_path)
     file_logger.write(f'----------------------------------')
     file_logger.write(f'Date: {now}')
-    file_logger.write(f'Commit: {get_commit_id()}')
+    file_logger.write(f'Branch: {branch_name}')
+    file_logger.write(f'Commit: {revision} ({timestamp}, {message})')
     file_logger.write(f'----------------------------------')
     return file_logger
 

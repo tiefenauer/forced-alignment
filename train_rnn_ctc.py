@@ -1,3 +1,4 @@
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
 import argparse
 import random
@@ -17,7 +18,6 @@ from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
 # -------------------------------------------------------------
 TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default target directory
 NUM_EPOCHS = 10000  # number of epochs to train on
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 NOW = datetime.now()
 
 # -------------------------------------------------------------

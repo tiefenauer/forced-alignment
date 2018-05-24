@@ -2,7 +2,6 @@
 import argparse
 import random
 import time
-from _datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -18,11 +17,15 @@ parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('language', type=str,
                     help='language on which to train the RNN')
-parser.add_argument('-e', '--num_entries', type=int, nargs='?',
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=10000,
+                    help='(optional) number of epochs to train the model (default: 10000)')
+parser.add_argument('-le', '--limit_entries', type=int, nargs='?',
                     help='(optional) number of corpus entries from training set to use for training (default: all)')
-parser.add_argument('-s', '--num_segments', type=int, nargs='?',
+parser.add_argument('-ls', '--limit_segments', type=int, nargs='?',
                     help='(optional) number of aligned speech segments to use per corpus entry (default: all)')
 args = parser.parse_args()
+
+now = datetime.now()
 
 LS_SOURCE_ROOT = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
 RL_SOURCE_ROOT = r'E:\readylingua-corpus' if os.name == 'nt' else '/media/all/D1/readylingua-corpus'
@@ -42,7 +45,6 @@ num_classes = len(CHAR_TOKENS) + 2
 # Hyper-parameters
 num_hidden = 100
 num_layers = 1
-num_epochs = 10000
 max_shift = 2000  # maximum number of frames to shift the audio
 
 # other options
@@ -53,9 +55,8 @@ def main():
     args_str = create_args_str(args)
     print(args_str)
 
-    now = datetime.now()
-    log_dir = now.strftime('%Y-%m-%d-%H-%M-%S')
-    print(f'logging to {os.path.abspath(log_dir)}')
+    target_dir = now.strftime('%Y-%m-%d-%H-%M-%S')
+    print(f'Results will be written to: {os.path.abspath(target_dir)}')
 
     if args.corpus == 'rl':
         corpus = load_corpus(rl_corpus_file)
@@ -69,18 +70,15 @@ def main():
 
     train_set, dev_set, test_set = corpus.train_dev_test_split()
 
-    if args.num_entries:
+    if args.limit_entries:
         # for test purposes only: train only on first corpus entry
-        repeat_samples = train_set[:args.num_entries]
-        train_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
-        dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
+        repeat_samples = train_set[:args.limit_entries]
+        train_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
+        dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
 
-    print(f'training on {len(train_set)} corpus entries with {args.num_segments or "all"} segments each')
-    cost_logger = create_cost_logger(log_dir, now)
-    epoch_logger = create_epoch_logger(log_dir, now)
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    train_model(model_parms, config, train_set, dev_set, test_set, cost_logger, epoch_logger)
+    print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
+    save_path = train_model(model_parms, train_set, dev_set, test_set, target_dir)
+    print(f'Model saved in path: {save_path}')
 
 
 def create_model():
@@ -156,7 +154,7 @@ def create_model():
     }
 
 
-def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger, epoch_logger):
+def train_model(model_parms, train_set, dev_set, test_set, target_dir):
     graph = model_parms['graph']
     cost = model_parms['cost']
     optimizer = model_parms['optimizer']
@@ -166,10 +164,16 @@ def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger, 
     seq_len = model_parms['seq_len']
     decoded = model_parms['decoded']
 
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
+    cost_logger = create_cost_logger(target_dir, now)
+    epoch_logger = create_epoch_logger(target_dir, now)
+
     with tf.Session(graph=graph, config=config) as session:
         tf.global_variables_initializer().run()
 
-        for curr_epoch in range(num_epochs):
+        for curr_epoch in range(args.num_epochs):
 
             train_cost = train_ler = 0
             start = time.time()
@@ -206,6 +210,11 @@ def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger, 
             if curr_epoch % 20 == 0:
                 epoch_logger.write(log)
                 log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
+
+        saver = tf.train.Saver()
+        save_path = saver.save(session, os.path.join(target_dir, 'model.ckpt'))
+
+    return save_path
 
 
 def generate_data(corpus_entries, shift_audio):

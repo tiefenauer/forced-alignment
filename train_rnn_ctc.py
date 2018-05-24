@@ -174,8 +174,8 @@ def train_model(model_parms, train_set, dev_set, test_set, target_dir):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
 
-    cost_logger = create_cost_logger(target_dir, NOW)
-    epoch_logger = create_epoch_logger(target_dir, NOW)
+    cost_logger = create_cost_logger(target_dir)
+    epoch_logger = create_epoch_logger(target_dir)
 
     with tf.Session(graph=graph, config=config) as session:
         tf.global_variables_initializer().run()
@@ -240,28 +240,28 @@ def generate_data(corpus_entries, shift_audio):
             yield x, y, ground_truth
 
 
-def create_cost_logger(log_dir, now=None):
-    cost_logger = create_file_logger(log_dir, 'stats.tsv', now)
+def create_cost_logger(log_dir):
+    cost_logger = create_file_logger(log_dir, 'stats.tsv')
     cost_logger.write_tabbed(['epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
     return cost_logger
 
 
-def create_epoch_logger(log_dir, now=None):
-    epoch_logger = create_file_logger(log_dir, 'epochs.txt', now)
+def create_epoch_logger(log_dir):
+    epoch_logger = create_file_logger(log_dir, 'epochs.txt')
+    revision, branch_name, timestamp, message = get_commit()
+    epoch_logger.write(f'----------------------------------')
+    epoch_logger.write(f'Date: {NOW}')
+    epoch_logger.write(f'Branch: {branch_name}')
+    epoch_logger.write(f'Commit: {revision} ({timestamp}, {message})')
+    epoch_logger.write(f'----------------------------------')
     return epoch_logger
 
 
-def create_file_logger(log_dir, file_name, now=datetime.now()):
+def create_file_logger(log_dir, file_name):
     if not exists(log_dir):
         os.makedirs(log_dir)
-    revision, branch_name, timestamp, message = get_commit()
     file_path = os.path.join(log_dir, file_name)
     file_logger = FileLogger(file_path)
-    file_logger.write(f'----------------------------------')
-    file_logger.write(f'Date: {now}')
-    file_logger.write(f'Branch: {branch_name}')
-    file_logger.write(f'Commit: {revision} ({timestamp}, {message})')
-    file_logger.write(f'----------------------------------')
     return file_logger
 
 

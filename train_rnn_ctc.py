@@ -51,8 +51,9 @@ batch_size = 100  # number of entries to process between validation
 
 
 def main():
-    print(f'corpus={args.corpus}, language={args.language}, '
-          f'num_entries={args.num_entries}, num_segments={args.num_segments}')
+    args_str = f'corpus={args.corpus}, language={args.language}, ' \
+               f'num_entries={args.num_entries}, num_segments={args.num_segments}'
+    print(args_str)
 
     log_dir = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     if not exists(log_dir):
@@ -75,11 +76,17 @@ def main():
         train_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
         dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
 
+    print('creating model')
+    model_parms = create_model()
+
     print(f'training on {len(train_set)} corpus entries with {args.num_segments or "all"} segments each')
-    train_rnn_ctc(train_set, dev_set, test_set)
+    stats_logger = create_file_logger(log_dir)
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    train_model(model_parms, config, train_set, dev_set, test_set, stats_logger)
 
 
-def train_rnn_ctc(train_set, dev_set, test_set):
+def create_model():
     graph = tf.Graph()
     with graph.as_default():
         # Input sequences
@@ -140,9 +147,28 @@ def train_rnn_ctc(train_set, dev_set, test_set):
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
-    file_logger = create_file_logger()
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    return {
+        'graph': graph,
+        'cost': cost,
+        'optimizer': optimizer,
+        'ler': ler,
+        'inputs': inputs,
+        'targets': targets,
+        'seq_len': seq_len,
+        'decoded': decoded
+    }
+
+
+def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger):
+    graph = model_parms['graph']
+    cost = model_parms['cost']
+    optimizer = model_parms['optimizer']
+    ler = model_parms['ler']
+    inputs = model_parms['inputs']
+    targets = model_parms['targets']
+    seq_len = model_parms['seq_len']
+    decoded = model_parms['decoded']
+
     with tf.Session(graph=graph, config=config) as session:
         tf.global_variables_initializer().run()
 
@@ -176,7 +202,7 @@ def train_rnn_ctc(train_set, dev_set, test_set):
 
             log_prediction(ground_truth, str_decoded, 'dev-set')
 
-            file_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
+            cost_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
             log = f'=== Epoch {curr_epoch+1}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
                   f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='

@@ -59,8 +59,7 @@ batch_size = 100  # number of entries to process between validation
 
 
 def main():
-    args_str = create_args_str(args)
-    print(args_str)
+    print(create_args_str(args))
 
     target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
     print(f'Results will be written to: {os.path.abspath(target_dir)}')
@@ -226,8 +225,7 @@ def train_model(model_parms, train_set, dev_set, test_set, target_dir):
 
 def generate_data(corpus_entries, shift_audio):
     for corpus_entry in corpus_entries:
-        segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric
-                              if speech.text and len(speech.audio) > 0]
+        segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]
         for speech_segment in segments_with_text:
             rate, audio = speech_segment.audio
             ground_truth = speech_segment.text

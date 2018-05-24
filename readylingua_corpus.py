@@ -15,16 +15,29 @@ from tqdm import tqdm
 from audio_util import recalculate_frame, resample_wav, crop_wav
 from corpus import CorpusEntry, ReadyLinguaCorpus, Speech, Pause
 from corpus_util import save_corpus, find_file_by_extension
-from log_util import log_setup
+from log_util import log_setup, create_args_str
 from string_utils import create_filename
 
 logfile = 'readylingua_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-DEFAULT_SOURCE_ROOT = r'D:\\corpus\\' if os.name == 'nt' else '/media/all/D1/'
-DEFAULT_TARGET_ROOT = r'D:\\corpus\\' if os.name == 'nt' else '/media/all/D1/'
+# -------------------------------------------------------------
+# Constants, defaults and env-vars
+# -------------------------------------------------------------
+DEFAULT_SOURCE_ROOT = r'D:\corpus' if os.name == 'nt' else '/media/all/D1/'  # root directory for raw corpus files
+DEFAULT_TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1/'  # root directory for processed corpus files
+LANGUAGES = {  # mapping from folder names to language code
+    'Deutsch': 'de',
+    'Englisch': 'en',
+    'Französisch': 'fr',
+    'Italienisch': 'it',
+    'Spanisch': 'es'
+}
 
+# -------------------------------------------------------------
+# CLI arguments
+# -------------------------------------------------------------
 parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from raw files""")
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-s', '--source_root', default=DEFAULT_SOURCE_ROOT,
@@ -37,22 +50,25 @@ parser.add_argument('-o', '--overwrite', default=False, action='store_true',
                     help='(optional) overwrite existing audio data if already present. Default=False)')
 args = parser.parse_args()
 
-max_entries = args.max_entries
-overwrite = args.overwrite
 
-LANGUAGES = {
-    'Deutsch': 'de',
-    'Englisch': 'en',
-    'Französisch': 'fr',
-    'Italienisch': 'it',
-    'Spanisch': 'es'
-}
+# -------------------------------------------------------------
+# Other values
+# -------------------------------------------------------------
+# currently none
 
-source_root = os.path.join(args.source_root, 'readylingua-raw')
-target_root = os.path.join(args.target_root, 'readylingua-corpus')
+def main():
+    print(create_args_str(args))
+
+    source_root = os.path.join(args.source_root, 'readylingua-raw')
+    target_root = os.path.join(args.target_root, 'readylingua-corpus')
+    print(f'Processing files from {source_root} and saving them in {target_root}')
+
+    corpus, corpus_file = create_corpus(source_root, target_root, args.max_entries)
+
+    print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')
 
 
-def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):
+def create_corpus(source_root, target_root, max_entries):
     if not os.path.exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
@@ -90,19 +106,19 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
         segmentation_file = os.path.join(directory, files['segmentation'])
         index_file = os.path.join(directory, files['index'])
         transcript_file = os.path.join(directory, files['text'])
-        segments = create_segments(index_file, transcript_file, segmentation_file)
+        audio_file = os.path.join(directory, files['audio'])
+
+        segments = create_segments(index_file, transcript_file, segmentation_file, parms['rate'])
 
         # Resample and crop audio
-        wav_file = files['audio']
-        audio_file = os.path.join(target_root, parms['id'] + ".wav")
-        if not exists(audio_file) or overwrite:
-            in_file = os.path.join(directory, wav_file)
-            resample_wav(in_file, audio_file, inrate=parms['rate'], inchannels=parms['channels'])
-            crop_wav(audio_file, segments)
-        parms['media_info'] = mediainfo(audio_file)
+        audio_resampled = os.path.join(target_root, parms['id'] + ".wav")
+        if not exists(audio_resampled) or args.overwrite:
+            resample_wav(audio_file, audio_resampled, inrate=parms['rate'], inchannels=parms['channels'])
+            crop_wav(audio_resampled, segments)
+        parms['media_info'] = mediainfo(audio_resampled)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, segments, directory, parms)
+        corpus_entry = CorpusEntry(audio_resampled, segments, directory, parms)
         corpus_entries.append(corpus_entry)
 
     corpus = ReadyLinguaCorpus(corpus_entries, target_root)
@@ -187,7 +203,7 @@ def find_speech_within_segment(segment, speeches):
                       and speech['end_frame'] <= segment['end_frame']]), None)
 
 
-def create_segments(index_file, transcription_file, segmentation_file):
+def create_segments(index_file, transcription_file, segmentation_file, original_sample_rate):
     segmentation = collect_segmentation(segmentation_file)
     speeches = collect_speeches(index_file)
     transcription = Path(transcription_file).read_text(encoding='utf-8')
@@ -195,8 +211,9 @@ def create_segments(index_file, transcription_file, segmentation_file):
     # merge information from index file (speech parts) with segmentation information
     segments = []
     for audio_segment in segmentation:
-        start_frame = audio_segment['start_frame']
-        end_frame = audio_segment['end_frame']
+        # re-calculate original frame values to resampled values
+        start_frame = recalculate_frame(audio_segment['start_frame'], old_sampling_rate=original_sample_rate)
+        end_frame = recalculate_frame(audio_segment['end_frame'], old_sampling_rate=original_sample_rate)
         if audio_segment['class'] == 'Speech':
             speech = find_speech_within_segment(audio_segment, speeches)
             if speech:
@@ -214,8 +231,8 @@ def collect_segmentation(segmentation_file):
     segments = []
     doc = etree.parse(segmentation_file)
     for element in doc.findall('Segments/Segment'):
-        start_frame = recalculate_frame(int(element.attrib['start']))
-        end_frame = recalculate_frame(int(element.attrib['end']))
+        start_frame = int(element.attrib['start'])
+        end_frame = int(element.attrib['end'])
         segment = {'class': element.attrib['class'], 'start_frame': start_frame, 'end_frame': end_frame}
         segments.append(segment)
 
@@ -230,8 +247,6 @@ def collect_speeches(index_file):
         end_text = int(element.find('TextEndPos').text)
         start_frame = int(element.find('AudioStartPos').text)
         end_frame = int(element.find('AudioEndPos').text)
-        start_frame = recalculate_frame(start_frame)
-        end_frame = recalculate_frame(end_frame)
 
         speech = {'start_frame': start_frame, 'end_frame': end_frame, 'start_text': start_text, 'end_text': end_text}
         speeches.append(speech)
@@ -239,6 +254,4 @@ def collect_speeches(index_file):
 
 
 if __name__ == '__main__':
-    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}, overwrite={overwrite}')
-    corpus, corpus_file = create_corpus(source_root, target_root, max_entries)
-    print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')
+    main()

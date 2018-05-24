@@ -1,7 +1,7 @@
 class FileLogger(object):
-    def __init__(self, full_filename, headers):
+    def __init__(self, file_path, headers):
         self._headers = headers
-        self._out_fp = open(full_filename, 'w')
+        self._out_fp = open(file_path, 'w')
         self._write(headers)
 
     def write(self, line):

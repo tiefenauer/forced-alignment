@@ -3,9 +3,11 @@ import argparse
 import os
 import random
 import time
+from _datetime import datetime
 
 import numpy as np
 import tensorflow as tf
+from os.path import exists
 
 from corpus_util import load_corpus
 from file_logger import FileLogger
@@ -46,10 +48,18 @@ max_shift = 2000  # maximum number of frames to shift the audio
 
 # other options
 batch_size = 100  # number of entries to process between validation
-file_logger = FileLogger('out.tsv', ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
 
 
 def main():
+    print(f'corpus={args.corpus}, language={args.language}, '
+          f'num_entries={args.num_entries}, num_segments={args.num_segments}')
+
+    log_dir = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    if not exists(log_dir):
+        os.makedirs(log_dir)
+
+    print(f'logging to {log_dir}')
+
     if args.corpus == 'rl':
         corpus = load_corpus(rl_corpus_file)
     elif args.corpus == 'ls':
@@ -130,6 +140,7 @@ def train_rnn_ctc(train_set, dev_set, test_set):
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
+    file_logger = create_file_logger()
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(graph=graph, config=config) as session:
@@ -186,6 +197,12 @@ def generate_data(corpus_entries, shift_audio):
 
             x, y = create_x_y(audio, rate, ground_truth)
             yield x, y, ground_truth
+
+
+def create_file_logger(log_dir):
+    file_path = os.path.join(log_dir, 'stats.tsv')
+    file_logger = FileLogger(file_path, ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
+    return file_logger
 
 
 if __name__ == "__main__":

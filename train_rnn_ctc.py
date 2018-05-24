@@ -12,30 +12,37 @@ from file_logger import FileLogger
 from log_util import *
 from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
 
+# -------------------------------------------------------------
+# Constants, defaults and env-vars
+# -------------------------------------------------------------
+TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default target directory
+NUM_EPOCHS = 10000  # number of epochs to train on
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+NOW = datetime.now()
+
+# -------------------------------------------------------------
+# CLI arguments
+# -------------------------------------------------------------
 parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
 parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('language', type=str,
                     help='language on which to train the RNN')
-parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=10000,
-                    help='(optional) number of epochs to train the model (default: 10000)')
+parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TARGET_ROOT,
+                    help=f'(optional) root directory where results will be written to (default: {TARGET_ROOT})')
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
+                    help=f'(optional) number of epochs to train the model (default: {NUM_EPOCHS})')
 parser.add_argument('-le', '--limit_entries', type=int, nargs='?',
                     help='(optional) number of corpus entries from training set to use for training (default: all)')
 parser.add_argument('-ls', '--limit_segments', type=int, nargs='?',
                     help='(optional) number of aligned speech segments to use per corpus entry (default: all)')
 args = parser.parse_args()
 
-now = datetime.now()
-
-LS_SOURCE_ROOT = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
-RL_SOURCE_ROOT = r'E:\readylingua-corpus' if os.name == 'nt' else '/media/all/D1/readylingua-corpus'
-LS_TARGET_ROOT = r'E:\librispeech-data' if os.name == 'nt' else '/media/all/D1/librispeech-data'
-RL_TARGET_ROOT = r'E:\readylingua-data' if os.name == 'nt' else '/media/all/D1/readylingua-data'
-
-ls_corpus_file = os.path.join(LS_SOURCE_ROOT, 'librispeech.corpus')
-rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
-
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+# -------------------------------------------------------------
+# Other values
+# -------------------------------------------------------------
+ls_corpus_file = os.path.join(args.target_root, 'librispeech-corpus', 'librispeech.corpus')
+rl_corpus_file = os.path.join(args.target_root, 'readylingua-corpus', 'readylingua.corpus')
 
 # Hyper-parameters
 num_features = 13
@@ -55,7 +62,7 @@ def main():
     args_str = create_args_str(args)
     print(args_str)
 
-    target_dir = now.strftime('%Y-%m-%d-%H-%M-%S')
+    target_dir = NOW.strftime('%Y-%m-%d-%H-%M-%S')
     print(f'Results will be written to: {os.path.abspath(target_dir)}')
 
     if args.corpus == 'rl':
@@ -167,8 +174,8 @@ def train_model(model_parms, train_set, dev_set, test_set, target_dir):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
 
-    cost_logger = create_cost_logger(target_dir, now)
-    epoch_logger = create_epoch_logger(target_dir, now)
+    cost_logger = create_cost_logger(target_dir, NOW)
+    epoch_logger = create_epoch_logger(target_dir, NOW)
 
     with tf.Session(graph=graph, config=config) as session:
         tf.global_variables_initializer().run()

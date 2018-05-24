@@ -27,6 +27,8 @@ RL_TARGET_ROOT = r'E:\readylingua-data' if os.name == 'nt' else '/media/all/D1/r
 ls_corpus_file = os.path.join(LS_SOURCE_ROOT, 'librispeech.corpus')
 rl_corpus_file = os.path.join(RL_SOURCE_ROOT, 'readylingua.corpus')
 
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+
 # Hyper-parameters
 num_features = 13
 # 26 lowercase ASCII chars + space + blank = 28 labels
@@ -104,7 +106,9 @@ def train_rnn_ctc(train_set, dev_set, test_set):
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
-    with tf.Session(graph=graph) as session:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(graph=graph, config=config) as session:
         tf.global_variables_initializer().run()
 
         for curr_epoch in range(num_epochs):

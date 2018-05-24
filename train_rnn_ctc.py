@@ -62,7 +62,7 @@ def main():
     args_str = create_args_str(args)
     print(args_str)
 
-    target_dir = NOW.strftime('%Y-%m-%d-%H-%M-%S')
+    target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
     print(f'Results will be written to: {os.path.abspath(target_dir)}')
 
     if args.corpus == 'rl':

@@ -4,8 +4,8 @@ import os
 import random
 import time
 
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 
 from corpus_util import load_corpus
 from file_logger import FileLogger
@@ -17,6 +17,10 @@ parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('language', type=str,
                     help='language on which to train the RNN')
+parser.add_argument('-e', '--num_entries', type=int, nargs='?',
+                    help='(optional) number of corpus entries from training set to use for training (default: all)')
+parser.add_argument('-s', '--num_segments', type=int, nargs='?',
+                    help='(optional) number of aligned speech segments to use per corpus entry (default: all)')
 args = parser.parse_args()
 
 LS_SOURCE_ROOT = r'E:\librispeech-corpus' if os.name == 'nt' else '/media/all/D1/librispeech-corpus'
@@ -43,6 +47,26 @@ max_shift = 2000  # maximum number of frames to shift the audio
 # other options
 batch_size = 100  # number of entries to process between validation
 file_logger = FileLogger('out.tsv', ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
+
+
+def main():
+    if args.corpus == 'rl':
+        corpus = load_corpus(rl_corpus_file)
+    elif args.corpus == 'ls':
+        corpus = load_corpus(ls_corpus_file)
+    corpus = corpus(languages=args.language)
+    corpus.summary()
+
+    train_set, dev_set, test_set = corpus.train_dev_test_split()
+
+    if args.num_entries:
+        # for test purposes only: train only on first corpus entry
+        repeat_samples = train_set[:args.num_entries]
+        train_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
+        dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
+
+    print(f'training on {len(train_set)} corpus entries with {args.num_segments or "all"} segments each')
+    train_rnn_ctc(train_set, dev_set, test_set)
 
 
 def train_rnn_ctc(train_set, dev_set, test_set):
@@ -165,18 +189,4 @@ def generate_data(corpus_entries, shift_audio):
 
 
 if __name__ == "__main__":
-    if args.corpus == 'rl':
-        corpus = load_corpus(rl_corpus_file)
-    elif args.corpus == 'ls':
-        corpus = load_corpus(ls_corpus_file)
-    corpus = corpus(languages=args.language)
-    corpus.summary()
-
-    train_set, dev_set, test_set = corpus.train_dev_test_split()
-
-    # for test purposes only: train only on first corpus entry
-    repeat_samples = train_set[:1]
-    train_set = DummyCorpus(repeat_samples, 1)
-    dev_set = DummyCorpus(repeat_samples, 1)
-
-    train_rnn_ctc(train_set, train_set, test_set)
+    main()

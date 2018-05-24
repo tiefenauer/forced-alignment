@@ -1,17 +1,17 @@
-class FileLogger(object):
-    def __init__(self, file_path, headers):
-        self._headers = headers
-        self._out_fp = open(file_path, 'w')
-        self._write(headers)
+from abc import ABC
+
+
+class FileLogger(ABC):
+    def __init__(self, file_path):
+        self.logfile = open(file_path, 'w')
 
     def write(self, line):
-        assert len(line) == len(self._headers)
-        self._write(line)
+        self.logfile.writelines(line + '\n')
+        self.logfile.flush()
+
+    def write_tabbed(self, elements):
+        line = '\t'.join(str(e) for e in elements)
+        self.write(line)
 
     def close(self):
-        self._out_fp.close()
-
-    def _write(self, arr):
-        arr = [str(e) for e in arr]
-        self._out_fp.write(' '.join(arr) + '\n')
-        self._out_fp.flush()
+        self.logfile.close()

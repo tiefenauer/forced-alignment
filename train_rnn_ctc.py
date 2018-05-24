@@ -11,7 +11,7 @@ from os.path import exists
 
 from corpus_util import load_corpus
 from file_logger import FileLogger
-from log_util import log_prediction
+from log_util import print_prediction, create_args_str, get_commit_id, log_prediction
 from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
 
 parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
@@ -51,15 +51,12 @@ batch_size = 100  # number of entries to process between validation
 
 
 def main():
-    args_str = f'corpus={args.corpus}, language={args.language}, ' \
-               f'num_entries={args.num_entries}, num_segments={args.num_segments}'
+    args_str = create_args_str(args)
     print(args_str)
 
-    log_dir = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    if not exists(log_dir):
-        os.makedirs(log_dir)
-
-    print(f'logging to {log_dir}')
+    now = datetime.now()
+    log_dir = now.strftime('%Y-%m-%d-%H-%M-%S')
+    print(f'logging to {os.path.abspath(log_dir)}')
 
     if args.corpus == 'rl':
         corpus = load_corpus(rl_corpus_file)
@@ -67,6 +64,9 @@ def main():
         corpus = load_corpus(ls_corpus_file)
     corpus = corpus(languages=args.language)
     corpus.summary()
+
+    print('creating model')
+    model_parms = create_model()
 
     train_set, dev_set, test_set = corpus.train_dev_test_split()
 
@@ -76,14 +76,12 @@ def main():
         train_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
         dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.num_segments)
 
-    print('creating model')
-    model_parms = create_model()
-
     print(f'training on {len(train_set)} corpus entries with {args.num_segments or "all"} segments each')
-    stats_logger = create_file_logger(log_dir)
+    cost_logger = create_cost_logger(log_dir, now)
+    epoch_logger = create_epoch_logger(log_dir, now)
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    train_model(model_parms, config, train_set, dev_set, test_set, stats_logger)
+    train_model(model_parms, config, train_set, dev_set, test_set, cost_logger, epoch_logger)
 
 
 def create_model():
@@ -159,7 +157,7 @@ def create_model():
     }
 
 
-def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger):
+def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger, epoch_logger):
     graph = model_parms['graph']
     cost = model_parms['cost']
     optimizer = model_parms['optimizer']
@@ -186,9 +184,9 @@ def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger):
 
                 # Decoding
                 d = session.run(decoded[0], feed_dict=feed)
-                str_decoded = decode(d[1])
+                prediction = decode(d[1])
 
-                log_prediction(ground_truth, str_decoded, 'train-set')
+                print_prediction(ground_truth, prediction, 'train-set')
 
             validation_data = generate_data(dev_set, True)
             x_val, y_val, ground_truth = random.choice(list(validation_data))
@@ -198,15 +196,17 @@ def train_model(model_parms, config, train_set, dev_set, test_set, cost_logger):
 
             # Decoding
             d = session.run(decoded[0], feed_dict=val_feed)
-            str_decoded = decode(d[1])
+            prediction = decode(d[1])
 
-            log_prediction(ground_truth, str_decoded, 'dev-set')
-
-            cost_logger.write([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
+            cost_logger.write_tabbed([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
             log = f'=== Epoch {curr_epoch+1}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
                   f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
             print(log)
+            print_prediction(ground_truth, prediction, 'dev-set')
+            if curr_epoch % 20 == 0:
+                epoch_logger.write(log)
+                log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
 
 
 def generate_data(corpus_entries, shift_audio):
@@ -225,9 +225,26 @@ def generate_data(corpus_entries, shift_audio):
             yield x, y, ground_truth
 
 
-def create_file_logger(log_dir):
-    file_path = os.path.join(log_dir, 'stats.tsv')
-    file_logger = FileLogger(file_path, ['curr_epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
+def create_cost_logger(log_dir, now=None):
+    cost_logger = create_file_logger(log_dir, 'stats.tsv', now)
+    cost_logger.write_tabbed(['epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
+    return cost_logger
+
+
+def create_epoch_logger(log_dir, now=None):
+    epoch_logger = create_file_logger(log_dir, 'epochs.txt', now)
+    return epoch_logger
+
+
+def create_file_logger(log_dir, file_name, now=datetime.now()):
+    if not exists(log_dir):
+        os.makedirs(log_dir)
+    file_path = os.path.join(log_dir, file_name)
+    file_logger = FileLogger(file_path)
+    file_logger.write(f'----------------------------------')
+    file_logger.write(f'Date: {now}')
+    file_logger.write(f'Commit: {get_commit_id()}')
+    file_logger.write(f'----------------------------------')
     return file_logger
 
 

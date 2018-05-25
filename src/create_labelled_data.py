@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 # -------------------------------------------------------------
 DEFAULT_CORPUS_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1/'
 RL_CORPUS_ROOT = os.path.join(DEFAULT_CORPUS_ROOT, 'readylingua-corpus')
-LS_CORPUS_ROOT = os.path.join(DEFAULT_CORPUS_ROOT, 'ibrispeech-corpus')
+LS_CORPUS_ROOT = os.path.join(DEFAULT_CORPUS_ROOT, 'librispeech-corpus')
 
 # -------------------------------------------------------------
 # CLI arguments

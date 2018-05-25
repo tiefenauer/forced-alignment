@@ -11,20 +11,26 @@ from os.path import exists
 from pydub.utils import mediainfo
 from tqdm import tqdm
 
-from util.audio_util import mp3_to_wav, crop_wav, calculate_frame
 from corpus.corpus import LibriSpeechCorpus
-from corpus.corpus_segment import Speech, Pause, UnalignedSpeech
 from corpus.corpus_entry import CorpusEntry
+from corpus.corpus_segment import Speech, Pause, UnalignedSpeech
+from util.audio_util import mp3_to_wav, crop_wav, calculate_frame
 from util.corpus_util import save_corpus, find_file_by_extension
-from util.log_util import log_setup
+from util.log_util import log_setup, create_args_str
 
 logfile = 'librispeech_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
-DEFAULT_SOURCE_ROOT = r'D:\\corpus\\' if os.name == 'nt' else '/media/all/D1/'
-DEFAULT_TARGET_ROOT = r'D:\\corpus\\' if os.name == 'nt' else '/media/all/D1/'
+# -------------------------------------------------------------
+# Constants, defaults and env-vars
+# -------------------------------------------------------------
+DEFAULT_SOURCE_ROOT = r'D:\corpus' if os.name == 'nt' else '/media/all/D1/'  # root directory for raw corpus files
+DEFAULT_TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1/'  # root directory for processed corpus files
 
+# -------------------------------------------------------------
+# CLI arguments
+# -------------------------------------------------------------
 parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from raw files""")
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-s', '--source_root', default=DEFAULT_SOURCE_ROOT,
@@ -37,6 +43,9 @@ parser.add_argument('-o', '--overwrite', default=False, action='store_true',
                     help='(optional) overwrite existing audio data if already present. Default=False)')
 args = parser.parse_args()
 
+# -------------------------------------------------------------
+# Other values
+# -------------------------------------------------------------
 books_pattern = re.compile('(?P<book_id>\d+)'
                            '\s*\|\s*'
                            '(?P<book_title>.*?)'
@@ -71,13 +80,19 @@ non_ascii_pattern = re.compile(r'[^\x00-\x7F]+')
 punctuation_pattern = re.compile(r'[^\w\s]')
 whitespace_pattern = re.compile(r'\s+')
 
-max_entries = args.max_entries
-overwrite = args.overwrite
 
-source_root = os.path.join(args.source_root, 'librispeech-raw')
-target_root = os.path.join(args.target_root, 'librispeech-corpus')
+def main():
+    print(create_args_str(args))
+    source_root = os.path.join(args.source_root, 'librispeech-raw')
+    target_root = os.path.join(args.target_root, 'librispeech-corpus')
+    print(f'Processing files from {source_root} and saving them in {target_root}')
 
-def create_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries):
+    corpus, corpus_file = create_corpus(source_root, target_root, args.max_entries)
+
+    print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')
+
+
+def create_corpus(source_root, target_root, max_entries):
     if not os.path.exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
@@ -126,7 +141,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
 
         # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + ".wav")
-        if not exists(audio_file) or overwrite:
+        if not exists(audio_file) or args.overwrite:
             in_file = os.path.join(directory, mp3_file)
             mp3_to_wav(in_file, audio_file)
             crop_wav(audio_file, segments)
@@ -345,6 +360,4 @@ def parse_segment_line(line):
 
 
 if __name__ == '__main__':
-    print(f'source_root={source_root}, target_root={target_root}, max_entries={max_entries}, overwrite={overwrite}')
-    corpus, corpus_file = create_corpus(source_root, target_root, max_entries)
-    print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')
+    main()

@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from hamcrest import assert_that, is_
 
-from string_utils import replace_not_alphanumeric, normalize, remove_multi_spaces, create_filename, replace_numeric, \
+from util.string_util import replace_not_alphanumeric, normalize, remove_multi_spaces, create_filename, replace_numeric, \
     contains_numeric
 
 

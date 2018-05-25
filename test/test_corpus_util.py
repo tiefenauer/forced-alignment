@@ -1,6 +1,6 @@
 import unittest
 
-import corpus_util
+from util import corpus_util
 
 
 class TestCorpusUtil(unittest.TestCase):

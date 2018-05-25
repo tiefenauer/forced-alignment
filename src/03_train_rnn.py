@@ -7,11 +7,10 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
-from corpus_util import load_corpus
-from file_logger import FileLogger
-from log_util import *
-from plot_utils import visualize_cost
-from rnn_utils import create_x_y_mfcc, CHAR_TOKENS, decode, DummyCorpus
+from util.corpus_util import load_corpus
+from util.log_util import *
+from util.plot_util import visualize_cost
+from util.rnn_utils import create_x_y_mfcc, CHAR_TOKENS, decode, DummyCorpus, FileLogger
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars

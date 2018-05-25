@@ -1,6 +1,7 @@
 import gzip
 import os
 import pickle
+from copy import copy
 
 
 def save_corpus(corpus_entries, corpus_file, gzip=False):
@@ -36,3 +37,20 @@ def filter_corpus_entry_by_subset_prefix(corpus_entries, prefixes):
     return [corpus_entry for corpus_entry in corpus_entries
             if corpus_entry.subset
             and any(corpus_entry.subset.startswith(prefix) for prefix in prefixes)]
+
+
+def calculate_crop(segments):
+    crop_start = min(segment.start_frame for segment in segments)
+    crop_end = max(segment.end_frame for segment in segments)
+    return crop_start, crop_end
+
+
+def crop_segments(segments):
+    cropped_segments = []
+    crop_start, crop_end = calculate_crop(segments)
+    for segment in segments:
+        cropped_segment = copy(segment)
+        cropped_segment.start_frame -= crop_start
+        cropped_segment.end_frame -= crop_start
+        cropped_segments.append(cropped_segment)
+    return cropped_segments

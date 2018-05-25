@@ -12,26 +12,27 @@ def visualize_cost(target_dir):
     val_cost = data[:, 3]
     val_ler = data[:, 4]
 
-    return create_figure(train_cost, train_ler, val_cost, val_ler)
+    return create_figures(train_cost, train_ler, val_cost, val_ler)
 
 
-def create_figure(train_cost, train_ler, val_cost, val_ler):
-    fig = plt.figure(figsize=(16, 9))
-    ax_ctc = fig.add_subplot(211)
+def create_figures(train_cost, train_ler, val_cost, val_ler):
+    fig_ctc = plt.figure(figsize=(16, 9))
+    ax_ctc = fig_ctc.add_subplot(111)
     ax_ctc.set_title('CTC Loss')
     ax_ctc.set_xlabel('Epoch')
     ax_ctc.set_ylabel('CTC Loss')
     ax_ctc.plot(train_cost)
     ax_ctc.plot(val_cost)
 
-    ax_ler = fig.add_subplot(212)
+    fig_ler = plt.figure(figsize=(16, 9))
+    ax_ler = fig_ler.add_subplot(111)
     ax_ler.set_title('LER Loss')
     ax_ler.set_xlabel('Epochs')
     ax_ler.set_ylabel('LER Loss')
     ax_ler.plot(train_ler)
     ax_ler.plot(val_ler)
 
-    return fig
+    return fig_ctc, fig_ler
 
 
 def show_plot(target_dir):
@@ -40,5 +41,5 @@ def show_plot(target_dir):
 
 
 if __name__ == '__main__':
-    target_dir = r'E:\2018-05-25-08-41-48'
+    target_dir = r'E:\2018-05-25-08-47-42'
     show_plot(target_dir)

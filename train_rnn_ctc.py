@@ -19,6 +19,7 @@ from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
 TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default target directory
 NUM_EPOCHS = 10000  # number of epochs to train on
 NOW = datetime.now()
+MAX_SHIFT = 2000  # maximum number of frames to shift the audio
 os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 
 # -------------------------------------------------------------
@@ -56,7 +57,6 @@ num_classes = len(CHAR_TOKENS) + 2
 # Hyper-parameters
 num_hidden = 100
 num_layers = 1
-max_shift = 2000  # maximum number of frames to shift the audio
 
 # other options
 batch_size = 100  # number of entries to process between validation
@@ -87,8 +87,9 @@ def main():
     save_path = train_model(model_parms, train_set, dev_set, test_set)
     print(f'Model saved in path: {save_path}')
 
-    fig = visualize_cost(target_dir)
-    fig.savefig(os.path.join(target_dir, 'cost.png'), bbox_inches='tight')
+    fig_ctc, fig_ler = visualize_cost(target_dir)
+    fig_ctc.savefig(os.path.join(target_dir, 'cost_ctc_sample.png'), bbox_inches='tight')
+    fig_ler.savefig(os.path.join(target_dir, 'cost_ler_sample.png'), bbox_inches='tight')
 
 
 def create_model():
@@ -235,7 +236,7 @@ def generate_data(corpus_entries, shift_audio):
             ground_truth = speech_segment.text
 
             if shift_audio:
-                shift = np.random.randint(low=1, high=max_shift)
+                shift = np.random.randint(low=1, high=MAX_SHIFT)
                 audio = audio[shift:]
 
             x, y = create_x_y(audio, rate, ground_truth)

@@ -12,5 +12,23 @@ The code was written for [Python](https://www.python.org/) `3.6.4` using [Anacon
 
 This application uses [Pydub](http://pydub.com/) which means you will need **libav** or **ffmpeg** on your `PATH`. See the [Pydub Repository](https://github.com/jiaaro/pydub#installation) for further instructions.
 
-The notebook ip8.ipynb contains some examples on how to create corpora and train the RNN.
+## Project anatomy
+The code of this project is structured into the following packages:
+
+| package/subdirectory | description |
+|---|---|
+| src | contains jupyter notebooks and main python scripts |
+| src/corpus | class definitions for corpora |
+| src/util | various utility scripts |
+| test | test scripts |
+| assets | assets for jupyter notebooks |
+
+## Jupyter notebooks
+The following jupyter notebooks illustrate the whole project process interactively:
+
+| Jupyter notebook | description |
+|---|---|
+| [01_create_corpora](./src/01_create_corpora.ipynb) | How corpora were created from raw data |
+| [02_create_labelled_data](./src/02_create_labelled_data.ipynb) | How labelled data was created from corpus data |
+| [03_train_rnn](./src/03_train_rnn.ipynb) | RNN architecture and training information |
 

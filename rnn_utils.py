@@ -9,7 +9,7 @@ UNKNOWN_TOKEN = '<unk>'
 CHAR_TOKENS = string.ascii_lowercase
 
 
-def create_x_y(audio, rate, text):
+def create_x_y_mfcc(audio, rate, text):
     # create x from MFCC features
     inputs = mfcc(audio, samplerate=rate)
     train_inputs = np.asarray(inputs[np.newaxis, :])

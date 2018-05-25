@@ -11,7 +11,7 @@ from corpus_util import load_corpus
 from file_logger import FileLogger
 from log_util import *
 from plot_utils import visualize_cost
-from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
+from rnn_utils import create_x_y_mfcc, CHAR_TOKENS, decode, DummyCorpus
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
@@ -239,7 +239,7 @@ def generate_data(corpus_entries, shift_audio):
                 shift = np.random.randint(low=1, high=MAX_SHIFT)
                 audio = audio[shift:]
 
-            x, y = create_x_y(audio, rate, ground_truth)
+            x, y = create_x_y_mfcc(audio, rate, ground_truth)
             yield x, y, ground_truth
 
 

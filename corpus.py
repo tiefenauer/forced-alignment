@@ -40,11 +40,13 @@ class Corpus(ABC):
         for corpus_entry in self.corpus_entries:
             yield corpus_entry
 
-    def __getitem__(self, index):
-        if isinstance(index, int):
-            return self.corpus_entries[index]
-        if isinstance(index, str):
-            return next(iter([corpus_entry for corpus_entry in self.corpus_entries if corpus_entry.id == index]), None)
+    def __getitem__(self, val):
+        # access by index
+        if isinstance(val, int) or isinstance(val, slice):
+            return self.corpus_entries[val]
+        # access by id
+        if isinstance(val, str):
+            return next(iter([corpus_entry for corpus_entry in self.corpus_entries if corpus_entry.id == val]), None)
         return None
 
     def __len__(self):
@@ -141,6 +143,8 @@ class CorpusEntry(object):
     def __init__(self, audio_file, segments, original_path='', parms={}):
         self.corpus = None
         self.audio_file = audio_file
+        self.x_path = None  # will be set in create_labelled_data.py
+        self.y_path = None  # will be set in create_labelled_data.py
 
         for segment in segments:
             segment.corpus_entry = self

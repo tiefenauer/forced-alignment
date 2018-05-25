@@ -12,7 +12,7 @@ from os.path import exists
 from pydub.utils import mediainfo
 from tqdm import tqdm
 
-from src.util.audio_util import recalculate_frame, resample_wav, crop_wav
+from util.audio_util import recalculate_frame, resample_wav, crop_wav
 from corpus.corpus import ReadyLinguaCorpus
 from corpus.corpus_segment import Speech, Pause
 from corpus.corpus_entry import CorpusEntry

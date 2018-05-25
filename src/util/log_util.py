@@ -9,7 +9,7 @@ import pygit2
 from os.path import exists
 
 FORMAT_STR = '%(asctime)s : %(name)s : %(levelname)s : %(message)s'
-repo = pygit2.Repository(os.getcwd())
+repo = pygit2.Repository(os.path.join(os.getcwd(), os.pardir))
 
 
 def log_setup(filename=None):

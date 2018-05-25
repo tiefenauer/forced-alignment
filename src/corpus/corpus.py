@@ -72,7 +72,7 @@ class Corpus(ABC):
         pass
 
     def summary(self):
-        total_segments = [seg for entry in self.corpus_entries for seg in entry.segments]
+        segments = [seg for entry in self.corpus_entries for seg in entry.segments]
         speeches = [seg for entry in self.corpus_entries for seg in entry.speech_segments]
         unaligned_speeches = [seg for entry in self.corpus_entries for seg in entry.speech_segments_unaligned]
         pauses = [seg for entry in self.corpus_entries for seg in entry.pause_segments]
@@ -80,7 +80,7 @@ class Corpus(ABC):
         print(f'Corpus: {self.name}')
         print('-----------------------------------------------------------')
         print(f'# corpus entries: {len(self.corpus_entries)}')
-        print(f'# total segments: {len(total_segments)}')
+        print(f'# segments: {len(segments)}')
         print(f'# speech segments: {len(speeches)}')
         print(f'# unaligned speech segments: {len(unaligned_speeches)}')
         print(f'# pause segments: {len(pauses)}')

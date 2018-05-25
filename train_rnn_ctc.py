@@ -10,6 +10,7 @@ from os.path import exists
 from corpus_util import load_corpus
 from file_logger import FileLogger
 from log_util import *
+from plot_utils import visualize_cost
 from rnn_utils import create_x_y, CHAR_TOKENS, decode, DummyCorpus
 
 # -------------------------------------------------------------
@@ -83,8 +84,11 @@ def main():
         dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
 
     print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
-    save_path = train_model(model_parms, train_set, dev_set, test_set, target_dir)
+    save_path = train_model(model_parms, train_set, dev_set, test_set)
     print(f'Model saved in path: {save_path}')
+
+    fig = visualize_cost(target_dir)
+    fig.savefig(os.path.join(target_dir, 'cost.png'), bbox_inches='tight')
 
 
 def create_model():
@@ -160,7 +164,7 @@ def create_model():
     }
 
 
-def train_model(model_parms, train_set, dev_set, test_set, target_dir):
+def train_model(model_parms, train_set, dev_set, test_set):
     graph = model_parms['graph']
     cost = model_parms['cost']
     optimizer = model_parms['optimizer']

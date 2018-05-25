@@ -64,7 +64,7 @@ class Corpus(ABC):
 
     @property
     def keys(self):
-        return [corpus_entry.id for corpus_entry in self.corpus_entries]
+        return sorted([corpus_entry.id for corpus_entry in self.corpus_entries])
 
     @abstractmethod
     def train_dev_test_split(self):

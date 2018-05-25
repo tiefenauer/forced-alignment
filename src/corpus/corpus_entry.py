@@ -113,6 +113,24 @@ class CorpusEntry(object):
     def summary(self):
         print('')
         print(f'Corpus Entry: {self.name} (id={self.id})')
+        print('-----------------------------------------------------------')
+        l_sg = sum(seg.audio_length for seg in self.speech_segments)
+        l_sp = sum(seg.audio_length for seg in self.speech_segments)
+        l_ps = sum(seg.audio_length for seg in self.pause_segments)
+        l_sp_u = sum(seg.audio_length for seg in self.speech_segments_unaligned)
+        l_sp_num = sum(seg.audio_length for seg in self.speech_segments_numeric)
+        l_sp_nnum = sum(seg.audio_length for seg in self.speech_segments_not_numeric)
+        table = {
+            'speech segments': (len(self.speech_segments), timedelta(seconds=l_sp)),
+            'pause segments': (len(self.pause_segments), timedelta(seconds=l_ps)),
+            'speech segments (unaligned)': (len(self.speech_segments_unaligned), timedelta(seconds=l_sp_u)),
+            'speech segments containing numbers in transcript': (len(self.speech_segments_numeric), timedelta(seconds=l_sp_num)),
+            'speech segments not containing numbers in transcript': (len(self.speech_segments_not_numeric), timedelta(seconds=l_sp_nnum)),
+            'total segments': (len(self.segments), timedelta(seconds=l_sg)),
+        }
+        headers = ['# ', 'hh:mm:ss']
+        print(tabulate([(k,) + v for k, v in table.items()], headers=headers))
+        print('-----------------------------------------------------------')
         print(f'duration: {timedelta(seconds=self.audio_length)}')
         print(f'original path: {self.original_path}')
         print(f'original sampling rate: {self.original_sampling_rate}')
@@ -121,21 +139,4 @@ class CorpusEntry(object):
         print(f'chapter ID: {self.chapter_id}')
         print(f'speaker_ID: {self.speaker_id}')
         print(f'subset membership: {self.subset}')
-        print('-----------------------------------------------------------')
-        l_sp = sum(seg.audio_length for seg in self.speech_segments)
-        l_ps = sum(seg.audio_length for seg in self.pause_segments)
-        l_sp_u = sum(seg.audio_length for seg in self.speech_segments_unaligned)
-        l_sp_num = sum(seg.audio_length for seg in self.speech_segments_numeric)
-        l_sp_nnum = sum(seg.audio_length for seg in self.speech_segments_not_numeric)
-        table = {
-            'segments': (len(self.segments), timedelta(seconds=self.audio_length)),
-            'speech segments': (len(self.speech_segments), timedelta(seconds=l_sp)),
-            'pause segments': (len(self.pause_segments), timedelta(seconds=l_ps)),
-            'speech segments (unaligned)': (len(self.speech_segments_unaligned), timedelta(seconds=l_sp_u)),
-            'speech segments containing numbers in transcript': (len(self.speech_segments_numeric), timedelta(seconds=l_sp_num)),
-            'speech segments not containing numbers in transcript': (len(self.speech_segments_not_numeric), timedelta(seconds=l_sp_nnum))
-        }
-        headers = ['# ', 'hh:mm:ss']
-        print(tabulate([(k,) + v for k, v in table.items()], headers=headers))
-        print('-----------------------------------------------------------')
         print(f'media info: {self.media_info}')

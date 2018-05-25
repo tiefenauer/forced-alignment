@@ -5,9 +5,9 @@ from random import randint
 import numpy as np
 from tqdm import tqdm
 
-from audio_util import read_wav_file
-from corpus_util import filter_corpus_entry_by_subset_prefix
-from string_utils import normalize, contains_numeric
+from src.util.audio_util import read_wav_file
+from util.corpus_util import filter_corpus_entry_by_subset_prefix
+from util.string_util import normalize, contains_numeric
 
 
 def calculate_crop(segments):
@@ -144,8 +144,8 @@ class CorpusEntry(object):
     def __init__(self, audio_file, segments, original_path='', parms={}):
         self.corpus = None
         self.audio_file = audio_file
-        self.x_path = None  # will be set in create_labelled_data.py
-        self.y_path = None  # will be set in create_labelled_data.py
+        self.x_path = None  # will be set in 02_create_labelled_data.py
+        self.y_path = None  # will be set in 02_create_labelled_data.py
 
         for segment in segments:
             segment.corpus_entry = self

@@ -1,7 +1,7 @@
 import os
 import unittest
 
-import audio_util
+from src.util import audio_util
 
 
 class TestAudioUtil(unittest.TestCase):

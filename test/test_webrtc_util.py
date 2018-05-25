@@ -3,9 +3,8 @@ from unittest import TestCase
 
 import numpy as np
 
-import corpus_util
-import webrtc_util
-from audio_util import write_wav_file
+from util import corpus_util, webrtc_util
+from src.util.audio_util import write_wav_file
 
 
 class TestWebRtcUtil(TestCase):

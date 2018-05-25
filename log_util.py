@@ -1,10 +1,12 @@
+import builtins
 import logging
 import os
-import subprocess
 import sys
 from datetime import datetime
+from os import makedirs
 
 import pygit2
+from os.path import exists
 
 FORMAT_STR = '%(asctime)s : %(name)s : %(levelname)s : %(message)s'
 repo = pygit2.Repository(os.getcwd())
@@ -16,6 +18,19 @@ def log_setup(filename=None):
     else:
         logger = logging.basicConfig(stream=sys.stdout, format=FORMAT_STR, level=logging.INFO)
     return logger
+
+
+def print_to_file_and_console(log_dir):
+    if not exists(log_dir):
+        makedirs(log_dir)
+    log_file = open(os.path.join(log_dir, 'train.log'), 'w')
+    _print = builtins.print
+
+    def my_print(args):
+        _print(args)
+        _print(args, file=log_file)
+
+    builtins.print = my_print
 
 
 def log_prediction(logger, ground_truth, prediction, subset_name):

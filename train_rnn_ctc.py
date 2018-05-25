@@ -43,6 +43,9 @@ args = parser.parse_args()
 # -------------------------------------------------------------
 ls_corpus_file = os.path.join(args.target_root, 'librispeech-corpus', 'librispeech.corpus')
 rl_corpus_file = os.path.join(args.target_root, 'readylingua-corpus', 'readylingua.corpus')
+target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
+print_to_file_and_console(target_dir)  # comment out to only log to console
+print(f'Results will be written to: {os.path.abspath(target_dir)}')
 
 # Hyper-parameters
 num_features = 13
@@ -60,9 +63,6 @@ batch_size = 100  # number of entries to process between validation
 
 def main():
     print(create_args_str(args))
-
-    target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
-    print(f'Results will be written to: {os.path.abspath(target_dir)}')
 
     if args.corpus == 'rl':
         corpus = load_corpus(rl_corpus_file)
@@ -209,12 +209,12 @@ def train_model(model_parms, train_set, dev_set, test_set, target_dir):
 
             cost_logger.write_tabbed([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
 
-            log = f'=== Epoch {curr_epoch}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
-                  f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
-            print(log)
+            val_str = f'=== Epoch {curr_epoch}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
+                      f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
+            print(val_str)
             print_prediction(ground_truth, prediction, 'dev-set')
             if curr_epoch % 20 == 0:
-                epoch_logger.write(log)
+                epoch_logger.write(val_str)
                 log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
 
         saver = tf.train.Saver()
@@ -257,7 +257,7 @@ def create_epoch_logger(log_dir):
 
 def create_file_logger(log_dir, file_name):
     if not exists(log_dir):
-        os.makedirs(log_dir)
+        makedirs(log_dir)
     file_path = os.path.join(log_dir, file_name)
     file_logger = FileLogger(file_path)
     return file_logger

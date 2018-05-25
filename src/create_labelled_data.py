@@ -6,7 +6,7 @@ import numpy as np
 from os.path import exists
 from tqdm import tqdm
 
-from src.util.audio_util import log_specgram
+from util.audio_util import log_specgram
 from util.corpus_util import load_corpus, save_corpus
 from util.log_util import log_setup, create_args_str
 

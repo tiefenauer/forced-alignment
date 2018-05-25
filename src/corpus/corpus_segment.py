@@ -29,6 +29,11 @@ class Segment(ABC):
         self._transcription = transcription
         self.text = normalize(transcription)
 
+    @property
+    def audio_length(self):
+        sample_rate = int(float(self.corpus_entry.media_info['sample_rate']))
+        return (self.end_frame - self.start_frame) / sample_rate
+
 
 class Speech(Segment):
     def __init__(self, start_frame, end_frame, transcription=''):

@@ -74,6 +74,7 @@ class Corpus(ABC):
         pass
 
     def summary(self):
+        print('')
         print(f'Corpus: {self.name}')
         table = {}
         total_entries = total_sg = total_sp = total_su = total_ps = total_length = 0

@@ -17,8 +17,6 @@ log = logging.getLogger(__name__)
 # Constants, defaults and env-vars
 # -------------------------------------------------------------
 DEFAULT_CORPUS_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1/'
-RL_CORPUS_ROOT = os.path.join(DEFAULT_CORPUS_ROOT, 'readylingua-corpus')
-LS_CORPUS_ROOT = os.path.join(DEFAULT_CORPUS_ROOT, 'librispeech-corpus')
 
 # -------------------------------------------------------------
 # CLI arguments
@@ -52,14 +50,16 @@ def main():
 
     # create LibriSpeech train-/dev-/test-data
     if not args.corpus or args.corpus == 'ls':
-        print(f'Processing files from {LS_CORPUS_ROOT}')
-        create_X_Y(LS_CORPUS_ROOT, 'librispeech.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
+        ls_corpus_root = os.path.join(args.corpus_root, 'librispeech-corpus')
+        print(f'Processing files from {ls_corpus_root}')
+        create_X_Y(ls_corpus_root, 'librispeech.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
     # create ReadyLingua train-/dev-/test-data
     if not args.corpus or args.corpus == 'rl':
-        print(f'Processing files from {RL_CORPUS_ROOT}')
-        create_X_Y(RL_CORPUS_ROOT, 'readylingua.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
+        rl_corpus_root = os.path.join(args.corpus_root, 'readylingua-corpus')
+        print(f'Processing files from {rl_corpus_root}')
+        create_X_Y(rl_corpus_root, 'readylingua.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
 

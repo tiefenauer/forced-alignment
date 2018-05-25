@@ -8,8 +8,10 @@ from os import makedirs
 import pygit2
 from os.path import exists
 
+from definitions import ROOT_DIR
+
 FORMAT_STR = '%(asctime)s : %(name)s : %(levelname)s : %(message)s'
-repo = pygit2.Repository(os.path.join(os.getcwd(), os.pardir))
+repo = pygit2.Repository(ROOT_DIR)
 
 
 def log_setup(filename=None):

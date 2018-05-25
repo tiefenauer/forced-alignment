@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from copy import copy, deepcopy
 from random import randint
 
+import numpy as np
 from tqdm import tqdm
 
 from audio_util import read_wav_file
@@ -201,6 +202,20 @@ class CorpusEntry(object):
     @property
     def text(self):
         return '\n'.join(segment.text for segment in self.speech_segments)
+
+    @property
+    def spectrogram(self):
+        if self.x_path:
+            (freqs, times, spec) = np.load(self.x_path)
+            return freqs, times, spec
+        return None
+
+    @property
+    def labels(self):
+        if self.y_path:
+            labels = np.load(self.y_path)
+            return labels
+        return None
 
     def __getstate__(self):
         # prevent caches from being pickled

@@ -13,6 +13,12 @@ class TestCorpusUtil(unittest.TestCase):
 
         corpus_entry = rl_corpus[0]
         corpus_entry.summary()
+        freq, times, spec = corpus_entry.spectrogram
+        print(freq.shape)
+        print(times.shape)
+        print(spec.shape)
+        labels = corpus_entry.labels
+        print(labels.shape)
         corpus_entry = rl_corpus['news170524']
         corpus_entry.summary()
 

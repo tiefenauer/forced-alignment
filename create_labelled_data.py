@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 from audio_util import log_specgram
 from corpus_util import load_corpus, save_corpus
-from data_util import save_x
 from log_util import log_setup, create_args_str
 
 logfile = 'create_labelled_data.log'
@@ -25,6 +24,7 @@ LS_CORPUS_ROOT = os.path.join(DEFAULT_CORPUS_ROOT, 'ibrispeech-corpus')
 # CLI arguments
 # -------------------------------------------------------------
 parser = argparse.ArgumentParser(description='Create labelled train-, dev- and test-data (X and Y) for all corpora')
+parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('corpus', nargs='?', type=str, choices=['rl', 'ls'],
                     help='(optional) select which corpus to process (rl=ReadyLingua, ls=LibriSpeech). '
                          'Default=None (all)')
@@ -53,17 +53,17 @@ def main():
     # create LibriSpeech train-/dev-/test-data
     if not args.corpus or args.corpus == 'ls':
         print(f'Processing files from {LS_CORPUS_ROOT}')
-        create_subsets(LS_CORPUS_ROOT, 'librispeech.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
+        create_X_Y(LS_CORPUS_ROOT, 'librispeech.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
     # create ReadyLingua train-/dev-/test-data
     if not args.corpus or args.corpus == 'rl':
         print(f'Processing files from {RL_CORPUS_ROOT}')
-        create_subsets(RL_CORPUS_ROOT, 'readylingua.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
+        create_X_Y(RL_CORPUS_ROOT, 'readylingua.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
 
-def create_subsets(corpus_root, corpus_file, no_spectrograms=False, no_labels=False, max_samples=None):
+def create_X_Y(corpus_root, corpus_file, no_spectrograms=False, no_labels=False, max_samples=None):
     corpus_path = os.path.join(corpus_root, corpus_file)
     corpus = load_corpus(corpus_path)
     for corpus_entry in tqdm(corpus[:max_samples], unit=' corpus entries'):
@@ -79,7 +79,7 @@ def create_x(corpus_entry, corpus_root):
     if not exists(x_path) or args.overwrite:
         rate, audio = corpus_entry.audio
         freqs, times, spec = log_specgram(audio, rate)
-        save_x(freqs, times, spec, x_path)
+        np.save(x_path, (freqs, times, spec))
     else:
         print(f'Skipping {x_path} because it already exists')
     return x_path
@@ -92,13 +92,13 @@ def create_y(corpus_entry, corpus_root):
         sample_rate = float(corpus_entry.media_info['sample_rate'])
         n_frames = int(duration * sample_rate)
 
-        # initialize label vector with zeroes (=no speech)
+        # initialize label vector with zeroes (=speech)
         y = np.zeros((1, T_y), 'int16')
 
         # set fraction of label vector to one for each speech segment
-        for speech_segment in corpus_entry.speech_segments:
-            start = round(speech_segment.start_frame * T_y / n_frames)
-            end = round(speech_segment.end_frame * T_y / n_frames)
+        for pause_segments in corpus_entry.pause_segments:
+            start = round(pause_segments.start_frame * T_y / n_frames)
+            end = round(pause_segments.end_frame * T_y / n_frames)
             y[:, start:end] = 1
         np.save(y_path, y)
 

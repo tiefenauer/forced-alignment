@@ -145,7 +145,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
             in_file = os.path.join(directory, mp3_file)
             mp3_to_wav(in_file, audio_file)
             crop_wav(audio_file, segments)
-            parms['media_info'] = mediainfo(audio_file)
+        parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
         corpus_entry = CorpusEntry(audio_file, segments, directory, parms)

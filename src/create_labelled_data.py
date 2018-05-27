@@ -66,7 +66,9 @@ def main():
 def create_X_Y(corpus_root, corpus_file, no_spectrograms=False, no_labels=False, max_samples=None):
     corpus_path = os.path.join(corpus_root, corpus_file)
     corpus = load_corpus(corpus_path)
-    for corpus_entry in tqdm(corpus[:max_samples], unit=' corpus entries'):
+    progress = tqdm(corpus[:max_samples], unit=' corpus entries')
+    for corpus_entry in progress:
+        progress.set_description(f'{os.path.join(corpus_root, corpus_entry.id):{50}}')
         if not no_spectrograms:
             corpus_entry.x_path = create_x(corpus_entry, corpus_root)
         if not no_labels:

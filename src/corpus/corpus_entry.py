@@ -3,6 +3,7 @@ from datetime import timedelta
 from random import randint
 
 import numpy as np
+from os.path import exists, join
 from tabulate import tabulate
 
 from util.audio_util import read_wav_file
@@ -78,15 +79,17 @@ class CorpusEntry(object):
 
     @property
     def spectrogram(self):
-        if self.x_path:
-            (freqs, times, spec) = np.load(self.x_path)
+        x_path = self.x_path or join(self.corpus.root_path, self.id + '.X.npy')
+        if exists(x_path):
+            (freqs, times, spec) = np.load(x_path)
             return freqs, times, spec
         return None
 
     @property
     def labels(self):
-        if self.y_path:
-            labels = np.load(self.y_path)
+        y_path = self.y_path or join(self.corpus.root_path, self.id + '.Y.npy')
+        if exists(y_path):
+            labels = np.load(y_path)
             return labels
         return None
 

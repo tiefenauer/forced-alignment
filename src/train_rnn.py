@@ -29,6 +29,10 @@ parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('language', type=str,
                     help='language on which to train the RNN')
+parser.add_argument('-id', '--id', type=str, nargs='?',
+                    help='(optional) specify ID of single corpus entry on which to train on')
+parser.add_argument('-ix', '--ix', type=str, nargs='?',
+                    help='(optional) specify inde of single corpus entry on which to train on')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TARGET_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TARGET_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
@@ -71,16 +75,32 @@ def main():
     corpus = corpus(languages=args.language)
     corpus.summary()
 
-    print('creating model')
-    model_parms = create_model()
-
     train_set, dev_set, test_set = corpus.train_dev_test_split()
 
-    if args.limit_entries:
-        # for test purposes only: train only on first corpus entry
+    if args.id or args.id:
+        if args.id:
+            print(f'training on corpus entry with id={args.id}')
+            repeat_sample = corpus[args.id]
+            if not repeat_sample:
+                print(f'Error: no entry with id={args.id} found!')
+                exit()
+        else:
+            print(f'training on corpus entry with index={args.ix}')
+            if args.ix > len(corpus):
+                print(f'Error: {args.id} exceeds corpus bounds ({len(corpus)} entries)!')
+                exit()
+            repeat_sample = corpus[args.ix]
+        train_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
+        dev_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
+
+    elif args.limit_entries:
+        print(f'limiting corpus entries to {args.limit_entries}')
         repeat_samples = train_set[:args.limit_entries]
         train_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
         dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
+
+    print('creating model')
+    model_parms = create_model()
 
     print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
     save_path = train_model(model_parms, train_set, dev_set, test_set)

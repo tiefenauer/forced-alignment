@@ -60,7 +60,7 @@ class Corpus(ABC):
 
     @property
     def languages(self):
-        return set(lang for lang in (corpus_entry.language for corpus_entry in self.corpus_entries))
+        return sorted(set(lang for lang in (corpus_entry.language for corpus_entry in self.corpus_entries)))
 
     @property
     def keys(self):
@@ -78,27 +78,60 @@ class Corpus(ABC):
         print(f'Corpus: {self.name}')
         print(self.root_path)
         table = {}
-        total_entries = total_sg = total_sp = total_su = total_ps = total_length = 0
+        t_entries = t_speeches = len_speeches = t_speeches_u = len_speeches_u = t_pauses = len_pauses = len_segments = t_segments = t_duration = 0
         for lang in self.languages:
             entries = [entry for entry in self.corpus_entries if entry.language == lang]
             n_entries = len(entries)
-            n_segments = len([sg for entry in entries for sg in entry.segments])
-            n_speeches = len([sp for entry in entries for sp in entry.speech_segments])
-            n_speeches_u = len([su for entry in entries for su in entry.speech_segments_unaligned])
-            n_pauses = len([ps for entry in entries for ps in entry.pause_segments])
-            length = sum(entry.audio_length for entry in self.corpus_entries if entry.language == lang)
+            t_entries += n_entries
 
-            total_entries += n_entries
-            total_sg += n_segments
-            total_sp += n_speeches
-            total_su += n_speeches_u
-            total_ps += n_pauses
-            total_length += length
+            speech_segments = [segment for entry in entries for segment in entry.speech_segments]
+            n_speeches = len(speech_segments)
+            l_speeches = sum(segment.audio_length for segment in speech_segments)
+            t_speeches += n_speeches
+            len_speeches += l_speeches
 
-            table[lang] = (n_entries, n_segments, n_speeches, n_speeches_u, n_pauses, timedelta(seconds=int(length)))
-        table['total'] = (total_entries, total_sg, total_sp, total_su, total_ps, timedelta(seconds=total_length))
-        print(tabulate([(k,) + v for k, v in table.items()],
-                       headers=['language', '# entries', '# segments', '# speeches', '# speeches (unaligned)', '# pauses', 'hh:mm:ss']))
+            speeches_unaligned = [segment for entry in entries for segment in entry.speech_segments_unaligned]
+            n_speeches_u = len(speeches_unaligned)
+            l_speeches_u = sum(segment.audio_length for segment in speeches_unaligned)
+            t_speeches_u += n_speeches_u
+            len_speeches_u += l_speeches_u
+
+            pauses = [ps for entry in entries for ps in entry.pause_segments]
+            n_pauses = len(pauses)
+            l_pauses = sum(segment.audio_length for segment in pauses)
+            t_pauses += n_pauses
+            len_pauses += l_pauses
+
+            segments = [sg for entry in entries for sg in entry.segments]
+            n_segments = len(segments)
+            l_segments = sum([segment.audio_length for segment in segments])
+            t_segments += n_segments
+            len_segments += l_segments
+
+            duration = sum(entry.audio_length for entry in self.corpus_entries if entry.language == lang)
+            t_duration += duration
+
+            table[lang] = (n_entries,
+                           n_speeches, timedelta(seconds=int(l_speeches)),
+                           n_speeches_u, timedelta(seconds=int(len_speeches_u)),
+                           n_pauses, timedelta(seconds=int(l_pauses)),
+                           n_segments, timedelta(seconds=int(l_segments)),
+                           timedelta(seconds=int(duration)))
+
+        table['total'] = (t_entries,
+                          t_speeches, timedelta(seconds=int(len_speeches)),
+                          t_speeches_u, timedelta(seconds=int(len_speeches_u)),
+                          t_pauses, timedelta(seconds=int(len_speeches_u)),
+                          t_segments, timedelta(seconds=int(len_segments)),
+                          timedelta(seconds=int(t_duration))
+                          )
+        headers = ['lang', '#entries',
+                   '#speeches', '',
+                   '#speeches', '(unal.)',
+                   '#pauses', '',
+                   '#total', '',
+                   'audio']
+        print(tabulate([(k,) + v for k, v in table.items()], headers=headers))
 
 
 class ReadyLinguaCorpus(Corpus):

@@ -18,8 +18,6 @@ class CorpusEntry(object):
     def __init__(self, audio_file, segments, original_path='', parms={}):
         self.corpus = None
         self.audio_file = audio_file
-        self.x_path = join(self.corpus.root_path, self.id + '.X.npy')
-        self.y_path = join(self.corpus.root_path, self.id + '.Y.npy')
 
         for segment in segments:
             segment.corpus_entry = self
@@ -78,11 +76,19 @@ class CorpusEntry(object):
         return '\n'.join(segment.text for segment in self.speech_segments)
 
     @property
+    def x_path(self):
+        return join(self.corpus.root_path, self.id + '.X.npy')
+
+    @property
     def spectrogram(self):
         if exists(self.x_path):
             (freqs, times, spec) = np.load(self.x_path)
             return freqs, times, spec
         return None
+
+    @property
+    def y_path(self):
+        return join(self.corpus.root_path, self.id + '.Y.npy')
 
     @property
     def labels(self):
@@ -117,7 +123,7 @@ class CorpusEntry(object):
         print('Audio: '.ljust(30) + self.audio_file)
         print('Spectrogram: '.ljust(30) + self.x_path)
         print('Labels: '.ljust(30) + self.y_path)
-        print('-----------------------------------------------------------')
+        print('')
         l_sg = sum(seg.audio_length for seg in self.speech_segments)
         l_sp = sum(seg.audio_length for seg in self.speech_segments)
         l_ps = sum(seg.audio_length for seg in self.pause_segments)
@@ -125,18 +131,18 @@ class CorpusEntry(object):
         l_sp_num = sum(seg.audio_length for seg in self.speech_segments_numeric)
         l_sp_nnum = sum(seg.audio_length for seg in self.speech_segments_not_numeric)
         table = {
-            'speech segments': (len(self.speech_segments), timedelta(seconds=l_sp)),
-            'pause segments': (len(self.pause_segments), timedelta(seconds=l_ps)),
-            'speech segments (unaligned)': (len(self.speech_segments_unaligned), timedelta(seconds=l_sp_u)),
-            'speech segments containing numbers in transcript': (
-            len(self.speech_segments_numeric), timedelta(seconds=l_sp_num)),
-            'speech segments not containing numbers in transcript': (
-            len(self.speech_segments_not_numeric), timedelta(seconds=l_sp_nnum)),
-            'total segments': (len(self.segments), timedelta(seconds=l_sg)),
+            '#speech segments': (len(self.speech_segments), timedelta(seconds=l_sp)),
+            '#pause segments': (len(self.pause_segments), timedelta(seconds=l_ps)),
+            '#segments (unaligned)': (len(self.speech_segments_unaligned), timedelta(seconds=l_sp_u)),
+            '#speech segments containing numbers in transcript': (
+                len(self.speech_segments_numeric), timedelta(seconds=l_sp_num)),
+            '#speech segments not containing numbers in transcript': (
+                len(self.speech_segments_not_numeric), timedelta(seconds=l_sp_nnum)),
+            '#total segments': (len(self.segments), timedelta(seconds=l_sg)),
         }
         headers = ['# ', 'hh:mm:ss']
         print(tabulate([(k,) + v for k, v in table.items()], headers=headers))
-        print('-----------------------------------------------------------')
+        print('')
         print(f'duration: {timedelta(seconds=self.audio_length)}')
         print(f'original path: {self.original_path}')
         print(f'original sampling rate: {self.original_sampling_rate}')

@@ -49,7 +49,11 @@ class CorpusEntry(object):
 
     @property
     def speech_segments_unaligned(self):
-        return [segment for segment in self.speech_segments if segment.segment_type == 'speech*']
+        return [segment for segment in self.segments if segment.segment_type == 'speech*']
+
+    @property
+    def pause_segments(self):
+        return [segment for segment in self.segments if segment.segment_type == 'pause']
 
     @property
     def speech_segments_numeric(self):
@@ -58,10 +62,6 @@ class CorpusEntry(object):
     @property
     def speech_segments_not_numeric(self):
         return [segment for segment in self.speech_segments if not contains_numeric(segment.text)]
-
-    @property
-    def pause_segments(self):
-        return [segment for segment in self.segments if segment.segment_type == 'pause']
 
     @property
     def audio(self):
@@ -127,8 +127,10 @@ class CorpusEntry(object):
             'speech segments': (len(self.speech_segments), timedelta(seconds=l_sp)),
             'pause segments': (len(self.pause_segments), timedelta(seconds=l_ps)),
             'speech segments (unaligned)': (len(self.speech_segments_unaligned), timedelta(seconds=l_sp_u)),
-            'speech segments containing numbers in transcript': (len(self.speech_segments_numeric), timedelta(seconds=l_sp_num)),
-            'speech segments not containing numbers in transcript': (len(self.speech_segments_not_numeric), timedelta(seconds=l_sp_nnum)),
+            'speech segments containing numbers in transcript': (
+            len(self.speech_segments_numeric), timedelta(seconds=l_sp_num)),
+            'speech segments not containing numbers in transcript': (
+            len(self.speech_segments_not_numeric), timedelta(seconds=l_sp_nnum)),
             'total segments': (len(self.segments), timedelta(seconds=l_sg)),
         }
         headers = ['# ', 'hh:mm:ss']

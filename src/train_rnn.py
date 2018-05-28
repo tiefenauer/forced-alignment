@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
+from util.audio_util import log_specgram
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
@@ -210,7 +211,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
             start = time.time()
 
             # for x_train, y_train, ground_truth in generate_data_mfcc(train_set, True):
-            for x_train, y_train, ground_truth in generate_data_spec(train_set, True):
+            for x_train, y_train, ground_truth in generate_data(train_set, True):
                 feed = {inputs: x_train, targets: y_train, seq_len: [x_train.shape[1]]}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -223,7 +224,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
                 print_prediction(ground_truth, prediction, 'train-set')
 
-            validation_data = generate_data_spec(dev_set, True)
+            validation_data = generate_data(dev_set, True)
             x_val, y_val, ground_truth = random.choice(list(validation_data))
 
             val_feed = {inputs: x_val, targets: y_val, seq_len: [x_val.shape[1]]}
@@ -249,25 +250,44 @@ def train_model(model_parms, train_set, dev_set, test_set):
     return save_path
 
 
+def generate_data(corpus_entries, shift_audio):
+    for corpus_entry in corpus_entries:
+        for speech_segment in [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]:
+            rate, audio = speech_segment.audio
+            ground_truth = speech_segment.text
+
+            if shift_audio:
+                shift = np.random.randint(low=1, high=MAX_SHIFT)
+                audio = audio[shift:]
+
+            freqs, times, spec = log_specgram(audio, rate)
+            train_inputs = np.asarray(spec[np.newaxis, :])
+            x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
+            y = create_y(ground_truth)
+            yield x, y, ground_truth
+
+
 def generate_data_spec(corpus_entries, shift_audio):
     for corpus_entry in corpus_entries:
-        segment_offset = 0
         # preload audio and spectrogram
         _, entry_audio = corpus_entry.audio
-        audio_len = entry_audio.shape[0]
         freqs, times, spec = corpus_entry.spectrogram
-        spec_len = spec.shape[0]
 
-        speech_segments = corpus_entry.speech_segments_not_numeric
-        for speech_segment in speech_segments:
-            _, speech_audio = speech_segment.audio
-            segment_offset += speech_audio.shape[0]
+        segment_offset = 0
+        audio_len = entry_audio.shape[0]
+        for segment in corpus_entry.segments:
+            _, speech_audio = segment.audio
+            segment_len = speech_audio.shape[0]
 
-            ground_truth = speech_segment.text
-            x = create_x_spec(speech_segment, spec, segment_offset, spec_len, audio_len)
-            y = create_y(ground_truth)
+            if segment.segment_type == 'speech':
+                shift = np.random.randint(low=1, high=MAX_SHIFT) if shift_audio else 0
 
-            yield x, y, ground_truth
+                x = create_x_spec(spec, segment_offset, audio_len, segment_len, shift)
+                y = create_y(segment.text)
+
+                yield x, y, segment.text
+
+            segment_offset += segment_len
 
 
 def generate_data_mfcc(corpus_entries, shift_audio):

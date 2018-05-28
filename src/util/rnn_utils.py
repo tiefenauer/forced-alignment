@@ -10,38 +10,23 @@ UNKNOWN_TOKEN = '<unk>'
 CHAR_TOKENS = string.ascii_lowercase
 
 
-def create_x_spec(corpus_entry, speech_segment, speech_segments):
+def create_x_spec(speech_segment, spec, segment_offset, spec_len, audio_len):
     """
     create input features for the RNN from a corpus entry's spectrogram
-    :param spec: spec
     :param speech_segment:
-    :param speech_segments:
+    :param segment_offset:
+    :param spec_len:
+    :param audio_len:
     :return:
     """
-    freqs, times, spec = corpus_entry.spectrogram
-    _, corpus_audio = corpus_entry.audio
+    spec_factor = spec_len / audio_len
     _, speech_audio = speech_segment.audio
-
-    audio_len = corpus_audio.shape[0]
-    spec_len = spec.shape[0]
-
-    factor = spec_len / audio_len
-
-    ix = speech_segments.index(speech_segment)
-
-    # offset = sum(len(audio) for (i, seg) in enumerate(corpus_entry.segments) for _, audio in seg.audio if i < ix)
-    offset = 0
-    for i, seg in enumerate(corpus_entry.segments):
-        rate, audio = seg.audio
-        if i < ix:
-            offset += len(audio)
-
-    offset = int(offset * factor)
-
     speech_len = speech_audio.shape[0]
-    limit = offset + int(speech_len * factor)
 
-    inputs = spec[offset:offset + limit, :]
+    start = int(spec_factor * segment_offset)
+    end = int(spec_factor * (segment_offset + speech_len))
+
+    inputs = spec[start:end, :]
     train_inputs = np.asarray(inputs[np.newaxis, :])
     x = train_inputs
     # x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)

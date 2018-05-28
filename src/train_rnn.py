@@ -251,10 +251,20 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
 def generate_data_spec(corpus_entries, shift_audio):
     for corpus_entry in corpus_entries:
+        segment_offset = 0
+        # preload audio and spectrogram
+        _, entry_audio = corpus_entry.audio
+        audio_len = entry_audio.shape[0]
+        freqs, times, spec = corpus_entry.spectrogram
+        spec_len = spec.shape[0]
+
         speech_segments = corpus_entry.speech_segments_not_numeric
         for speech_segment in speech_segments:
+            _, speech_audio = speech_segment.audio
+            segment_offset += speech_audio.shape[0]
+
             ground_truth = speech_segment.text
-            x = create_x_spec(corpus_entry, speech_segment, speech_segments)
+            x = create_x_spec(speech_segment, spec, segment_offset, spec_len, audio_len)
             y = create_y(ground_truth)
 
             yield x, y, ground_truth
@@ -279,7 +289,6 @@ def generate_data_mfcc(corpus_entries, shift_audio):
                 shift = np.random.randint(low=1, high=MAX_SHIFT)
                 audio = audio[shift:]
 
-            # x, y = create_x_y_mfcc(audio, rate, ground_truth)
             x = create_x_mfcc(audio, rate)
             y = create_y(ground_truth)
             yield x, y, ground_truth

@@ -3,7 +3,6 @@ import logging
 import os
 
 import numpy as np
-from os.path import exists
 from tqdm import tqdm
 
 from util.audio_util import log_specgram
@@ -69,26 +68,23 @@ def create_X_Y(corpus_root, no_spectrograms=False, no_labels=False, max_samples=
     for corpus_entry in progress:
         progress.set_description(f'{os.path.join(corpus_root, corpus_entry.id):{50}}')
         if not no_spectrograms:
-            corpus_entry.x_path = create_x(corpus_entry, corpus_root)
+            create_x(corpus_entry)
         if not no_labels:
-            corpus_entry.y_path = create_y(corpus_entry, corpus_root)
+            create_y(corpus_entry, corpus_root)
     save_corpus(corpus, corpus_root)
 
 
-def create_x(corpus_entry, corpus_root):
-    x_path = os.path.join(corpus_root, corpus_entry.id + '.X.npy')
-    if not exists(x_path) or args.overwrite:
+def create_x(corpus_entry):
+    if not corpus_entry.spectrogram or args.overwrite:
         rate, audio = corpus_entry.audio
         freqs, times, spec = log_specgram(audio, rate)
-        np.save(x_path, (freqs, times, spec))
+        np.save(corpus_entry.x_path, (freqs, times, spec))
     else:
-        print(f'Skipping {x_path} because it already exists')
-    return x_path
+        print(f'Skipping {corpus_entry.x_path} because it already exists')
 
 
-def create_y(corpus_entry, corpus_root):
-    y_path = os.path.join(corpus_root, corpus_entry.id + '.Y.npy')
-    if not exists(y_path) or args.overwrite:
+def create_y(corpus_entry):
+    if not corpus_entry.labels or args.overwrite:
         duration = float(corpus_entry.media_info['duration'])
         sample_rate = float(corpus_entry.media_info['sample_rate'])
         n_frames = int(duration * sample_rate)
@@ -101,7 +97,7 @@ def create_y(corpus_entry, corpus_root):
             start = round(pause_segments.start_frame * T_y / n_frames)
             end = round(pause_segments.end_frame * T_y / n_frames)
             y[:, start:end] = 1
-        np.save(y_path, y)
+        np.save(corpus_entry.y_path, y)
 
         # sum up segment lengths for sanity checks:
         total_len = sum(segment.end_frame - segment.start_frame for segment in corpus_entry.segments)
@@ -112,9 +108,7 @@ def create_y(corpus_entry, corpus_root):
             print(msg)
             log.warning(msg)
     else:
-        print(f'Skipping {y_path} because it already exists')
-
-    return y_path
+        print(f'Skipping {corpus_entry.y_path} because it already exists')
 
 
 if __name__ == '__main__':

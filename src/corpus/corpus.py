@@ -76,6 +76,7 @@ class Corpus(ABC):
     def summary(self):
         print('')
         print(f'Corpus: {self.name}')
+        print(self.root_path)
         table = {}
         total_entries = total_sg = total_sp = total_su = total_ps = total_length = 0
         for lang in self.languages:

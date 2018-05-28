@@ -18,8 +18,8 @@ class CorpusEntry(object):
     def __init__(self, audio_file, segments, original_path='', parms={}):
         self.corpus = None
         self.audio_file = audio_file
-        self.x_path = None  # will be set in create_labelled_data.py
-        self.y_path = None  # will be set in create_labelled_data.py
+        self.x_path = join(self.corpus.root_path, self.id + '.X.npy')
+        self.y_path = join(self.corpus.root_path, self.id + '.Y.npy')
 
         for segment in segments:
             segment.corpus_entry = self
@@ -79,17 +79,15 @@ class CorpusEntry(object):
 
     @property
     def spectrogram(self):
-        x_path = self.x_path or join(self.corpus.root_path, self.id + '.X.npy')
-        if exists(x_path):
-            (freqs, times, spec) = np.load(x_path)
+        if exists(self.x_path):
+            (freqs, times, spec) = np.load(self.x_path)
             return freqs, times, spec
         return None
 
     @property
     def labels(self):
-        y_path = self.y_path or join(self.corpus.root_path, self.id + '.Y.npy')
-        if exists(y_path):
-            labels = np.load(y_path)
+        if exists(self.y_path):
+            labels = np.load(self.y_path)
             return labels
         return None
 
@@ -115,7 +113,10 @@ class CorpusEntry(object):
 
     def summary(self):
         print('')
-        print(f'Corpus Entry: {self.name} (id={self.id})')
+        print('Corpus Entry: '.ljust(30) + f'{self.name} (id={self.id})')
+        print('Audio: '.ljust(30) + self.audio_file)
+        print('Spectrogram: '.ljust(30) + self.x_path)
+        print('Labels: '.ljust(30) + self.y_path)
         print('-----------------------------------------------------------')
         l_sg = sum(seg.audio_length for seg in self.speech_segments)
         l_sp = sum(seg.audio_length for seg in self.speech_segments)

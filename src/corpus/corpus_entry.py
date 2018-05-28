@@ -81,10 +81,12 @@ class CorpusEntry(object):
 
     @property
     def spectrogram(self):
-        if exists(self.x_path):
-            (freqs, times, spec) = np.load(self.x_path)
-            return freqs, times, spec
-        return None
+        if not hasattr(self, 'spec'):
+            if exists(self.x_path):
+                self.freqs, self.times, self.spec = np.load(self.x_path)
+            else:
+                return None
+        return self.freqs, self.times, self.spec
 
     @property
     def y_path(self):

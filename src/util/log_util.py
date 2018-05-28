@@ -28,7 +28,7 @@ def print_to_file_and_console(log_dir):
     log_file = open(os.path.join(log_dir, 'train.log'), 'w')
     _print = builtins.print
 
-    def my_print(args):
+    def my_print(args, sep=' ', end='\n', file=None):
         _print(args)
         _print(args, file=log_file)
 

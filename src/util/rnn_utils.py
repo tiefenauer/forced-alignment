@@ -10,6 +10,44 @@ UNKNOWN_TOKEN = '<unk>'
 CHAR_TOKENS = string.ascii_lowercase
 
 
+def create_x_spec(corpus_entry, speech_segment, speech_segments):
+    """
+    create input features for the RNN from a corpus entry's spectrogram
+    :param spec: spec
+    :param speech_segment:
+    :param speech_segments:
+    :return:
+    """
+    freqs, times, spec = corpus_entry.spectrogram
+    _, corpus_audio = corpus_entry.audio
+    _, speech_audio = speech_segment.audio
+
+    audio_len = corpus_audio.shape[0]
+    spec_len = spec.shape[0]
+
+    factor = spec_len / audio_len
+
+    ix = speech_segments.index(speech_segment)
+
+    # offset = sum(len(audio) for (i, seg) in enumerate(corpus_entry.segments) for _, audio in seg.audio if i < ix)
+    offset = 0
+    for i, seg in enumerate(corpus_entry.segments):
+        rate, audio = seg.audio
+        if i < ix:
+            offset += len(audio)
+
+    offset = int(offset * factor)
+
+    speech_len = speech_audio.shape[0]
+    limit = offset + int(speech_len * factor)
+
+    inputs = spec[offset:offset + limit, :]
+    train_inputs = np.asarray(inputs[np.newaxis, :])
+    x = train_inputs
+    # x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
+    return x
+
+
 def create_x_y_mfcc(audio, rate, text):
     # create x from MFCC features
     inputs = mfcc(audio, samplerate=rate)
@@ -25,6 +63,26 @@ def create_x_y_mfcc(audio, rate, text):
     y = sparse_tuple_from([targets])
 
     return x, y
+
+
+def create_x_mfcc(audio, rate):
+    """
+    creates input features for the RNN from a speech segment based on the speech segment's audio and sampling rate
+    :param audio: ndarray of shape (N,)
+    :param rate: sampling rate as integer
+    :return: ndarray of shape (1, T_x, 13)
+    """
+    inputs = mfcc(audio, samplerate=rate)  # inputs: (T_x , 13)
+    train_inputs = np.asarray(inputs[np.newaxis, :])  # train_inputs: (1, T_x, 13)
+    x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)  # x: (1, T_x, 13)
+    return x
+
+
+def create_y(text):
+    tokens = tokenize(text)
+    targets = encode(tokens)
+    y = sparse_tuple_from([targets])
+    return y
 
 
 def tokenize(text):

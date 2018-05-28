@@ -10,7 +10,7 @@ from os.path import exists
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
-from util.rnn_utils import create_x_y_mfcc, CHAR_TOKENS, decode, DummyCorpus, FileLogger
+from util.rnn_utils import CHAR_TOKENS, decode, DummyCorpus, FileLogger, create_x_mfcc, create_y, create_x_spec
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
@@ -53,7 +53,8 @@ print_to_file_and_console(target_dir)  # comment out to only log to console
 print(f'Results will be written to: {os.path.abspath(target_dir)}')
 
 # Hyper-parameters
-num_features = 13
+num_features = 13  # default value for MFCC
+num_features = 161  # default value for Spectrograms
 # 26 lowercase ASCII chars + space + blank = 28 labels
 num_classes = len(CHAR_TOKENS) + 2
 
@@ -208,7 +209,8 @@ def train_model(model_parms, train_set, dev_set, test_set):
             train_cost = train_ler = 0
             start = time.time()
 
-            for x_train, y_train, ground_truth in generate_data(train_set, True):
+            # for x_train, y_train, ground_truth in generate_data_mfcc(train_set, True):
+            for x_train, y_train, ground_truth in generate_data_spec(train_set, True):
                 feed = {inputs: x_train, targets: y_train, seq_len: [x_train.shape[1]]}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -221,7 +223,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
                 print_prediction(ground_truth, prediction, 'train-set')
 
-            validation_data = generate_data(dev_set, True)
+            validation_data = generate_data_spec(dev_set, True)
             x_val, y_val, ground_truth = random.choice(list(validation_data))
 
             val_feed = {inputs: x_val, targets: y_val, seq_len: [x_val.shape[1]]}
@@ -247,7 +249,26 @@ def train_model(model_parms, train_set, dev_set, test_set):
     return save_path
 
 
-def generate_data(corpus_entries, shift_audio):
+def generate_data_spec(corpus_entries, shift_audio):
+    for corpus_entry in corpus_entries:
+        speech_segments = corpus_entry.speech_segments_not_numeric
+        for speech_segment in speech_segments:
+            ground_truth = speech_segment.text
+            x = create_x_spec(corpus_entry, speech_segment, speech_segments)
+            y = create_y(ground_truth)
+
+            yield x, y, ground_truth
+
+
+def generate_data_mfcc(corpus_entries, shift_audio):
+    """"
+    Returns:
+        :x  input features: numpy ndarray of shape (1, T_x, num_features)
+        :y  labels: tuple (indices, values, shape) for a tf.SparseTensor:
+                indices: ndarray of shape (36,2) --> indices in the sparsetensor that will contain values
+                values: ndarray of shape (36,) --> values of the SparseTensor
+                shape: ndarray of shape (2,) --> shape of the SparseTensor
+    """
     for corpus_entry in corpus_entries:
         segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]
         for speech_segment in segments_with_text:
@@ -258,7 +279,9 @@ def generate_data(corpus_entries, shift_audio):
                 shift = np.random.randint(low=1, high=MAX_SHIFT)
                 audio = audio[shift:]
 
-            x, y = create_x_y_mfcc(audio, rate, ground_truth)
+            # x, y = create_x_y_mfcc(audio, rate, ground_truth)
+            x = create_x_mfcc(audio, rate)
+            y = create_y(ground_truth)
             yield x, y, ground_truth
 
 

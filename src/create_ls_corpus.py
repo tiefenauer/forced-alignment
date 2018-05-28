@@ -18,7 +18,7 @@ from util.audio_util import mp3_to_wav, crop_wav, calculate_frame
 from util.corpus_util import save_corpus, find_file_by_extension
 from util.log_util import log_setup, create_args_str
 
-logfile = 'librispeech_corpus.log'
+logfile = 'create_ls_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
@@ -156,8 +156,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         corpus_entries.append(corpus_entry)
 
     corpus = LibriSpeechCorpus(corpus_entries, target_root)
-    corpus_file = os.path.join(target_root, 'librispeech.corpus')
-    save_corpus(corpus, corpus_file)
+    corpus_file = save_corpus(corpus, target_root)
     return corpus, corpus_file
 
 

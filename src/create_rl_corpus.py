@@ -20,7 +20,7 @@ from util.corpus_util import save_corpus, find_file_by_extension
 from util.log_util import log_setup, create_args_str
 from util.string_util import create_filename
 
-logfile = 'readylingua_corpus.log'
+logfile = 'create_rl_corpus.log'
 log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ LANGUAGES = {  # mapping from folder names to language code
 # -------------------------------------------------------------
 # CLI arguments
 # -------------------------------------------------------------
-parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from raw files""")
+parser = argparse.ArgumentParser(description="""Create ReadyLingua corpus from raw files""")
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-s', '--source_root', default=DEFAULT_SOURCE_ROOT,
                     help=f'(optional) source root directory (default: {DEFAULT_SOURCE_ROOT}')
@@ -124,8 +124,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
         corpus_entries.append(corpus_entry)
 
     corpus = ReadyLinguaCorpus(corpus_entries, target_root)
-    corpus_file = os.path.join(target_root, 'readylingua.corpus')
-    save_corpus(corpus, corpus_file)
+    corpus_file = save_corpus(corpus, target_root)
     return corpus, corpus_file
 
 

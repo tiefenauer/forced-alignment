@@ -2,9 +2,11 @@ import gzip
 import os
 import pickle
 from copy import copy
+from os.path import join
 
 
-def save_corpus(corpus_entries, corpus_file, gzip=False):
+def save_corpus(corpus_entries, target_root, gzip=False):
+    corpus_file = join(target_root, 'corpus')
     if gzip:
         corpus_file += '.gz'
         with gzip.open(corpus_file, 'wb') as corpus:
@@ -12,9 +14,11 @@ def save_corpus(corpus_entries, corpus_file, gzip=False):
     else:
         with open(corpus_file, 'wb') as corpus:
             pickle.dump(corpus_entries, corpus)
+    return corpus_file
 
 
-def load_corpus(corpus_file):
+def load_corpus(corpus_root):
+    corpus_file = join(corpus_root, 'corpus')
     print(f'loading {corpus_file} ...')
     if corpus_file.endswith('.gz'):
         with gzip.open(corpus_file, 'rb') as corpus_f:

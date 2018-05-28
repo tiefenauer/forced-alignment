@@ -42,8 +42,8 @@ args = parser.parse_args()
 # -------------------------------------------------------------
 # Other values
 # -------------------------------------------------------------
-ls_corpus_file = os.path.join(args.target_root, 'librispeech-corpus', 'librispeech.corpus')
-rl_corpus_file = os.path.join(args.target_root, 'readylingua-corpus', 'readylingua.corpus')
+ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
+rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
 target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
 print_to_file_and_console(target_dir)  # comment out to only log to console
 print(f'Results will be written to: {os.path.abspath(target_dir)}')
@@ -65,9 +65,9 @@ def main():
     print(create_args_str(args))
 
     if args.corpus == 'rl':
-        corpus = load_corpus(rl_corpus_file)
+        corpus = load_corpus(rl_corpus_root)
     elif args.corpus == 'ls':
-        corpus = load_corpus(ls_corpus_file)
+        corpus = load_corpus(ls_corpus_root)
     corpus = corpus(languages=args.language)
     corpus.summary()
 

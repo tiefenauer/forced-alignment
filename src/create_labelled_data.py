@@ -52,20 +52,19 @@ def main():
     if not args.corpus or args.corpus == 'ls':
         ls_corpus_root = os.path.join(args.corpus_root, 'librispeech-corpus')
         print(f'Processing files from {ls_corpus_root}')
-        create_X_Y(ls_corpus_root, 'librispeech.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
+        create_X_Y(ls_corpus_root, args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
     # create ReadyLingua train-/dev-/test-data
     if not args.corpus or args.corpus == 'rl':
         rl_corpus_root = os.path.join(args.corpus_root, 'readylingua-corpus')
         print(f'Processing files from {rl_corpus_root}')
-        create_X_Y(rl_corpus_root, 'readylingua.corpus', args.no_spectrograms, args.no_labels, args.max_samples)
+        create_X_Y(rl_corpus_root, args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
 
-def create_X_Y(corpus_root, corpus_file, no_spectrograms=False, no_labels=False, max_samples=None):
-    corpus_path = os.path.join(corpus_root, corpus_file)
-    corpus = load_corpus(corpus_path)
+def create_X_Y(corpus_root, no_spectrograms=False, no_labels=False, max_samples=None):
+    corpus = load_corpus(corpus_root)
     progress = tqdm(corpus[:max_samples], unit=' corpus entries')
     for corpus_entry in progress:
         progress.set_description(f'{os.path.join(corpus_root, corpus_entry.id):{50}}')
@@ -73,7 +72,7 @@ def create_X_Y(corpus_root, corpus_file, no_spectrograms=False, no_labels=False,
             corpus_entry.x_path = create_x(corpus_entry, corpus_root)
         if not no_labels:
             corpus_entry.y_path = create_y(corpus_entry, corpus_root)
-    save_corpus(corpus, corpus_path)
+    save_corpus(corpus, corpus_root)
 
 
 def create_x(corpus_entry, corpus_root):

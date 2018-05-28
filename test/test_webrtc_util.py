@@ -10,7 +10,7 @@ from src.util.audio_util import write_wav_file
 class TestWebRtcUtil(TestCase):
 
     def test_split_into_segments(self):
-        rl_corpus = corpus_util.load_corpus(r'E:\readylingua-corpus\readylingua.corpus')
+        rl_corpus = corpus_util.load_corpus(r'E:\readylingua-corpus')
         corpus_entry = rl_corpus[0]
 
         sample_rate, audio = corpus_entry.audio

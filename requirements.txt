@@ -1,3 +1,4 @@
+deprecated
 tabulate
 python_speech_features==0.6
 Unidecode==1.0.22

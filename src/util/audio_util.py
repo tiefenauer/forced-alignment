@@ -3,9 +3,11 @@ import logging
 import os
 import wave
 
+import librosa
 import numpy as np
 import scipy.io.wavfile
 import scipy.signal
+from deprecated import deprecated
 from pydub import AudioSegment
 
 log = logging.getLogger(__name__)
@@ -103,15 +105,35 @@ def calculate_spectrogram(audio, sample_rate, nperseg=200, noverlap=120):
     return freqs, times, spec
 
 
+def mag_specgram(audio, window_size, step_size, center=False):
+    D = librosa.stft(audio.astype(np.float32), n_fft=window_size, hop_length=step_size, center=center)
+    magnitude, phase = librosa.magphase(D)
+
+    return magnitude
+
+
+def pow_specgram(audio, window_size, step_size, center=False):
+    mag = mag_specgram(audio.astype(np.float32), window_size, step_size, center)
+    return librosa.power_to_db(mag, ref=np.max)
+
+
+def mel_specgram(audio, sample_rate, window_size, step_size, n_mels=128):
+    spec = librosa.feature.melspectrogram(y=audio.astype(np.float32), sr=sample_rate,
+                                          n_fft=window_size, hop_length=step_size, n_mels=n_mels)
+    return librosa.power_to_db(spec, ref=np.max)
+
+
+@deprecated(reason='spectrogram calculation with scipy has been replaced by librosa. Use log_spectgram instead')
 def log_specgram(audio, sample_rate, window_size=20, step_size=10, eps=1e-10):
     # https://www.kaggle.com/davids1992/speech-representation-and-data-exploration
 
-    nperseg = int(round(window_size * sample_rate / 1e3))
-    noverlap = int(round(step_size * sample_rate / 1e3))
+    window_size_frames = int(round(window_size * sample_rate / 1e3))
+    step_size_frames = int(round(step_size * sample_rate / 1e3))
     freqs, times, spec = scipy.signal.spectrogram(audio,
                                                   fs=sample_rate,
                                                   window='hann',
-                                                  nperseg=nperseg,
-                                                  noverlap=noverlap,
+                                                  nperseg=window_size_frames,
+                                                  noverlap=step_size_frames,
                                                   detrend=False)
+
     return freqs, times, np.log(spec.T.astype(np.float32) + eps)

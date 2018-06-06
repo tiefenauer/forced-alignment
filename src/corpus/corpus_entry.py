@@ -68,8 +68,8 @@ class CorpusEntry(object):
         return self._rate, self._audio
 
     @property
-    def transcription(self):
-        return '\n'.join(segment.transcription for segment in self.speech_segments)
+    def transcript(self):
+        return '\n'.join(segment.transcript for segment in self.speech_segments)
 
     @property
     def text(self):

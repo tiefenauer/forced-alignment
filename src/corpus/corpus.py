@@ -42,7 +42,7 @@ class Corpus(ABC):
         print(f'found {len(entries)} entries for languages {languages}')
 
         if not include_numeric:
-            print(f'filtering out speech segments with numbers in transcription')
+            print(f'filtering out speech segments with numbers in transcript')
             entries = [entry(include_numeric=include_numeric) for entry in tqdm(entries, unit=' entries')]
 
         _copy = deepcopy(self)

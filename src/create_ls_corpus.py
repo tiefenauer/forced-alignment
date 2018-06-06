@@ -128,11 +128,11 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
 
         parms = collect_corpus_entry_parms(directory, book_info, chapter_info, speaker_info)
 
-        segments_file, transcription_file, mp3_file = collect_corpus_entry_files(directory, parms)
+        segments_file, transcript_file, mp3_file = collect_corpus_entry_files(directory, parms)
         segments_file = os.path.join(directory, segments_file)
-        transcription_file = os.path.join(directory, transcription_file)
+        transcript_file = os.path.join(directory, transcript_file)
 
-        if not segments_file or not transcription_file or not mp3_file:
+        if not segments_file or not transcript_file or not mp3_file:
             log.warning(f'Skipping directory (not all files found): {directory}')
             break
 
@@ -141,7 +141,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         if not book_text:
             log.warning(f'No book text found. Processing directory, but speech pauses might be wrong.')
 
-        segments = create_segments(segments_file, transcription_file, book_text)
+        segments = create_segments(segments_file, transcript_file, book_text)
 
         # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + ".wav")
@@ -277,9 +277,9 @@ def collect_corpus_entry_files(directory, parms):
     speaker_id = parms['speaker_id']
     chapter_id = parms['chapter_id']
     segments_file = find_file_by_extension(directory, f'{speaker_id}-{chapter_id}.seg.txt')
-    transcription_file = find_file_by_extension(directory, f'{speaker_id}-{chapter_id}.trans.txt')
+    transcript_file = find_file_by_extension(directory, f'{speaker_id}-{chapter_id}.trans.txt')
     mp3_file = find_file_by_extension(directory, f'{chapter_id}.mp3')
-    return segments_file, transcription_file, mp3_file
+    return segments_file, transcript_file, mp3_file
 
 
 def normalize_text(text):
@@ -314,12 +314,12 @@ def find_text_between(prev_text, next_text, book_text):
     return None
 
 
-def create_segments(segments_file, transcription_file, book_text):
+def create_segments(segments_file, transcript_file, book_text):
     book_text = normalize_text(book_text)
 
     segment_texts = {}
-    with open(transcription_file, 'r') as f_transcription:
-        for line in f_transcription.readlines():
+    with open(transcript_file, 'r') as f_transcript:
+        for line in f_transcript.readlines():
             segment_id, segment_text = line.split(' ', 1)
             segment_texts[segment_id] = segment_text.replace('\n', '')
 
@@ -341,12 +341,12 @@ def create_segments(segments_file, transcription_file, book_text):
                 if between_end - between_start > 0:
                     if between_text:
                         between_segment = UnalignedSpeech(start_frame=between_start, end_frame=between_end,
-                                                          transcription=between_text)
+                                                          transcript=between_text)
                     else:
                         between_segment = Pause(start_frame=between_start, end_frame=between_end)
                     segments.append(between_segment)
 
-            speech = Speech(start_frame=next_start, end_frame=next_end, transcription=segment_text)
+            speech = Speech(start_frame=next_start, end_frame=next_end, transcript=segment_text)
             segments.append(speech)
 
     return segments

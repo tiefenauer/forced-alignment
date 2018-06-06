@@ -4,13 +4,13 @@ from util.string_util import normalize
 
 
 class Segment(ABC):
-    def __init__(self, start_frame, end_frame, transcription, alignment_type):
+    def __init__(self, start_frame, end_frame, transcript, alignment_type):
         self.start_frame = start_frame
         self.end_frame = end_frame
 
         self.text = ''
-        self._transcription = ''
-        self.transcription = transcription.strip() if transcription else ''
+        self._transcript = ''
+        self.transcript = transcript.strip() if transcript else ''
 
         self.segment_type = alignment_type
         self.corpus_entry = None
@@ -21,13 +21,13 @@ class Segment(ABC):
         return rate, audio[self.start_frame:self.end_frame]
 
     @property
-    def transcription(self):
-        return self._transcription
+    def transcript(self):
+        return self._transcript
 
-    @transcription.setter
-    def transcription(self, transcription):
-        self._transcription = transcription
-        self.text = normalize(transcription)
+    @transcript.setter
+    def transcript(self, transcript):
+        self._transcript = transcript
+        self.text = normalize(transcript)
 
     @property
     def audio_length(self):
@@ -36,8 +36,8 @@ class Segment(ABC):
 
 
 class Speech(Segment):
-    def __init__(self, start_frame, end_frame, transcription=''):
-        super().__init__(start_frame, end_frame, transcription, 'speech')
+    def __init__(self, start_frame, end_frame, transcript=''):
+        super().__init__(start_frame, end_frame, transcript, 'speech')
 
 
 class Pause(Segment):
@@ -50,5 +50,5 @@ class UnalignedSpeech(Segment):
     and end position of the speech in the audio signal is not known (segment may contain pauses at start, end or
     anywhere inside the audio signal that were not aligned)"""
 
-    def __init__(self, start_frame, end_frame, transcription=''):
-        super().__init__(start_frame, end_frame, transcription, 'speech*')
+    def __init__(self, start_frame, end_frame, transcript=''):
+        super().__init__(start_frame, end_frame, transcript, 'speech*')

@@ -204,10 +204,10 @@ def find_speech_within_segment(segment, speeches):
                       and speech['end_frame'] <= segment['end_frame']]), None)
 
 
-def create_segments(index_file, transcription_file, segmentation_file, original_sample_rate):
+def create_segments(index_file, transcript_file, segmentation_file, original_sample_rate):
     segmentation = collect_segmentation(segmentation_file)
     speeches = collect_speeches(index_file)
-    transcription = Path(transcription_file).read_text(encoding='utf-8')
+    transcript = Path(transcript_file).read_text(encoding='utf-8')
 
     # merge information from index file (speech parts) with segmentation information
     segments = []
@@ -220,8 +220,8 @@ def create_segments(index_file, transcription_file, segmentation_file, original_
             if speech:
                 start_text = speech['start_text']
                 end_text = speech['end_text'] + 1  # komische Indizierung
-                seg_transcription = transcription[start_text:end_text]
-                segments.append(Speech(start_frame=start_frame, end_frame=end_frame, transcription=seg_transcription))
+                seg_transcript = transcript[start_text:end_text]
+                segments.append(Speech(start_frame=start_frame, end_frame=end_frame, transcript=seg_transcript))
         else:
             segments.append(Pause(start_frame=start_frame, end_frame=end_frame))
 

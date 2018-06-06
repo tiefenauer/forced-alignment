@@ -7,7 +7,6 @@ import librosa
 import numpy as np
 import scipy.io.wavfile
 import scipy.signal
-from deprecated import deprecated
 from pydub import AudioSegment
 
 log = logging.getLogger(__name__)
@@ -123,7 +122,7 @@ def mel_specgram(audio, sample_rate, window_size, step_size, n_mels=128):
     return librosa.power_to_db(spec, ref=np.max)
 
 
-@deprecated(reason='spectrogram calculation with scipy has been replaced by librosa. Use log_spectgram instead')
+# @deprecated(reason='spectrogram calculation with scipy has been replaced by librosa. Use log_spectgram instead')
 def log_specgram(audio, sample_rate, window_size=20, step_size=10, eps=1e-10):
     # https://www.kaggle.com/davids1992/speech-representation-and-data-exploration
 

@@ -1,9 +1,8 @@
-from abc import ABC
-
+from corpus.audiible import Audible
 from util.string_util import normalize
 
 
-class Segment(ABC):
+class Segment(Audible):
     def __init__(self, start_frame, end_frame, transcript, alignment_type):
         self.start_frame = start_frame
         self.end_frame = end_frame
@@ -17,8 +16,11 @@ class Segment(ABC):
 
     @property
     def audio(self):
-        rate, audio = self.corpus_entry.audio
-        return rate, audio[self.start_frame:self.end_frame]
+        return self.corpus_entry.audio[self.start_frame:self.end_frame]
+
+    @property
+    def rate(self):
+        return self.corpus_entry.rate
 
     @property
     def transcript(self):

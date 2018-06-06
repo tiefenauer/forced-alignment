@@ -76,8 +76,7 @@ def create_X_Y(corpus_root, no_spectrograms=False, no_labels=False, max_samples=
 
 def create_x(corpus_entry):
     if not corpus_entry.spectrogram or args.overwrite:
-        rate, audio = corpus_entry.audio
-        freqs, times, spec = log_specgram(audio, rate)
+        freqs, times, spec = log_specgram(corpus_entry.audio, corpus_entry.rate)
         np.save(corpus_entry.x_path, (freqs, times, spec))
     else:
         print(f'Skipping {corpus_entry.x_path} because it already exists')

@@ -6,11 +6,12 @@ import numpy as np
 from os.path import exists, join
 from tabulate import tabulate
 
+from corpus.audiible import Audible
 from util.audio_util import read_wav_file
 from util.string_util import contains_numeric
 
 
-class CorpusEntry(object):
+class CorpusEntry(Audible):
     # cache values
     _audio = None
     _rate = None
@@ -42,6 +43,18 @@ class CorpusEntry(object):
         return self.speech_segments[item]
 
     @property
+    def audio(self):
+        if self._audio is None:
+            self._rate, self._audio = read_wav_file(self.audio_file)
+        return self._audio
+
+    @property
+    def rate(self):
+        if self._rate is None:
+            self._rate, self._audio = read_wav_file(self.audio_file)
+        return self._rate
+
+    @property
     def speech_segments(self):
         return [segment for segment in self.segments if segment.segment_type == 'speech']
 
@@ -62,12 +75,6 @@ class CorpusEntry(object):
         return [segment for segment in self.speech_segments if not contains_numeric(segment.text)]
 
     @property
-    def audio(self):
-        if self._audio is None:
-            self._rate, self._audio = read_wav_file(self.audio_file)
-        return self._rate, self._audio
-
-    @property
     def transcript(self):
         return '\n'.join(segment.transcript for segment in self.speech_segments)
 
@@ -79,14 +86,14 @@ class CorpusEntry(object):
     def x_path(self):
         return join(self.corpus.root_path, self.id + '.X.npy')
 
-    @property
-    def spectrogram(self):
-        if not hasattr(self, 'spec'):
-            if exists(self.x_path):
-                self.freqs, self.times, self.spec = np.load(self.x_path)
-            else:
-                return None
-        return self.freqs, self.times, self.spec
+    # @property
+    # def spectrogram(self):
+    #     if not hasattr(self, 'spec'):
+    #         if exists(self.x_path):
+    #             self.freqs, self.times, self.spec = np.load(self.x_path)
+    #         else:
+    #             return None
+    #     return self.freqs, self.times, self.spec
 
     @property
     def y_path(self):

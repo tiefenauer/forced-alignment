@@ -253,14 +253,15 @@ def train_model(model_parms, train_set, dev_set, test_set):
 def generate_data(corpus_entries, shift_audio):
     for corpus_entry in corpus_entries:
         for speech_segment in [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]:
-            rate, audio = speech_segment.audio
             ground_truth = speech_segment.text
 
             if shift_audio:
                 shift = np.random.randint(low=1, high=MAX_SHIFT)
                 audio = audio[shift:]
+            else:
+                audio = speech_segment.audio
 
-            freqs, times, spec = log_specgram(audio, rate)
+            freqs, times, spec = log_specgram(audio, speech_segment.rate)
             train_inputs = np.asarray(spec[np.newaxis, :])
             x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
             y = create_y(ground_truth)
@@ -270,14 +271,12 @@ def generate_data(corpus_entries, shift_audio):
 def generate_data_spec(corpus_entries, shift_audio):
     for corpus_entry in corpus_entries:
         # preload audio and spectrogram
-        _, entry_audio = corpus_entry.audio
         freqs, times, spec = corpus_entry.spectrogram
 
         segment_offset = 0
-        audio_len = entry_audio.shape[0]
+        audio_len = corpus_entry.audio.shape[0]
         for segment in corpus_entry.segments:
-            _, speech_audio = segment.audio
-            segment_len = speech_audio.shape[0]
+            segment_len = segment.audio.shape[0]
 
             if segment.segment_type == 'speech':
                 shift = np.random.randint(low=1, high=MAX_SHIFT) if shift_audio else 0
@@ -302,14 +301,14 @@ def generate_data_mfcc(corpus_entries, shift_audio):
     for corpus_entry in corpus_entries:
         segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]
         for speech_segment in segments_with_text:
-            rate, audio = speech_segment.audio
-            ground_truth = speech_segment.text
 
             if shift_audio:
                 shift = np.random.randint(low=1, high=MAX_SHIFT)
-                audio = audio[shift:]
+                audio = speech_segment.audio[shift:]
+            else:
+                audio = speech_segment.audio
 
-            x = create_x_mfcc(audio, rate)
+            x = create_x_mfcc(audio, speech_segment.rate)
             y = create_y(ground_truth)
             yield x, y, ground_truth
 

@@ -123,16 +123,22 @@ def mel_specgram(audio, sample_rate, window_size, step_size, n_mels=128):
 
 
 # @deprecated(reason='spectrogram calculation with scipy has been replaced by librosa. Use log_spectgram instead')
-def log_specgram(audio, sample_rate, window_size=20, step_size=10, eps=1e-10):
+def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
     # https://www.kaggle.com/davids1992/speech-representation-and-data-exploration
 
-    window_size_frames = int(round(window_size * sample_rate / 1e3))
-    step_size_frames = int(round(step_size * sample_rate / 1e3))
+    if unit == 'ms':
+        window_size = ms_to_frames(window_size)
+        step_size = ms_to_frames(step_size)
+
     freqs, times, spec = scipy.signal.spectrogram(audio,
                                                   fs=sample_rate,
                                                   window='hann',
-                                                  nperseg=window_size_frames,
-                                                  noverlap=step_size_frames,
+                                                  nperseg=window_size,
+                                                  noverlap=step_size,
                                                   detrend=False)
 
-    return freqs, times, np.log(spec.T.astype(np.float32) + eps)
+    return freqs, times, np.log(spec.T.astype(np.float32) + 1e-10)
+
+
+def ms_to_frames(val_ms, sample_rate):
+    return int(round(val_ms * sample_rate / 1e3))

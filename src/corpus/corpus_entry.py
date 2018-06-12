@@ -6,7 +6,7 @@ import numpy as np
 from os.path import exists, join
 from tabulate import tabulate
 
-from corpus.audiible import Audible
+from corpus.audible import Audible
 from util.audio_util import read_wav_file
 from util.string_util import contains_numeric
 

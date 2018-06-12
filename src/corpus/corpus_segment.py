@@ -1,4 +1,4 @@
-from corpus.audiible import Audible
+from corpus.audible import Audible
 from util.string_util import normalize
 
 

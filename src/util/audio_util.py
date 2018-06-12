@@ -137,7 +137,7 @@ def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
                                                   noverlap=step_size,
                                                   detrend=False)
 
-    return freqs, times, np.log(spec.T.astype(np.float32) + 1e-10)
+    return freqs, times, np.log(spec.astype(np.float32) + 1e-10)
 
 
 def ms_to_frames(val_ms, sample_rate):

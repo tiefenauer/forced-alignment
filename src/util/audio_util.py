@@ -127,8 +127,8 @@ def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
     # https://www.kaggle.com/davids1992/speech-representation-and-data-exploration
 
     if unit == 'ms':
-        window_size = ms_to_frames(window_size)
-        step_size = ms_to_frames(step_size)
+        window_size = ms_to_frames(window_size, sample_rate)
+        step_size = ms_to_frames(step_size, sample_rate)
 
     freqs, times, spec = scipy.signal.spectrogram(audio,
                                                   fs=sample_rate,

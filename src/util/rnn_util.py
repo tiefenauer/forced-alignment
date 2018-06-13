@@ -10,7 +10,7 @@ UNKNOWN_TOKEN = '<unk>'
 CHAR_TOKENS = string.ascii_lowercase
 
 
-def create_x_spec(spec, segment_offset, audio_len, speech_len, shift):
+def create_x_from_spec(spec, segment_offset, audio_len, speech_len, shift):
     """
     calculates the input features for a speech segment given the spectrogram of the corpus entry
     :param spec: spectrogram of the corpus entry (numpy-array of dimension (T_x, num_features))

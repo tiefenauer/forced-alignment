@@ -11,7 +11,7 @@ from util.audio_util import log_specgram
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
-from util.rnn_utils import CHAR_TOKENS, decode, DummyCorpus, FileLogger, create_x_mfcc, create_y, create_x_spec
+from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, create_x_mfcc, create_y, create_x_from_spec
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
@@ -50,8 +50,9 @@ args = parser.parse_args()
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
 target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
-print_to_file_and_console(target_dir)  # comment out to only log to console
-print(f'Results will be written to: {os.path.abspath(target_dir)}')
+log_file_path = os.path.join(target_dir, 'train.log')
+print_to_file_and_console(log_file_path)  # comment out to only log to console
+print(f'Results will be written to: {log_file_path}')
 
 # Hyper-parameters
 num_features = 13  # default value for MFCC
@@ -281,7 +282,7 @@ def generate_data_spec(corpus_entries, shift_audio):
             if segment.segment_type == 'speech':
                 shift = np.random.randint(low=1, high=MAX_SHIFT) if shift_audio else 0
 
-                x = create_x_spec(spec, segment_offset, audio_len, segment_len, shift)
+                x = create_x_from_spec(spec, segment_offset, audio_len, segment_len, shift)
                 y = create_y(segment.text)
 
                 yield x, y, segment.text

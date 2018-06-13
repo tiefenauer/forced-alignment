@@ -22,17 +22,26 @@ def log_setup(filename=None):
     return logger
 
 
-def print_to_file_and_console(log_dir):
-    if not exists(log_dir):
-        makedirs(log_dir)
-    log_file = open(os.path.join(log_dir, 'train.log'), 'w')
+def print_to_file_and_console(log_file_path):
+    """wraps print function to print to stdout and file simultaneously.
+    Returns file handle (file must be closed manually!)"""
+    if not exists(os.path.dirname(log_file_path)):
+        makedirs(os.path.dirname(log_file_path))
+    log_file = open(log_file_path, 'w')
     _print = builtins.print
+    _close = log_file.close
 
     def my_print(args, sep=' ', end='\n', file=None):
         _print(args)
         _print(args, file=log_file)
-
     builtins.print = my_print
+
+    def my_close():
+        builtins.print = _print
+        _close()
+    log_file.close = my_close
+
+    return log_file
 
 
 def log_prediction(logger, ground_truth, prediction, subset_name):

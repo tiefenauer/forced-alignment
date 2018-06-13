@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from util.audio_util import log_specgram
+from util.audio_util import pow_specgram
 
 
 class Audible(ABC):
@@ -16,4 +16,4 @@ class Audible(ABC):
         return None
 
     def spectrogram(self, window_size=20, step_size=10, unit='ms'):
-        return log_specgram(self.audio, self.rate, window_size, step_size, unit)
+        return pow_specgram(self.audio, self.rate, window_size=window_size, step_size=step_size, unit=unit)

@@ -104,33 +104,41 @@ def calculate_spectrogram(audio, sample_rate, nperseg=200, noverlap=120):
     return freqs, times, spec
 
 
-def mag_specgram(audio, window_size, step_size, center=False):
-    D = librosa.stft(audio.astype(np.float32), n_fft=window_size, hop_length=step_size, center=center)
+def mag_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
+    if unit == 'ms':
+        window_size = ms_to_frames(window_size, sample_rate)
+        step_size = ms_to_frames(step_size, sample_rate)
+
+    D = librosa.stft(audio.astype(np.float32), n_fft=window_size, hop_length=step_size)
     magnitude, phase = librosa.magphase(D)
 
     return magnitude
 
 
-def pow_specgram(audio, window_size, step_size, center=False):
-    mag = mag_specgram(audio.astype(np.float32), window_size, step_size, center)
-    return librosa.power_to_db(mag, ref=np.max)
+def pow_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
+    mag = mag_specgram(audio.astype(np.float32), sample_rate, window_size, step_size, unit)
+    return librosa.amplitude_to_db(mag, ref=np.max)
 
 
-def mel_specgram(audio, sample_rate, window_size, step_size, n_mels=128):
+def mel_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms', n_mels=128):
+    if unit == 'ms':
+        window_size = ms_to_frames(window_size, sample_rate)
+        step_size = ms_to_frames(step_size, sample_rate)
+
     spec = librosa.feature.melspectrogram(y=audio.astype(np.float32), sr=sample_rate,
                                           n_fft=window_size, hop_length=step_size, n_mels=n_mels)
     return librosa.power_to_db(spec, ref=np.max)
 
 
 # @deprecated(reason='spectrogram calculation with scipy has been replaced by librosa. Use log_spectgram instead')
-def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
+def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms', mode='psd'):
     # https://www.kaggle.com/davids1992/speech-representation-and-data-exploration
 
     if unit == 'ms':
         window_size = ms_to_frames(window_size, sample_rate)
         step_size = ms_to_frames(step_size, sample_rate)
 
-    freqs, times, spec = scipy.signal.spectrogram(audio,
+    freqs, times, spec = scipy.signal.spectrogram(audio, mode=mode,
                                                   fs=sample_rate,
                                                   window='hann',
                                                   nperseg=window_size,

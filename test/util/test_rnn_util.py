@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from hamcrest import assert_that, is_
 
-from util.rnn_utils import tokenize, encode_token, decode_token, CHAR_TOKENS
+from util.rnn_util import tokenize, encode_token, decode_token, CHAR_TOKENS
 
 
 class TestRNNUtils(TestCase):

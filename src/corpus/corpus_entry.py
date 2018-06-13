@@ -86,15 +86,6 @@ class CorpusEntry(Audible):
     def x_path(self):
         return join(self.corpus.root_path, self.id + '.X.npy')
 
-    # @property
-    # def spectrogram(self):
-    #     if not hasattr(self, 'spec'):
-    #         if exists(self.x_path):
-    #             self.freqs, self.times, self.spec = np.load(self.x_path)
-    #         else:
-    #             return None
-    #     return self.freqs, self.times, self.spec
-
     @property
     def y_path(self):
         return join(self.corpus.root_path, self.id + '.Y.npy')

@@ -12,9 +12,6 @@ from util.string_util import contains_numeric
 
 
 class CorpusEntry(Audible):
-    # cache values
-    _audio = None
-    _rate = None
 
     def __init__(self, audio_file, segments, original_path='', parms={}):
         self.corpus = None
@@ -42,17 +39,9 @@ class CorpusEntry(Audible):
     def __getitem__(self, item):
         return self.speech_segments[item]
 
-    @property
-    def audio(self):
-        if self._audio is None:
-            self._rate, self._audio = read_wav_file(self.audio_file)
-        return self._audio
-
-    @property
-    def rate(self):
-        if self._rate is None:
-            self._rate, self._audio = read_wav_file(self.audio_file)
-        return self._rate
+    def _create_audio_and_rate(self):
+        rate, audio = read_wav_file(self.audio_file)
+        return audio, rate
 
     @property
     def speech_segments(self):

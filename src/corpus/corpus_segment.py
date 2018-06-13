@@ -3,6 +3,7 @@ from util.string_util import normalize
 
 
 class Segment(Audible):
+
     def __init__(self, start_frame, end_frame, transcript, alignment_type):
         self.start_frame = start_frame
         self.end_frame = end_frame
@@ -14,13 +15,9 @@ class Segment(Audible):
         self.segment_type = alignment_type
         self.corpus_entry = None
 
-    @property
-    def audio(self):
-        return self.corpus_entry.audio[self.start_frame:self.end_frame]
-
-    @property
-    def rate(self):
-        return self.corpus_entry.rate
+    def _create_audio_and_rate(self):
+        audio = self.corpus_entry.audio[self.start_frame:self.end_frame]
+        return audio, self.corpus_entry.rate
 
     @property
     def transcript(self):

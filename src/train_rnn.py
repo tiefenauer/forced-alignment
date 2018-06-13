@@ -7,11 +7,10 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
-from util.audio_util import log_specgram
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
-from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, create_x_mfcc, create_y, create_x_from_spec
+from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, create_x_mfcc, encode, create_x_from_spec
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
@@ -33,7 +32,7 @@ parser.add_argument('language', type=str,
 parser.add_argument('-id', '--id', type=str, nargs='?',
                     help='(optional) specify ID of single corpus entry on which to train on')
 parser.add_argument('-ix', '--ix', type=str, nargs='?',
-                    help='(optional) specify inde of single corpus entry on which to train on')
+                    help='(optional) specify index of single corpus entry on which to train on')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TARGET_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TARGET_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
@@ -50,12 +49,13 @@ args = parser.parse_args()
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
 target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
-log_file_path = os.path.join(target_dir, 'train.log')
-print_to_file_and_console(log_file_path)  # comment out to only log to console
-print(f'Results will be written to: {log_file_path}')
+
+# log_file_path = os.path.join(target_dir, 'train.log')
+# print_to_file_and_console(log_file_path)  # comment out to only log to console
+# print(f'Results will be written to: {log_file_path}')
 
 # Hyper-parameters
-num_features = 13  # default value for MFCC
+# num_features = 13  # default value for MFCC
 num_features = 161  # default value for Spectrograms
 # 26 lowercase ASCII chars + space + blank = 28 labels
 num_classes = len(CHAR_TOKENS) + 2
@@ -65,7 +65,8 @@ num_hidden = 100
 num_layers = 1
 
 # other options
-batch_size = 100  # number of entries to process between validation
+batch_size = 5
+validation_interval = 100  # number of entries to process between validation
 
 
 def main():
@@ -78,40 +79,52 @@ def main():
     corpus = corpus(languages=args.language)
     corpus.summary()
 
-    train_set, dev_set, test_set = corpus.train_dev_test_split()
-
-    if args.id or args.id:
-        if args.id:
-            print(f'training on corpus entry with id={args.id}')
-            repeat_sample = corpus[args.id]
-            if not repeat_sample:
-                print(f'Error: no entry with id={args.id} found!')
-                exit()
-        else:
-            print(f'training on corpus entry with index={args.ix}')
-            if args.ix > len(corpus):
-                print(f'Error: {args.id} exceeds corpus bounds ({len(corpus)} entries)!')
-                exit()
-            repeat_sample = corpus[args.ix]
-        train_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
-        dev_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
-
-    elif args.limit_entries:
-        print(f'limiting corpus entries to {args.limit_entries}')
-        repeat_samples = train_set[:args.limit_entries]
-        train_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
-        dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
+    train_set, dev_set, test_set = create_train_dev_test(args, corpus)
 
     print('creating model')
     model_parms = create_model()
 
     print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
     save_path = train_model(model_parms, train_set, dev_set, test_set)
-    print(f'Model saved in path: {save_path}')
+    print(f'Model saved to path: {save_path}')
 
     fig_ctc, fig_ler = visualize_cost(target_dir)
     fig_ctc.savefig(os.path.join(target_dir, 'cost_ctc_sample.png'), bbox_inches='tight')
     fig_ler.savefig(os.path.join(target_dir, 'cost_ler_sample.png'), bbox_inches='tight')
+
+
+def create_train_dev_test(args, corpus):
+    repeat_sample = None
+
+    if args.id:
+        if args.id not in corpus.keys():
+            print(f'Error: no entry with id={args.id} found!')
+            return exit()
+
+        print(f'training on corpus entry with id={args.id}')
+        repeat_sample = corpus[args.id]
+
+    if args.ix:
+        if args.ix > len(corpus):
+            print(f'Error: {args.id} exceeds corpus bounds ({len(corpus)} entries)!')
+            return exit()
+        print(f'training on corpus entry with index={args.ix}')
+        repeat_sample = corpus[args.ix]
+
+    if repeat_sample:
+        train_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
+        dev_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
+        test_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
+        return train_set, dev_set, test_set
+
+    train_set, dev_set, test_set = corpus.train_dev_test_split()
+    if args.limit_entries:
+        print(f'limiting corpus entries to {args.limit_entries}')
+        repeat_samples = train_set[:args.limit_entries]
+        train_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
+        dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
+
+    return train_set, dev_set, test_set
 
 
 def create_model():
@@ -253,20 +266,18 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
 def generate_data(corpus_entries, shift_audio):
     for corpus_entry in corpus_entries:
-        for speech_segment in [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]:
-            ground_truth = speech_segment.text
-
+        for speech_segment in corpus_entry.speech_segments_not_numeric:
+            audio = speech_segment.audio
             if shift_audio:
-                shift = np.random.randint(low=1, high=MAX_SHIFT)
-                audio = audio[shift:]
-            else:
-                audio = speech_segment.audio
+                max_shift = 0.01 * len(speech_segment.audio)
+                shift = np.random.randint(low=1, high=max_shift)
+                speech_segment.audio = audio[shift:]
 
-            freqs, times, spec = log_specgram(audio, speech_segment.rate)
-            train_inputs = np.asarray(spec[np.newaxis, :])
+            spec = speech_segment.spectrogram()
+            train_inputs = np.asarray(spec.T[np.newaxis, :])
             x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
-            y = create_y(ground_truth)
-            yield x, y, ground_truth
+            y = encode(speech_segment.text)
+            yield x, y, speech_segment.text
 
 
 def generate_data_spec(corpus_entries, shift_audio):
@@ -283,7 +294,7 @@ def generate_data_spec(corpus_entries, shift_audio):
                 shift = np.random.randint(low=1, high=MAX_SHIFT) if shift_audio else 0
 
                 x = create_x_from_spec(spec, segment_offset, audio_len, segment_len, shift)
-                y = create_y(segment.text)
+                y = encode(segment.text)
 
                 yield x, y, segment.text
 
@@ -310,7 +321,7 @@ def generate_data_mfcc(corpus_entries, shift_audio):
                 audio = speech_segment.audio
 
             x = create_x_mfcc(audio, speech_segment.rate)
-            y = create_y(ground_truth)
+            y = encode(ground_truth)
             yield x, y, ground_truth
 
 

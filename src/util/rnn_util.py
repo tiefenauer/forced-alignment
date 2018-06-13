@@ -42,7 +42,7 @@ def create_x_y_mfcc(audio, rate, text):
     # print(text)
     tokens = tokenize(text)
     # print(tokens)
-    targets = encode(tokens)
+    targets = [encode_token(token) for token in tokens]
     # print(targets)
     y = sparse_tuple_from([targets])
 
@@ -62,13 +62,6 @@ def create_x_mfcc(audio, rate):
     return x
 
 
-def create_y(text):
-    tokens = tokenize(text)
-    targets = encode(tokens)
-    y = sparse_tuple_from([targets])
-    return y
-
-
 def tokenize(text):
     """Splits a text into tokens.
     The text must only contain the lowercase characters a-z and digits. This must be ensured prior to calling this
@@ -86,16 +79,19 @@ def tokenize(text):
     return tokens
 
 
-def encode(tokens):
-    return [encode_token(token) for token in tokens]
-
-
-def encode_token(token):
-    return 0 if token == SPACE_TOKEN else CHAR_TOKENS.index(token) + 1 if token in CHAR_TOKENS else len(CHAR_TOKENS) + 1
+def encode(text):
+    tokens = tokenize(text)
+    targets = [encode_token(token) for token in tokens]
+    y = sparse_tuple_from([targets])
+    return y
 
 
 def decode(tokens):
     return ''.join([decode_token(x) for x in tokens])
+
+
+def encode_token(token):
+    return 0 if token == SPACE_TOKEN else CHAR_TOKENS.index(token) + 1 if token in CHAR_TOKENS else len(CHAR_TOKENS) + 1
 
 
 def decode_token(ind):

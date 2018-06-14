@@ -90,7 +90,7 @@ def decode(tokens):
 
 
 def decode_token(ind):
-    return ' ' if ind == 0 else CHAR_TOKENS[ind - 1]
+    return ' ' if ind == 0 else '_' if ind == -1 else CHAR_TOKENS[ind - 1]
 
 
 def sparse_tuple_from(sequences, dtype=np.int32):

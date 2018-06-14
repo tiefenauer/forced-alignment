@@ -1,5 +1,6 @@
 deprecated
 tabulate
+librosa
 python_speech_features==0.6
 Unidecode==1.0.22
 lxml==4.2.1

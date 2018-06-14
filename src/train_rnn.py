@@ -99,7 +99,7 @@ def create_train_dev_test(args, corpus):
     repeat_sample = None
 
     if args.id:
-        if args.id not in corpus.keys():
+        if args.id not in corpus.keys:
             print(f'Error: no entry with id={args.id} found!')
             return exit()
 

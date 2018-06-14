@@ -81,12 +81,12 @@ def encode(text):
     return [encode_token(token) for token in tokens]
 
 
-def decode(tokens):
-    return ''.join([decode_token(x) for x in tokens])
-
-
 def encode_token(token):
     return 0 if token == SPACE_TOKEN else CHAR_TOKENS.index(token) + 1
+
+
+def decode(tokens):
+    return ''.join([decode_token(x) for x in tokens])
 
 
 def decode_token(ind):

@@ -238,6 +238,12 @@ def train_model(model_parms, train_set, dev_set, test_set):
                 d = session.run(decoded[0], feed_dict=feed)
                 dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=session)
 
+                for i, prediction_enc in enumerate(dense_decoded):
+                    ground_truth = ground_truths[i]
+                    prediction = decode(prediction_enc)
+                    print_prediction(ground_truth, prediction, 'train-set')
+                    log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
+
                 num_samples += batch_size
 
             train_cost /= num_samples
@@ -249,11 +255,6 @@ def train_model(model_parms, train_set, dev_set, test_set):
                       f'time = {time.time() - start:.3f} ==='
             print(val_str)
             epoch_logger.write(val_str)
-            for i, prediction_enc in enumerate(dense_decoded):
-                ground_truth = ground_truths[i]
-                prediction = decode(prediction_enc)
-                print_prediction(ground_truth, prediction, 'train-set')
-                log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
 
         saver = tf.train.Saver()
         save_path = saver.save(session, os.path.join(target_dir, 'model.ckpt'))
@@ -264,12 +265,15 @@ def train_model(model_parms, train_set, dev_set, test_set):
 def generate_batches(corpus_entries, shift_audio):
     batch = []
     for speech_segment in (seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric):
+        audio = speech_segment.audio
         if shift_audio:
             max_shift = int(0.01 * len(speech_segment.audio))
             shift = np.random.randint(low=1, high=max_shift)
-            speech_segment.audio = speech_segment.audio[shift:]
+            speech_segment.audio = audio[shift:]  # clip audio before calculating MFCC/spectrogram
 
         batch.append((speech_segment.mfcc(), speech_segment.text))
+        speech_segment.audio = audio  # restore original audio
+
         if len(batch) == batch_size:
             X, ground_truths = zip(*batch)
 

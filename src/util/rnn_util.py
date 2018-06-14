@@ -6,7 +6,6 @@ import numpy as np
 from python_speech_features import mfcc
 
 SPACE_TOKEN = '<space>'
-UNKNOWN_TOKEN = '<unk>'
 CHAR_TOKENS = string.ascii_lowercase
 
 
@@ -74,16 +73,12 @@ def tokenize(text):
     words = text.split(' ')
 
     tokens = np.hstack([SPACE_TOKEN if x == '' else list(x) for x in words])
-    mask = np.isin(tokens, list(string.digits))
-    np.place(tokens, mask, UNKNOWN_TOKEN)
     return tokens
 
 
 def encode(text):
     tokens = tokenize(text)
-    targets = [encode_token(token) for token in tokens]
-    y = sparse_tuple_from([targets])
-    return y
+    return [encode_token(token) for token in tokens]
 
 
 def decode(tokens):
@@ -91,22 +86,21 @@ def decode(tokens):
 
 
 def encode_token(token):
-    return 0 if token == SPACE_TOKEN else CHAR_TOKENS.index(token) + 1 if token in CHAR_TOKENS else len(CHAR_TOKENS) + 1
+    return 0 if token == SPACE_TOKEN else CHAR_TOKENS.index(token) + 1
 
 
 def decode_token(ind):
-    return CHAR_TOKENS[ind - 1] if ind in range(1, 27) else ' ' if ind == 0 else '#'
+    return ' ' if ind == 0 else CHAR_TOKENS[ind - 1]
 
 
 def sparse_tuple_from(sequences, dtype=np.int32):
     """Create a sparse representention of x.
-    Args:
-        sequences: a list of lists of type dtype where each element is a sequence
+        :param sequences: a list of lists of type dtype where each element is a sequence
+        :param dtype: data type of array
     Returns:
-        A tuple with (indices, values, shape)
+        A tuple (indices, values, shape)
     """
-    indices = []
-    values = []
+    indices, values = [], []
 
     for n, seq in enumerate(sequences):
         indices.extend(zip([n] * len(seq), range(len(seq))))
@@ -197,7 +191,6 @@ class DummyCorpus(object):
         for repeat_sample in chain.from_iterable(repeat(self.repeat_samples, self.times)):
             segments_with_text = [speech for speech in repeat_sample.speech_segments_not_numeric
                                   if speech.text and len(speech.audio) > 0]
-
             if self.num_segments:
                 segments_with_text = segments_with_text[:self.num_segments]
             repeat_sample.segments = segments_with_text

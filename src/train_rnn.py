@@ -1,6 +1,5 @@
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
 import argparse
-import random
 import time
 
 import numpy as np
@@ -10,12 +9,14 @@ from os.path import exists
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
-from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode
+from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, pad_sequences, sparse_tuple_from
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
 # -------------------------------------------------------------
+
 TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default target directory
+BATCH_SIZE = 50
 NUM_EPOCHS = 10000  # number of epochs to train on
 NOW = datetime.now()
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
@@ -30,6 +31,8 @@ parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('language', type=str,
                     help='language on which to train the RNN')
+parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=BATCH_SIZE,
+                    help=f'(optional) number of speech segements to include in one batch (default:{BATCH_SIZE})')
 parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'spec'], default='mfcc',
                     help=f'(optional) features to use for training (default: {FEATURE_TYPE})')
 parser.add_argument('-id', '--id', type=str, nargs='?',
@@ -59,15 +62,12 @@ target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
 
 # Hyper-parameters
 num_features = 161 if args.feature_type == 'spec' else 13
-# 26 lowercase ASCII chars + space + blank = 28 labels
-num_classes = len(CHAR_TOKENS) + 2
-
-# Hyper-parameters
+num_classes = len(CHAR_TOKENS) + 2  # 26 lowercase ASCII chars + space + blank = 28 labels
 num_hidden = 100
 num_layers = 1
 
-# other options
-batch_size = 5
+# other
+batch_size = args.batch_size
 validation_interval = 100  # number of entries to process between validation
 
 
@@ -181,7 +181,8 @@ def create_model():
 
         # optimizer = tf.train.AdamOptimizer().minimize(cost)
         # optimizer = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.9).minimize(cost)
-        optimizer = tf.train.MomentumOptimizer(learning_rate=0.005, momentum=0.9).minimize(cost)
+        # optimizer = tf.train.MomentumOptimizer(learning_rate=0.005, momentum=0.9).minimize(cost)
+        optimizer = tf.train.MomentumOptimizer(learning_rate=1e-2, momentum=0.9).minimize(cost)
 
         # Option 2: tf.contrib.ctc.ctc_beam_search_decoder
         # (it's slower but you'll get better results)
@@ -215,48 +216,43 @@ def train_model(model_parms, train_set, dev_set, test_set):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
 
-    cost_logger = create_cost_logger(target_dir)
+    train_cost_logger = create_cost_logger(target_dir, 'train_cost.tsv')
     epoch_logger = create_epoch_logger(target_dir)
 
     with tf.Session(graph=graph, config=config) as session:
         tf.global_variables_initializer().run()
 
         for curr_epoch in range(args.num_epochs):
-
+            num_samples = 0
             train_cost = train_ler = 0
             start = time.time()
 
-            for x_train, y_train, ground_truth in generate_data(train_set, True):
-                feed = {inputs: x_train, targets: y_train, seq_len: [x_train.shape[1]]}
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, True):
+                feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
-                train_cost += batch_cost
-                train_ler += session.run(ler, feed_dict=feed)
+                train_cost += batch_cost * batch_size
+                train_ler += session.run(ler, feed_dict=feed) * batch_size
 
                 # Decoding
                 d = session.run(decoded[0], feed_dict=feed)
-                prediction = decode(d[1])
+                dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=session)
 
-                print_prediction(ground_truth, prediction, 'train-set')
+                num_samples += batch_size
 
-            validation_data = generate_data(dev_set, True)
-            x_val, y_val, ground_truth = random.choice(list(validation_data))
+            train_cost /= num_samples
+            train_ler /= num_samples
 
-            val_feed = {inputs: x_val, targets: y_val, seq_len: [x_val.shape[1]]}
-            val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
-
-            # Decoding
-            d = session.run(decoded[0], feed_dict=val_feed)
-            prediction = decode(d[1])
-
-            cost_logger.write_tabbed([curr_epoch + 1, train_cost, train_ler, val_cost, val_ler])
+            train_cost_logger.write_tabbed([curr_epoch, train_cost, train_ler])
 
             val_str = f'=== Epoch {curr_epoch}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
-                      f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
+                      f'time = {time.time() - start:.3f} ==='
             print(val_str)
-            print_prediction(ground_truth, prediction, 'dev-set')
-            if curr_epoch % 20 == 0:
-                epoch_logger.write(val_str)
+            epoch_logger.write(val_str)
+            for i, prediction_enc in enumerate(dense_decoded):
+                ground_truth = ground_truths[i]
+                prediction = decode(prediction_enc)
+                print_prediction(ground_truth, prediction, 'train-set')
                 log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
 
         saver = tf.train.Saver()
@@ -265,29 +261,29 @@ def train_model(model_parms, train_set, dev_set, test_set):
     return save_path
 
 
-def generate_data(corpus_entries, shift_audio):
-    for corpus_entry in corpus_entries:
-        for speech_segment in corpus_entry.speech_segments_not_numeric:
-            audio = speech_segment.audio
-            if shift_audio:
-                max_shift = 0.01 * len(speech_segment.audio)
-                shift = np.random.randint(low=1, high=max_shift)
-                speech_segment.audio = audio[shift:]
+def generate_batches(corpus_entries, shift_audio):
+    batch = []
+    for speech_segment in (seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric):
+        if shift_audio:
+            max_shift = int(0.01 * len(speech_segment.audio))
+            shift = np.random.randint(low=1, high=max_shift)
+            speech_segment.audio = speech_segment.audio[shift:]
 
-            if args.feature_type == 'spec':
-                spec = speech_segment.spectrogram()
-                features = spec.T  # need to transpose because training input is time-major
-            else:
-                features = speech_segment.mfcc()
-            train_inputs = np.asarray(features[np.newaxis, :])
-            x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
-            y = encode(speech_segment.text)
-            yield x, y, speech_segment.text
+        batch.append((speech_segment.mfcc(), speech_segment.text))
+        if len(batch) == batch_size:
+            X, ground_truths = zip(*batch)
+
+            X, batch_seq_len = pad_sequences(X)
+            Y = sparse_tuple_from([encode(truth) for truth in ground_truths])
+
+            yield X, Y, batch_seq_len, ground_truths
+
+            batch = []
 
 
-def create_cost_logger(log_dir):
-    cost_logger = create_file_logger(log_dir, 'stats.tsv')
-    cost_logger.write_tabbed(['epoch', 'train_cost', 'train_ler', 'val_cost', 'val_ler'])
+def create_cost_logger(log_dir, log_file):
+    cost_logger = create_file_logger(log_dir, log_file)
+    cost_logger.write_tabbed(['epoch', 'cost', 'ler'])
     return cost_logger
 
 

@@ -7,7 +7,7 @@ import os
 
 from util.corpus_util import load_corpus
 from util.log_util import print_prediction
-from util.rnn_util import encode, decode
+from util.rnn_util import encode, decode, sparse_tuple_from, pad_sequences
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
@@ -23,8 +23,6 @@ try:
 except ImportError:
     print("Failed to import python_speech_features.\n Try pip install python_speech_features.")
     raise ImportError
-from utils import sparse_tuple_from as sparse_tuple_from
-from utils import pad_sequences as pad_sequences
 
 
 def fake_data(num_examples, num_features, num_labels, min_size=10, max_size=100):

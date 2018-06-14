@@ -10,7 +10,7 @@ from os.path import exists
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
-from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, create_x_mfcc, encode, create_x_from_spec
+from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
@@ -19,6 +19,7 @@ TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default target 
 NUM_EPOCHS = 10000  # number of epochs to train on
 NOW = datetime.now()
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
+FEATURE_TYPE = 'mfcc'
 os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 
 # -------------------------------------------------------------
@@ -29,6 +30,8 @@ parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('language', type=str,
                     help='language on which to train the RNN')
+parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'spec'], default='mfcc',
+                    help=f'(optional) features to use for training (default: {FEATURE_TYPE})')
 parser.add_argument('-id', '--id', type=str, nargs='?',
                     help='(optional) specify ID of single corpus entry on which to train on')
 parser.add_argument('-ix', '--ix', type=str, nargs='?',
@@ -55,8 +58,7 @@ target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
 # print(f'Results will be written to: {log_file_path}')
 
 # Hyper-parameters
-# num_features = 13  # default value for MFCC
-num_features = 161  # default value for Spectrograms
+num_features = 161 if args.feature_type == 'spec' else 13
 # 26 lowercase ASCII chars + space + blank = 28 labels
 num_classes = len(CHAR_TOKENS) + 2
 
@@ -224,7 +226,6 @@ def train_model(model_parms, train_set, dev_set, test_set):
             train_cost = train_ler = 0
             start = time.time()
 
-            # for x_train, y_train, ground_truth in generate_data_mfcc(train_set, True):
             for x_train, y_train, ground_truth in generate_data(train_set, True):
                 feed = {inputs: x_train, targets: y_train, seq_len: [x_train.shape[1]]}
                 batch_cost, _ = session.run([cost, optimizer], feed)
@@ -273,56 +274,15 @@ def generate_data(corpus_entries, shift_audio):
                 shift = np.random.randint(low=1, high=max_shift)
                 speech_segment.audio = audio[shift:]
 
-            spec = speech_segment.spectrogram()
-            train_inputs = np.asarray(spec.T[np.newaxis, :])
+            if args.feature_type == 'spec':
+                spec = speech_segment.spectrogram()
+                features = spec.T  # need to transpose because training input is time-major
+            else:
+                features = speech_segment.mfcc()
+            train_inputs = np.asarray(features[np.newaxis, :])
             x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
             y = encode(speech_segment.text)
             yield x, y, speech_segment.text
-
-
-def generate_data_spec(corpus_entries, shift_audio):
-    for corpus_entry in corpus_entries:
-        # preload audio and spectrogram
-        freqs, times, spec = corpus_entry.spectrogram
-
-        segment_offset = 0
-        audio_len = corpus_entry.audio.shape[0]
-        for segment in corpus_entry.segments:
-            segment_len = segment.audio.shape[0]
-
-            if segment.segment_type == 'speech':
-                shift = np.random.randint(low=1, high=MAX_SHIFT) if shift_audio else 0
-
-                x = create_x_from_spec(spec, segment_offset, audio_len, segment_len, shift)
-                y = encode(segment.text)
-
-                yield x, y, segment.text
-
-            segment_offset += segment_len
-
-
-def generate_data_mfcc(corpus_entries, shift_audio):
-    """"
-    Returns:
-        :x  input features: numpy ndarray of shape (1, T_x, num_features)
-        :y  labels: tuple (indices, values, shape) for a tf.SparseTensor:
-                indices: ndarray of shape (36,2) --> indices in the sparsetensor that will contain values
-                values: ndarray of shape (36,) --> values of the SparseTensor
-                shape: ndarray of shape (2,) --> shape of the SparseTensor
-    """
-    for corpus_entry in corpus_entries:
-        segments_with_text = [speech for speech in corpus_entry.speech_segments_not_numeric if speech.text]
-        for speech_segment in segments_with_text:
-
-            if shift_audio:
-                shift = np.random.randint(low=1, high=MAX_SHIFT)
-                audio = speech_segment.audio[shift:]
-            else:
-                audio = speech_segment.audio
-
-            x = create_x_mfcc(audio, speech_segment.rate)
-            y = encode(ground_truth)
-            yield x, y, ground_truth
 
 
 def create_cost_logger(log_dir):

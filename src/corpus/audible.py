@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from python_speech_features import mfcc
+
 from util.audio_util import pow_specgram
 
 
@@ -32,3 +34,6 @@ class Audible(ABC):
 
     def spectrogram(self, window_size=20, step_size=10, unit='ms'):
         return pow_specgram(self.audio, self.rate, window_size=window_size, step_size=step_size, unit=unit)
+
+    def mfcc(self):
+        return mfcc(self.audio, self.rate)

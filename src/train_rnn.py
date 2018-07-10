@@ -226,7 +226,8 @@ def create_model():
 
         # Option 2: tf.contrib.ctc.ctc_beam_search_decoder
         # (it's slower but you'll get better results)
-        decoded, log_prob = tf.nn.ctc_greedy_decoder(logits, seq_len)
+        # decoded, log_prob = tf.nn.ctc_greedy_decoder(logits, seq_len)
+        decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, seq_len)
 
         # Inaccuracy: label error rate
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
@@ -239,7 +240,8 @@ def create_model():
         'inputs': inputs,
         'targets': targets,
         'seq_len': seq_len,
-        'decoded': decoded
+        'decoded': decoded,
+        'log_prob': log_prob
     }
 
 
@@ -252,6 +254,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
     targets = model_parms['targets']
     seq_len = model_parms['seq_len']
     decoded = model_parms['decoded']
+    log_prob = model_parms['log_prob']
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -277,7 +280,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
                 # Decoding
                 d = session.run(decoded[0], feed_dict=feed)
-                dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=session)
+                dense_decoded = tf.sparse_tensor_to_dense(d, default_value=0).eval(session=session)
 
                 for i, prediction_enc in enumerate(dense_decoded):
                     ground_truth = ground_truths[i]

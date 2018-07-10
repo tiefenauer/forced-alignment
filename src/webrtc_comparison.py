@@ -83,7 +83,7 @@ def compare_corpus(corpus, aggressiveness):
 
 def create_corpus_stats(corpus):
     print(f'Comparing automatic/manual VAD for {corpus.name} corpus')
-    stats = {'Aggressiveness': [0, 1, 2, 3], 'Precision': [], 'Recall': [], 'F-Score': [], 'Difference (absolute)': [],
+    stats = {'Aggressiveness': [0, 1, 2, 3], 'Precision': [], 'Recall': [], 'F-Score': [], 'Difference': [],
              'Difference (negative)': [], 'Difference (positive)': []}
     for aggressiveness in stats['Aggressiveness']:
         print(f'precision/recall with aggressiveness={aggressiveness}\n')
@@ -91,7 +91,7 @@ def create_corpus_stats(corpus):
         stats['Precision'].append(avg_p)
         stats['Recall'].append(avg_r)
         stats['F-Score'].append(avg_f)
-        stats['Difference (absolute)'].append(avg_d)
+        stats['Difference'].append(avg_d)
         stats['Difference (negative)'].append(avg_d_neg)
         stats['Difference (positive)'].append(avg_d_pos)
 
@@ -128,7 +128,7 @@ def plot_stats(stats, title=None):
 
     ax2 = ax1.twinx()
     ax2.set_ylabel('difference')
-    d_abs, = ax2.plot(x, np.array(stats['Difference (absolute)']), color='c', label='Difference (absolute)')
+    d_abs, = ax2.plot(x, np.array(stats['Difference']), color='c', label='Difference')
     d_neg, = ax2.plot(x, np.array(stats['Difference (negative)']), color='m', label='Difference (negative)')
     d_pos, = ax2.plot(x, np.array(stats['Difference (positive)']), color='y', label='Difference (positive)')
 

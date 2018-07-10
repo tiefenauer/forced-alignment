@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
-from definitions import CORPUS_TARGET_ROOT
+from definitions import TRAIN_TARGET_ROOT
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
@@ -38,8 +38,8 @@ parser.add_argument('-id', '--id', type=str, nargs='?',
                     help='(optional) specify ID of single corpus entry on which to train on')
 parser.add_argument('-ix', '--ix', type=str, nargs='?',
                     help='(optional) specify index of single corpus entry on which to train on')
-parser.add_argument('-t', '--target_root', type=str, nargs='?', default=CORPUS_TARGET_ROOT,
-                    help=f'(optional) root directory where results will be written to (default: {CORPUS_TARGET_ROOT})')
+parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_TARGET_ROOT,
+                    help=f'(optional) root directory where results will be written to (default: {TRAIN_TARGET_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
                     help=f'(optional) number of epochs to train the model (default: {NUM_EPOCHS})')
 parser.add_argument('-le', '--limit_entries', type=int, nargs='?',
@@ -53,7 +53,7 @@ args = parser.parse_args()
 # -------------------------------------------------------------
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
-target_dir = os.path.join(TARGET_ROOT, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
+target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
 
 # log_file_path = os.path.join(target_dir, 'train.log')
 # print_to_file_and_console(log_file_path)  # comment out to only log to console
@@ -131,13 +131,11 @@ def create_train_dev_test(args, corpus):
 def create_model():
     graph = tf.Graph()
     with graph.as_default():
-        # Input sequences
-        # Has size [batch_size, max_step_size, num_features], but the
-        # batch_size and max_step_size can vary along each step
+        # Input sequences: Has size [batch_size, max_step_size, num_features], but the batch_size and max_step_size
+        # can vary along each step
         inputs = tf.placeholder(tf.float32, [None, None, num_features], name='input')
 
-        # Here we use sparse_placeholder that will generate a
-        # SparseTensor required by ctc_loss op.
+        # Here we use sparse_placeholder that will generate a SparseTensor required by ctc_loss op.
         targets = tf.sparse_placeholder(tf.int32, name='targets')
 
         # Sequence length: 1d array of size [batch_size]
@@ -149,7 +147,7 @@ def create_model():
         # Stacking rnn cells
         stack = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
 
-        # The second output is the last state and we will no use that
+        # The second output is the last state and we will not use that
         outputs, _ = tf.nn.dynamic_rnn(stack, inputs, seq_len, dtype=tf.float32)
 
         shape = tf.shape(inputs)

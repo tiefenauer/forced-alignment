@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
+from definitions import CORPUS_TARGET_ROOT
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
@@ -14,8 +15,6 @@ from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
 # -------------------------------------------------------------
-
-TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default target directory
 BATCH_SIZE = 50
 NUM_EPOCHS = 10000  # number of epochs to train on
 NOW = datetime.now()
@@ -39,8 +38,8 @@ parser.add_argument('-id', '--id', type=str, nargs='?',
                     help='(optional) specify ID of single corpus entry on which to train on')
 parser.add_argument('-ix', '--ix', type=str, nargs='?',
                     help='(optional) specify index of single corpus entry on which to train on')
-parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TARGET_ROOT,
-                    help=f'(optional) root directory where results will be written to (default: {TARGET_ROOT})')
+parser.add_argument('-t', '--target_root', type=str, nargs='?', default=CORPUS_TARGET_ROOT,
+                    help=f'(optional) root directory where results will be written to (default: {CORPUS_TARGET_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
                     help=f'(optional) number of epochs to train the model (default: {NUM_EPOCHS})')
 parser.add_argument('-le', '--limit_entries', type=int, nargs='?',

@@ -14,6 +14,7 @@ from tqdm import tqdm
 from corpus.corpus import LibriSpeechCorpus
 from corpus.corpus_entry import CorpusEntry
 from corpus.corpus_segment import Speech, Pause, UnalignedSpeech
+from definitions import CORPUS_TARGET_ROOT, CORPUS_RAW_ROOT
 from util.audio_util import mp3_to_wav, crop_wav, calculate_frame
 from util.corpus_util import save_corpus, find_file_by_extension
 from util.log_util import log_setup, create_args_str
@@ -23,20 +24,14 @@ log_setup(filename=logfile)
 log = logging.getLogger(__name__)
 
 # -------------------------------------------------------------
-# Constants, defaults and env-vars
-# -------------------------------------------------------------
-DEFAULT_SOURCE_ROOT = r'D:\corpus' if os.name == 'nt' else '/media/all/D1/'  # root directory for raw corpus files
-DEFAULT_TARGET_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1/'  # root directory for processed corpus files
-
-# -------------------------------------------------------------
 # CLI arguments
 # -------------------------------------------------------------
 parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from raw files""")
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
-parser.add_argument('-s', '--source_root', default=DEFAULT_SOURCE_ROOT,
-                    help=f'(optional) source root directory (default: {DEFAULT_SOURCE_ROOT}')
-parser.add_argument('-t', '--target_root', default=DEFAULT_TARGET_ROOT,
-                    help=f'(optional) target root directory (default: {DEFAULT_TARGET_ROOT})')
+parser.add_argument('-s', '--source_root', default=CORPUS_RAW_ROOT,
+                    help=f'(optional) source root directory (default: {CORPUS_RAW_ROOT}')
+parser.add_argument('-t', '--target_root', default=CORPUS_TARGET_ROOT,
+                    help=f'(optional) target root directory (default: {CORPUS_TARGET_ROOT})')
 parser.add_argument('-m', '--max_entries', type=int, default=None,
                     help='(optional) maximum number of corpus entries to process. Default=None=\'all\'')
 parser.add_argument('-o', '--overwrite', default=False, action='store_true',

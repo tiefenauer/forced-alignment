@@ -9,17 +9,16 @@ from os.path import exists
 from tabulate import tabulate
 from tqdm import tqdm
 
+from definitions import CORPUS_TARGET_ROOT
 from util.corpus_util import load_corpus
 from util.log_util import print_to_file_and_console
 from util.webrtc_util import split_segments
 
-target_root = r'E:/'  # define the path to where the corpus files are located!
-
-rl_corpus_root = os.path.join(target_root, 'readylingua-corpus')
-ls_corpus_root = os.path.join(target_root, 'librispeech-corpus')
+rl_corpus_root = os.path.join(CORPUS_TARGET_ROOT, 'readylingua-corpus')
+ls_corpus_root = os.path.join(CORPUS_TARGET_ROOT, 'librispeech-corpus')
 
 
-def getOverlap(a, b):
+def calc_overlap(a, b):
     return max(0, min(a[1], b[1]) - max(a[0], b[0]))
 
 
@@ -28,7 +27,7 @@ def calc_intersection(a, b):
     b = sorted(b, key=itemgetter(0))
     for start_a, end_a in a:
         x = set(range(start_a, end_a + 1))
-        for start_b, end_b in ((s, e) for (s, e) in b if getOverlap((s, e), (start_a, end_a))):
+        for start_b, end_b in ((s, e) for (s, e) in b if calc_overlap((s, e), (start_a, end_a))):
             y = range(start_b, end_b + 1)
             intersection = x.intersection(y)
             if intersection:

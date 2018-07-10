@@ -6,6 +6,7 @@ from datetime import datetime
 from os import makedirs
 
 import pygit2
+import streamtologger
 from os.path import exists
 
 from definitions import ROOT_DIR
@@ -27,21 +28,7 @@ def print_to_file_and_console(log_file_path):
     Returns file handle (file must be closed manually!)"""
     if not exists(os.path.dirname(log_file_path)):
         makedirs(os.path.dirname(log_file_path))
-    log_file = open(log_file_path, 'w')
-    _print = builtins.print
-    _close = log_file.close
-
-    def my_print(args, sep=' ', end='\n', file=None):
-        _print(args)
-        _print(args, file=log_file)
-    builtins.print = my_print
-
-    def my_close():
-        builtins.print = _print
-        _close()
-    log_file.close = my_close
-
-    return log_file
+    streamtologger.redirect(log_file_path)
 
 
 def log_prediction(logger, ground_truth, prediction, subset_name):

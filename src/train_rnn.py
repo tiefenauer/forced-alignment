@@ -26,9 +26,11 @@ os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 # CLI arguments
 # -------------------------------------------------------------
 parser = argparse.ArgumentParser(description="""Train RNN with CTC cost function for speech recognition""")
-parser.add_argument('corpus', type=str, choices=['rl', 'ls'],
+parser.add_argument('-p', '--poc', type=str, nargs='?',
+                    help='(optional) PoC # to train. If used, a preset choice of parameters is used.')
+parser.add_argument('-c', '--corpus', type=str, choices=['rl', 'ls'],
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
-parser.add_argument('language', type=str,
+parser.add_argument('-l', '--language', type=str,
                     help='language on which to train the RNN')
 parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=BATCH_SIZE,
                     help=f'(optional) number of speech segements to include in one batch (default:{BATCH_SIZE})')
@@ -55,9 +57,9 @@ ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
 target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
 
-# log_file_path = os.path.join(target_dir, 'train.log')
-# print_to_file_and_console(log_file_path)  # comment out to only log to console
-# print(f'Results will be written to: {log_file_path}')
+log_file_path = os.path.join(target_dir, 'train.log')
+print_to_file_and_console(log_file_path)  # comment out to only log to console
+print(f'Results will be written to: {log_file_path}')
 
 # Hyper-parameters
 num_features = 161 if args.feature_type == 'spec' else 13
@@ -69,8 +71,49 @@ num_layers = 1
 batch_size = args.batch_size
 validation_interval = 100  # number of entries to process between validation
 
+# PoC parameters
+poc_args = {
+    'poc_1a': {
+        'corpus': 'rl',
+        'language': 'de',
+        'id': 'andiefreudehokohnerauschenrein',
+        'feature_type': 'mfcc',
+        'limit_segments': 5
+    },
+    'poc_2': {
+        'corpus': 'rl',
+        'language': 'de',
+        'id': 'andiefreudehokohnerauschenrein',
+        'feature_type': 'spec',
+        'limit_segments': None  # all
+    },
+    'poc_3': {
+        'corpus': 'ls',
+        'language': 'en',
+        'id': 'tbd',
+        'limit_segments': 5
+    },
+    'poc_4': {
+        'corpus': 'ls',
+        'language': 'en',
+        'id': 'tbd',
+        'limit_segments': 5
+    }
+}
+
+
+def set_poc():
+    """overrides the CLI args by preset values if PoC argument is set."""
+    if not args.poc:
+        return
+    poc = poc_args['poc_' + args.poc]
+    for key, value in poc.items():
+        setattr(args, key, value)
+
 
 def main():
+    print(create_args_str(args))
+    set_poc()
     print(create_args_str(args))
 
     if args.corpus == 'rl':
@@ -224,12 +267,13 @@ def train_model(model_parms, train_set, dev_set, test_set):
             train_cost = train_ler = 0
             start = time.time()
 
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, True):
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, curr_epoch > 0):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
-                train_cost += batch_cost * batch_size
-                train_ler += session.run(ler, feed_dict=feed) * batch_size
+                batch_len = X.shape[0]
+                train_cost += batch_cost * batch_len
+                train_ler += session.run(ler, feed_dict=feed) * batch_len
 
                 # Decoding
                 d = session.run(decoded[0], feed_dict=feed)
@@ -241,7 +285,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
                     print_prediction(ground_truth, prediction, 'train-set')
                     log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
 
-                num_samples += batch_size
+                num_samples += batch_len
 
             train_cost /= num_samples
             train_ler /= num_samples
@@ -260,26 +304,28 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
 
 def generate_batches(corpus_entries, shift_audio):
-    batch = []
-    for speech_segment in (seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric):
-        audio = speech_segment.audio
-        if shift_audio:
-            max_shift = int(0.01 * len(speech_segment.audio))
-            shift = np.random.randint(low=1, high=max_shift)
-            speech_segment.audio = audio[shift:]  # clip audio before calculating MFCC/spectrogram
+    speech_segments = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
+    l = len(speech_segments)
+    for ndx in range(0, l, batch_size):
+        batch = []
+        for speech_segment in speech_segments[ndx:min(ndx + batch_size, l)]:
+            audio = speech_segment.audio
+            if shift_audio:
+                max_shift = int(0.01 * len(speech_segment.audio))
+                shift = np.random.randint(low=1, high=max_shift)
+                speech_segment.audio = audio[shift:]  # clip audio before calculating MFCC/spectrogram
 
-        batch.append((speech_segment.mfcc(), speech_segment.text))
-        speech_segment.audio = audio  # restore original audio
+            features = speech_segment.mfcc() if args.feature_type == 'mfcc' else speech_segment.spectrogram()
+            speech_segment.audio = audio  # restore original audio for next epoch
 
-        if len(batch) == batch_size:
-            X, ground_truths = zip(*batch)
+            batch.append((features, speech_segment.text))
 
-            X, batch_seq_len = pad_sequences(X)
-            Y = sparse_tuple_from([encode(truth) for truth in ground_truths])
+        features, ground_truths = zip(*batch)
 
-            yield X, Y, batch_seq_len, ground_truths
+        X, batch_seq_len = pad_sequences(features)
+        Y = sparse_tuple_from([encode(truth) for truth in ground_truths])
 
-            batch = []
+        yield X, Y, batch_seq_len, ground_truths
 
 
 def create_cost_logger(log_dir, log_file):

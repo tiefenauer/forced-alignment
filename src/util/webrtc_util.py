@@ -1,5 +1,4 @@
 import collections
-
 from webrtcvad import Vad
 
 
@@ -20,10 +19,7 @@ def split_segments(corpus_entry, aggressiveness=3, window_duration_ms=30, frame_
     triggered = False
 
     # initialize
-    voiced_segments = []
-    unvoiced_segments = []
-    voiced_frames = []
-    unvoiced_frames = []
+    voiced_segments, unvoiced_segments, voiced_frames, unvoiced_frames = [], [], [], []
 
     frames = generate_frames(corpus_entry.audio, corpus_entry.rate, frame_duration_ms)
     for i, frame in enumerate(frames):

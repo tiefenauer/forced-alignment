@@ -1,4 +1,5 @@
 deprecated
+streamtologger
 tabulate
 librosa
 python_speech_features==0.6

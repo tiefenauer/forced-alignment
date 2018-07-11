@@ -63,14 +63,6 @@ args = parser.parse_args()
 # -------------------------------------------------------------
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
-target_dir = os.path.join(args.target_root,
-                          NOW.strftime('%Y-%m-%d-%H-%M-%S') + '_poc_' + args.poc + '_' + args.feature_type)
-# target_dir = os.path.join(args.target_root,
-#                           NOW.strftime('%Y-%m-%d-%H-%M-%S') + '_'.join(['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original']))
-print(f'Results will be written to: {target_dir}')
-
-log_file_path = os.path.join(target_dir, 'train.log')
-print_to_file_and_console(log_file_path)  # comment out to only log to console
 
 # Hyper-parameters
 num_features = 161 if args.feature_type == 'spec' else 13
@@ -111,20 +103,30 @@ poc_args = {
     }
 }
 
+target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
+
 
 def set_poc():
     """overrides the CLI args by preset values if PoC argument is set."""
+    global target_dir
+    print(create_args_str(args))
     if not args.poc:
         return
     poc = poc_args['poc_' + args.poc]
     for key, value in poc.items():
         setattr(args, key, value)
+    print(create_args_str(args))
+
+    target_dir += '_'.join(
+        ['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original'])
+    print(f'Results will be written to: {target_dir}')
+
+    log_file_path = os.path.join(target_dir, 'train.log')
+    print_to_file_and_console(log_file_path)  # comment out to only log to console
 
 
 def main():
-    print(create_args_str(args))
     set_poc()
-    print(create_args_str(args))
 
     if args.corpus == 'rl':
         corpus = load_corpus(rl_corpus_root)

@@ -1,12 +1,14 @@
 import audioop
 import logging
 import os
+import random
 import wave
 
 import librosa
 import numpy as np
 import scipy.io.wavfile
 import scipy.signal
+from librosa.effects import time_stretch, pitch_shift
 from pydub import AudioSegment
 
 log = logging.getLogger(__name__)
@@ -150,3 +152,21 @@ def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms', mo
 
 def ms_to_frames(val_ms, sample_rate):
     return int(round(val_ms * sample_rate / 1e3))
+
+
+def shift(audio, max_shift=None):
+    max_shift = max_shift if max_shift else int(0.01 * len(audio))
+    shift = np.random.randint(low=1, high=max_shift)
+    return audio[shift:]
+
+
+def distort(audio, rate, tempo=False, pitch=False):
+    audio = audio.astype(np.float32)
+    distorted = audio
+    if tempo:
+        factor = random.uniform(0.8, 1.2) if isinstance(tempo, bool) else tempo
+        distorted = time_stretch(distorted, factor)
+    if pitch:
+        factor = random.uniform(1, 4) if isinstance(tempo, bool) else tempo
+        distorted = pitch_shift(distorted, rate, factor)
+    return distorted

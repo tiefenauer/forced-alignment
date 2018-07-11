@@ -10,6 +10,7 @@ import tensorflow as tf
 from os.path import exists
 
 from definitions import TRAIN_TARGET_ROOT
+from util.audio_util import distort, shift
 from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
@@ -20,10 +21,11 @@ from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, 
 # -------------------------------------------------------------
 BATCH_SIZE = 50
 NUM_EPOCHS = 10000  # number of epochs to train on
-LER_CONVERGENCE = 0.05 # LER value for convergence (average over last 10 epochs)
+LER_CONVERGENCE = 0.05  # LER value for convergence (average over last 10 epochs)
 NOW = datetime.now()
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
 FEATURE_TYPE = 'mfcc'
+SYNTHESIZE = False
 os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 
 # -------------------------------------------------------------
@@ -44,6 +46,8 @@ parser.add_argument('-id', '--id', type=str, nargs='?',
                     help='(optional) specify ID of single corpus entry on which to train on')
 parser.add_argument('-ix', '--ix', type=str, nargs='?',
                     help='(optional) specify index of single corpus entry on which to train on')
+parser.add_argument('-s', '--synthesize', action='store_true', default=SYNTHESIZE,
+                    help=f'(optional) synthesize audio for training by adding distortion (default: {SYNTHESIZE})')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_TARGET_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TRAIN_TARGET_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
@@ -59,11 +63,14 @@ args = parser.parse_args()
 # -------------------------------------------------------------
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
-target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S') + '_poc_' + args.poc + '_' + args.feature_type)
+target_dir = os.path.join(args.target_root,
+                          NOW.strftime('%Y-%m-%d-%H-%M-%S') + '_poc_' + args.poc + '_' + args.feature_type)
+# target_dir = os.path.join(args.target_root,
+#                           NOW.strftime('%Y-%m-%d-%H-%M-%S') + '_'.join(['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original']))
+print(f'Results will be written to: {target_dir}')
 
 log_file_path = os.path.join(target_dir, 'train.log')
 print_to_file_and_console(log_file_path)  # comment out to only log to console
-print(f'Results will be written to: {log_file_path}')
 
 # Hyper-parameters
 num_features = 161 if args.feature_type == 'spec' else 13
@@ -135,7 +142,7 @@ def main():
     save_path, epochs = train_model(model_parms, train_set, dev_set, test_set)
     print(f'Model saved to path: {save_path}')
 
-    fig_ctc, fig_ler = visualize_cost(target_dir, epochs)
+    fig_ctc, fig_ler = visualize_cost(target_dir, epochs, args)
     fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
     fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
 
@@ -248,10 +255,6 @@ def create_model():
     }
 
 
-def converged(train_lers):
-    return np.array(train_lers).mean() < LER_CONVERGENCE
-
-
 def train_model(model_parms, train_set, dev_set, test_set):
     graph = model_parms['graph']
     cost = model_parms['cost']
@@ -276,16 +279,19 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
         # sliding window over the LER values of the last 10 epochs
         train_lers = collections.deque(np.repeat((math.inf,), 10), maxlen=10)
+        train_lers_means = collections.deque(np.repeat((math.inf,), 10), maxlen=10)
 
+        convergence = False
         # train until convergence
-        while not converged(train_lers):
+        while not convergence:
+            add_distortion = curr_epoch > 0 and args.synthesize
             curr_epoch += 1
             num_samples = 0
             train_cost = train_ler = 0
             start = time.time()
 
             # iterate over batches for current epoch
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, False):
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, distort_audio=add_distortion):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -310,6 +316,12 @@ def train_model(model_parms, train_set, dev_set, test_set):
             train_ler /= num_samples
             train_lers.append(train_ler)
 
+            # convergence reached if mean LER-rate is below threshold and mean LER change rate is below 1%
+            ler_mean = np.array(train_lers).mean()
+            train_lers_means.append(ler_mean)
+            ler_diff = np.diff(train_lers_means).mean()
+            convergence = ler_mean < LER_CONVERGENCE and abs(ler_diff) < 0.01
+
             # validate cost with a randomly chosen entry from the dev-set that has been randomly shifted
             X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, True)))
             val_feed = {inputs: X_val, targets: Y_val, seq_len: val_seq_len}
@@ -317,7 +329,8 @@ def train_model(model_parms, train_set, dev_set, test_set):
             train_cost_logger.write_tabbed([curr_epoch, train_cost, train_ler, val_cost, val_ler])
 
             val_str = f'=== Epoch {curr_epoch}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
-                      f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
+                      f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f}, ' \
+                      f'ler_mean = {ler_mean:.3f}, ler_diff = {ler_diff:.3f} ==='
             print(val_str)
             epoch_logger.write(val_str)
 
@@ -328,17 +341,17 @@ def train_model(model_parms, train_set, dev_set, test_set):
     return save_path, curr_epoch
 
 
-def generate_batches(corpus_entries, shift_audio):
+def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
     speech_segments = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
     l = len(speech_segments)
     for ndx in range(0, l, batch_size):
         batch = []
         for speech_segment in speech_segments[ndx:min(ndx + batch_size, l)]:
-            audio = speech_segment.audio
+            audio = speech_segment.audio  # save original audio signal
+            if distort_audio:
+                speech_segment.audio = distort(audio, speech_segment.rate, tempo=True)
             if shift_audio:
-                max_shift = int(0.01 * len(speech_segment.audio))
-                shift = np.random.randint(low=1, high=max_shift)
-                speech_segment.audio = audio[shift:]  # clip audio before calculating MFCC/spectrogram
+                speech_segment.audio = shift(audio)  # clip audio before calculating MFCC/spectrogram
 
             features = speech_segment.mfcc() if args.feature_type == 'mfcc' else speech_segment.spectrogram()
             speech_segment.audio = audio  # restore original audio for next epoch

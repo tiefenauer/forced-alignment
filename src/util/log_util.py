@@ -50,5 +50,5 @@ def get_commit():
     return revision, branch_name, timestamp, message
 
 
-def create_args_str(args):
-    return ', '.join(f'{key}={value}' for key, value in args.__dict__.items())
+def create_args_str(args, keys=None):
+    return ', '.join(f'{key}={value}' for key, value in args.__dict__.items() if keys == None or key in keys)

@@ -1,6 +1,5 @@
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
 import argparse
-import math
 import random
 import time
 
@@ -70,37 +69,38 @@ num_classes = len(CHAR_TOKENS) + 2  # 26 lowercase ASCII chars + space + blank =
 num_hidden = 100
 num_layers = 1
 
-# other
-batch_size = args.batch_size
-# batch_size = 1
-
-# PoC parameters
-poc_args = {
+# PoC profiles
+profiles = {
     'poc_1': {
         'corpus': 'rl',
         'language': 'de',
         'id': 'andiefreudehokohnerauschenrein',
+        'feature_type': 'mfcc',
         'limit_segments': 5
     },
     'poc_2': {
         'corpus': 'rl',
         'language': 'de',
         'id': 'andiefreudehokohnerauschenrein',
-        'feature_type': 'spec',
-        'limit_segments': None  # all
+        'limit_segments': 5,
+        'feature_type': 'mfcc',
+        'synthesize': True
     },
     'poc_3': {
-        'corpus': 'ls',
-        'language': 'en',
-        'id': 'tbd',
-        'limit_segments': 5
+        'corpus': 'rl',
+        'language': 'de',
+        'id': 'andiefreudehokohnerauschenrein',
+        'limit_segments': 5,
+        'feature_type': 'spec'
     },
     'poc_4': {
-        'corpus': 'ls',
-        'language': 'en',
-        'id': 'tbd',
-        'limit_segments': 5
-    }
+        'corpus': 'rl',
+        'language': 'de',
+        'id': 'andiefreudehokohnerauschenrein',
+        'limit_segments': 5,
+        'feature_type': 'spec',
+        'synthesize': True
+    },
 }
 
 target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
@@ -112,10 +112,9 @@ def set_poc():
     print(create_args_str(args))
     if not args.poc:
         return
-    poc = poc_args['poc_' + args.poc]
+    poc = profiles['poc_' + args.poc]
     for key, value in poc.items():
         setattr(args, key, value)
-    print(create_args_str(args))
 
     target_dir += '_'.join(
         ['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original'])
@@ -123,6 +122,7 @@ def set_poc():
 
     log_file_path = os.path.join(target_dir, 'train.log')
     print_to_file_and_console(log_file_path)  # comment out to only log to console
+    print(create_args_str(args))
 
 
 def main():
@@ -141,10 +141,10 @@ def main():
     model_parms = create_model()
 
     print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
-    save_path, epochs = train_model(model_parms, train_set, dev_set, test_set)
+    save_path = train_model(model_parms, train_set, dev_set, test_set)
     print(f'Model saved to path: {save_path}')
 
-    fig_ctc, fig_ler = visualize_cost(target_dir, epochs, args)
+    fig_ctc, fig_ler = visualize_cost(target_dir, args)
     fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
     fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
 
@@ -279,9 +279,16 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
         curr_epoch = 0
 
-        # sliding window over the LER values of the last 10 epochs
-        train_lers = collections.deque(np.repeat((math.inf,), 10), maxlen=10)
-        train_lers_means = collections.deque(np.repeat((math.inf,), 10), maxlen=10)
+        # sliding window over the values for CTC- and LER-cost of the last 10 epochs (train-set)
+        train_ctcs = collections.deque(maxlen=10)
+        train_lers = collections.deque(maxlen=10)
+
+        # sliding vindow over the last 10 average values of CTC/LER-cost (train-set)
+        ler_train_means = collections.deque([0], maxlen=10)
+
+        # sliding window over the LER values of the last 10 epochs (dev-set)
+        val_ctcs = collections.deque(maxlen=10)
+        val_lers = collections.deque(maxlen=10)
 
         convergence = False
         # train until convergence
@@ -289,7 +296,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
             add_distortion = curr_epoch > 0 and args.synthesize
             curr_epoch += 1
             num_samples = 0
-            train_cost = train_ler = 0
+            ctc_train = ler_train = 0
             start = time.time()
 
             # iterate over batches for current epoch
@@ -298,8 +305,8 @@ def train_model(model_parms, train_set, dev_set, test_set):
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
                 batch_len = X.shape[0]
-                train_cost += batch_cost * batch_len
-                train_ler += session.run(ler, feed_dict=feed) * batch_len
+                ctc_train += batch_cost * batch_len
+                ler_train += session.run(ler, feed_dict=feed) * batch_len
 
                 # Decoding
                 d = session.run(decoded[0], feed_dict=feed)
@@ -309,30 +316,41 @@ def train_model(model_parms, train_set, dev_set, test_set):
                     ground_truth = ground_truths[i]
                     prediction = decode(prediction_enc)
                     print_prediction(ground_truth, prediction, 'train-set')
-                    log_prediction(epoch_logger, ground_truth, prediction, 'dev_set')
+                    log_prediction(epoch_logger, ground_truth, prediction, 'train_set')
 
                 num_samples += batch_len
 
             # calculate costs for current epoch
-            train_cost /= num_samples
-            train_ler /= num_samples
-            train_lers.append(train_ler)
+            ctc_train /= num_samples
+            ler_train /= num_samples
+            train_ctcs.append(ctc_train)
+            train_lers.append(ler_train)
+
+            # update means
+            ctc_train_mean = np.array(train_ctcs).mean()
+            ler_train_mean = np.array(train_lers).mean()
+            ler_train_means.append(ler_train_mean)
 
             # convergence reached if mean LER-rate is below threshold and mean LER change rate is below 1%
-            ler_mean = np.array(train_lers).mean()
-            train_lers_means.append(ler_mean)
-            ler_diff = np.diff(train_lers_means).mean()
-            convergence = ler_mean < LER_CONVERGENCE and abs(ler_diff) < 0.01
+            ler_diff = np.diff(ler_train_means).mean()
+            convergence = ler_train_mean < LER_CONVERGENCE and abs(ler_diff) < 0.01
 
             # validate cost with a randomly chosen entry from the dev-set that has been randomly shifted
             X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, True)))
             val_feed = {inputs: X_val, targets: Y_val, seq_len: val_seq_len}
-            val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
-            train_cost_logger.write_tabbed([curr_epoch, train_cost, train_ler, val_cost, val_ler])
+            ctc_val, ler_val = session.run([cost, ler], feed_dict=val_feed)
+            val_ctcs.append(ctc_val)
+            ctc_val_mean = np.array(val_ctcs).mean()
+            val_lers.append(ler_val)
+            ler_val_mean = np.array(val_lers).mean()
 
-            val_str = f'=== Epoch {curr_epoch}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
-                      f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f}, ' \
-                      f'ler_mean = {ler_mean:.3f}, ler_diff = {ler_diff:.3f} ==='
+            train_cost_logger.write_tabbed(
+                [curr_epoch, ctc_train, ctc_train_mean, ler_train, ler_train_mean, ctc_val, ctc_val_mean, ler_val,
+                 ler_val_mean])
+
+            val_str = f'=== Epoch {curr_epoch}, ctc_train = {ctc_train:.3f}, ler_train = {ler_train:.3f}, ' \
+                      f'ctc_val = {ctc_val:.3f}, ler_val = {ler_val:.3f}, time = {time.time() - start:.3f}, ' \
+                      f'ctc_mean = {ctc_train_mean}, ler_mean = {ler_train_mean:.3f}, ler_diff = {ler_diff:.3f} ==='
             print(val_str)
             epoch_logger.write(val_str)
 
@@ -340,15 +358,15 @@ def train_model(model_parms, train_set, dev_set, test_set):
         saver = tf.train.Saver()
         save_path = saver.save(session, os.path.join(target_dir, 'model.ckpt'))
 
-    return save_path, curr_epoch
+    return save_path
 
 
 def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
     speech_segments = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
     l = len(speech_segments)
-    for ndx in range(0, l, batch_size):
+    for ndx in range(0, l, args.batch_size):
         batch = []
-        for speech_segment in speech_segments[ndx:min(ndx + batch_size, l)]:
+        for speech_segment in speech_segments[ndx:min(ndx + args.batch_size, l)]:
             audio = speech_segment.audio  # save original audio signal
             if distort_audio:
                 speech_segment.audio = distort(audio, speech_segment.rate, tempo=True)
@@ -370,7 +388,8 @@ def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
 
 def create_cost_logger(log_dir, log_file):
     cost_logger = create_file_logger(log_dir, log_file)
-    cost_logger.write_tabbed(['epoch', 'cost', 'ler'])
+    cost_logger.write_tabbed(
+        ['epoch', 'ctc_train', 'ler_train', 'ler_train_mean', 'ctc_val', 'ler_val', 'ler_val_mean'])
     return cost_logger
 
 

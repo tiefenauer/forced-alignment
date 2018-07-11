@@ -1,7 +1,10 @@
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
 import argparse
+import math
+import random
 import time
 
+import collections
 import numpy as np
 import tensorflow as tf
 from os.path import exists
@@ -17,6 +20,7 @@ from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, 
 # -------------------------------------------------------------
 BATCH_SIZE = 50
 NUM_EPOCHS = 10000  # number of epochs to train on
+LER_CONVERGENCE = 0.05 # LER value for convergence (average over last 10 epochs)
 NOW = datetime.now()
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
 FEATURE_TYPE = 'mfcc'
@@ -33,7 +37,7 @@ parser.add_argument('-c', '--corpus', type=str, choices=['rl', 'ls'],
 parser.add_argument('-l', '--language', type=str,
                     help='language on which to train the RNN')
 parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=BATCH_SIZE,
-                    help=f'(optional) number of speech segements to include in one batch (default:{BATCH_SIZE})')
+                    help=f'(optional) number of speech segments to include in one batch (default:{BATCH_SIZE})')
 parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'spec'], default='mfcc',
                     help=f'(optional) features to use for training (default: {FEATURE_TYPE})')
 parser.add_argument('-id', '--id', type=str, nargs='?',
@@ -55,7 +59,7 @@ args = parser.parse_args()
 # -------------------------------------------------------------
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
-target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
+target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S') + '_poc_' + args.poc + '_' + args.feature_type)
 
 log_file_path = os.path.join(target_dir, 'train.log')
 print_to_file_and_console(log_file_path)  # comment out to only log to console
@@ -69,15 +73,14 @@ num_layers = 1
 
 # other
 batch_size = args.batch_size
-validation_interval = 100  # number of entries to process between validation
+# batch_size = 1
 
 # PoC parameters
 poc_args = {
-    'poc_1a': {
+    'poc_1': {
         'corpus': 'rl',
         'language': 'de',
         'id': 'andiefreudehokohnerauschenrein',
-        'feature_type': 'mfcc',
         'limit_segments': 5
     },
     'poc_2': {
@@ -129,12 +132,12 @@ def main():
     model_parms = create_model()
 
     print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
-    save_path = train_model(model_parms, train_set, dev_set, test_set)
+    save_path, epochs = train_model(model_parms, train_set, dev_set, test_set)
     print(f'Model saved to path: {save_path}')
 
-    fig_ctc, fig_ler = visualize_cost(target_dir)
-    fig_ctc.savefig(os.path.join(target_dir, 'cost_ctc_sample.png'), bbox_inches='tight')
-    fig_ler.savefig(os.path.join(target_dir, 'cost_ler_sample.png'), bbox_inches='tight')
+    fig_ctc, fig_ler = visualize_cost(target_dir, epochs)
+    fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
+    fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
 
 
 def create_train_dev_test(args, corpus):
@@ -245,6 +248,10 @@ def create_model():
     }
 
 
+def converged(train_lers):
+    return np.array(train_lers).mean() < LER_CONVERGENCE
+
+
 def train_model(model_parms, train_set, dev_set, test_set):
     graph = model_parms['graph']
     cost = model_parms['cost']
@@ -259,18 +266,26 @@ def train_model(model_parms, train_set, dev_set, test_set):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
 
-    train_cost_logger = create_cost_logger(target_dir, 'train_cost.tsv')
+    train_cost_logger = create_cost_logger(target_dir, 'stats.tsv')
     epoch_logger = create_epoch_logger(target_dir)
 
     with tf.Session(graph=graph, config=config) as session:
         tf.global_variables_initializer().run()
 
-        for curr_epoch in range(args.num_epochs):
+        curr_epoch = 0
+
+        # sliding window over the LER values of the last 10 epochs
+        train_lers = collections.deque(np.repeat((math.inf,), 10), maxlen=10)
+
+        # train until convergence
+        while not converged(train_lers):
+            curr_epoch += 1
             num_samples = 0
             train_cost = train_ler = 0
             start = time.time()
 
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, curr_epoch > 0):
+            # iterate over batches for current epoch
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, False):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -290,20 +305,27 @@ def train_model(model_parms, train_set, dev_set, test_set):
 
                 num_samples += batch_len
 
+            # calculate costs for current epoch
             train_cost /= num_samples
             train_ler /= num_samples
+            train_lers.append(train_ler)
 
-            train_cost_logger.write_tabbed([curr_epoch, train_cost, train_ler])
+            # validate cost with a randomly chosen entry from the dev-set that has been randomly shifted
+            X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, True)))
+            val_feed = {inputs: X_val, targets: Y_val, seq_len: val_seq_len}
+            val_cost, val_ler = session.run([cost, ler], feed_dict=val_feed)
+            train_cost_logger.write_tabbed([curr_epoch, train_cost, train_ler, val_cost, val_ler])
 
             val_str = f'=== Epoch {curr_epoch}, train_cost = {train_cost:.3f}, train_ler = {train_ler:.3f}, ' \
-                      f'time = {time.time() - start:.3f} ==='
+                      f'val_cost = {val_cost:.3f}, val_ler = {val_ler:.3f}, time = {time.time() - start:.3f} ==='
             print(val_str)
             epoch_logger.write(val_str)
 
+        print(f'convergence reached after {curr_epoch} epochs!')
         saver = tf.train.Saver()
         save_path = saver.save(session, os.path.join(target_dir, 'model.ckpt'))
 
-    return save_path
+    return save_path, curr_epoch
 
 
 def generate_batches(corpus_entries, shift_audio):

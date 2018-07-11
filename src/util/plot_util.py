@@ -1,45 +1,43 @@
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-def visualize_cost(target_dir):
+def visualize_cost(target_dir, epochs):
     stats_path = os.path.join(target_dir, 'stats.tsv')
     data = np.loadtxt(stats_path, delimiter='\t', skiprows=1)
-    train_cost = data[:, 1]
-    train_ler = data[:, 2]
-    val_cost = data[:, 3]
-    val_ler = data[:, 4]
+    ctc_train = data[:, 1]
+    ler_train = data[:, 2]
+    ctc_val = data[:, 3]
+    ler_val = data[:, 4]
 
-    return create_figures(train_cost, train_ler, val_cost, val_ler)
-
-
-def create_figures(train_cost, train_ler, val_cost, val_ler):
-    fig_ctc = plt.figure(figsize=(16, 9))
-    ax_ctc = fig_ctc.add_subplot(111)
-    ax_ctc.set_title('CTC Loss')
-    ax_ctc.set_xlabel('Epoch')
-    ax_ctc.set_ylabel('CTC Loss')
-    ax_ctc.plot(train_cost)
-    ax_ctc.plot(val_cost)
-
-    fig_ler = plt.figure(figsize=(16, 9))
-    ax_ler = fig_ler.add_subplot(111)
-    ax_ler.set_title('LER Loss')
-    ax_ler.set_xlabel('Epochs')
-    ax_ler.set_ylabel('LER Loss')
-    ax_ler.plot(train_ler)
-    ax_ler.plot(val_ler)
+    fig_ctc = create_figure(ctc_train, ctc_val, f'CTC loss (convergence after {epochs} epochs)')
+    fig_ler = create_figure(ler_train, ler_val, f'LER loss (convergence after {epochs} epochs)')
 
     return fig_ctc, fig_ler
 
 
+def create_figure(loss_train, loss_val, title):
+    fig = plt.figure(figsize=(16, 9))
+    ax = fig.add_subplot(111)
+    ax.set_title(title)
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    t, = ax.plot(loss_train, label='train-set')
+    v, = ax.plot(loss_val, label='dev-set')
+    ax.legend(handles=[t,v])
+    return fig
+
+
 def show_plot(target_dir):
-    visualize_cost(target_dir)
-    plt.show()
+    epochs = len(Path(os.path.join(target_dir, 'stats.tsv')).read_text().split('\n')) - 2 # header line and empty last line
+    fig_ctc, fig_ler = visualize_cost(target_dir, epochs)
+    fig_ctc.show()
+    fig_ler.show()
 
 
 if __name__ == '__main__':
-    target_dir = r'E:\2018-05-25-08-47-42'
+    target_dir = r'E:\2018-07-11-09-54-24_poc_1_mfcc'
     show_plot(target_dir)

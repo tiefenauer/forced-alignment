@@ -23,7 +23,7 @@ def show_plot(target_dir):
 
 
 if __name__ == '__main__':
-    target_dir = r'E:\2018-07-11-15-04-47_poc_1_de_mfcc_synthesized'
+    target_dir = r'E:\2018-07-11-16-29-48_poc_3_de_spec_original'
     if args.target_dir:
         target_dir = args.target_dir
 

@@ -108,7 +108,7 @@ target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
 
 def set_poc():
     """overrides the CLI args by preset values if PoC argument is set."""
-    global target_dir
+    global target_dir, num_features
     print(create_args_str(args))
     if not args.poc:
         return
@@ -120,6 +120,7 @@ def set_poc():
         ['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original'])
     print(f'Results will be written to: {target_dir}')
 
+    num_features = 161 if args.feature_type == 'spec' else 13   # must override num_features because profile may override CLI args
     log_file_path = os.path.join(target_dir, 'train.log')
     print_to_file_and_console(log_file_path)  # comment out to only log to console
     print(create_args_str(args))

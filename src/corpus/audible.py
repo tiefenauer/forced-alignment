@@ -2,7 +2,9 @@ from abc import ABC, abstractmethod
 
 import librosa
 import numpy as np
+from python_speech_features import mfcc
 
+from train_rnn import NUM_FEATURES_MEL
 from util.audio_util import ms_to_frames
 
 
@@ -58,11 +60,10 @@ class Audible(ABC):
         if self._pow_specgram is not None:
             return self._pow_specgram
 
-        mag = self.mag_specgram(window_size, step_size, unit)
-        self._pow_specgram = librosa.amplitude_to_db(mag, ref=np.max)
+        self._pow_specgram = self.mag_specgram(window_size, step_size, unit)**2
         return self._pow_specgram
 
-    def mel_specgram(self, window_size=20, step_size=10, unit='ms', n_mels=40):
+    def mel_specgram(self, window_size=20, step_size=10, unit='ms', n_mels=NUM_FEATURES_MEL):
         if self._mel_specgram is not None:
             return self._mel_specgram
 
@@ -70,19 +71,13 @@ class Audible(ABC):
             window_size = ms_to_frames(window_size, self.rate)
             step_size = ms_to_frames(step_size, self.rate)
 
-        spec = librosa.feature.melspectrogram(y=self.audio, sr=self.rate,
-                                              n_fft=window_size, hop_length=step_size, n_mels=n_mels)
-        self._mel_specgram = librosa.power_to_db(spec, ref=np.max)
+        self._mel_specgram = librosa.feature.melspectrogram(y=self.audio, sr=self.rate,
+                                                            n_fft=window_size, hop_length=step_size, n_mels=n_mels)
         return self._mel_specgram
 
-    def mfcc(self, window_size=20, step_size=10, unit='ms', n_mels=40):
+    def mfcc(self):
         if self._mfcc is not None:
             return self._mfcc
 
-        if unit == 'ms':
-            window_size = ms_to_frames(window_size, self.rate)
-            step_size = ms_to_frames(step_size, self.rate)
-
-        self._mfcc = librosa.feature.mfcc(self.audio, self.rate, n_mfcc=13,
-                                          n_fft=window_size, hop_length=step_size, n_mels=n_mels)
+        self._mfcc = mfcc(self.audio, self.rate)
         return self._mfcc

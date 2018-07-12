@@ -19,10 +19,13 @@ from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, 
 # Constants, defaults and env-vars
 # -------------------------------------------------------------
 BATCH_SIZE = 50
-NUM_EPOCHS = 10000  # number of epochs to train on
+MAX_EPOCHS = 10000  # number of epochs to train on
 LER_CONVERGENCE = 0.05  # LER value for convergence (average over last 10 epochs)
 NOW = datetime.now()
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
+NUM_FEATURES_POW = 161
+NUM_FEATURES_MEL = 40
+NUM_FEATURES_MFCC = 13
 FEATURE_TYPE = 'mfcc'
 SYNTHESIZE = False
 os.environ['CUDA_VISIBLE_DEVICES'] = "2"
@@ -49,8 +52,8 @@ parser.add_argument('-s', '--synthesize', action='store_true', default=SYNTHESIZ
                     help=f'(optional) synthesize audio for training by adding distortion (default: {SYNTHESIZE})')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_TARGET_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TRAIN_TARGET_ROOT})')
-parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
-                    help=f'(optional) number of epochs to train the model (default: {NUM_EPOCHS})')
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=MAX_EPOCHS,
+                    help=f'(optional) number of epochs to train the model (default: {MAX_EPOCHS})')
 parser.add_argument('-le', '--limit_entries', type=int, nargs='?',
                     help='(optional) number of corpus entries from training set to use for training (default: all)')
 parser.add_argument('-ls', '--limit_segments', type=int, nargs='?',
@@ -63,8 +66,20 @@ args = parser.parse_args()
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
 
+
 # Hyper-parameters
-num_features = 161 if args.feature_type == 'spec' else 13
+def get_num_features(feature_type):
+    if feature_type == 'pow':
+        return NUM_FEATURES_POW
+    elif feature_type == 'mel':
+        return NUM_FEATURES_MEL
+    elif feature_type == 'mfcc':
+        return NUM_FEATURES_MFCC
+    print(f'error: unknown feature type: {feature_type}', file=sys.stderr)
+    exit(1)
+
+
+num_features = get_num_features(args.feature_type)
 num_classes = len(CHAR_TOKENS) + 2  # 26 lowercase ASCII chars + space + blank = 28 labels
 num_hidden = 100
 num_layers = 1
@@ -73,20 +88,47 @@ num_layers = 1
 # @formatter:off
 profiles = {
     'poc_1': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc', 'limit_segments': 5
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc',
+        'limit_segments': 5
     },
     'poc_2': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc',
+        'limit_segments': 5, 'synthesize': True
     },
     'poc_3': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'spec', 'limit_segments': 5
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mel',
+        'limit_segments': 5
     },
     'poc_4': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'spec', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mel',
+        'limit_segments': 5, 'synthesize': True
     },
     'poc_5': {
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'pow',
+        'limit_segments': 5
+    },
+    'poc_6': {
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'pow',
+        'limit_segments': 5, 'synthesize': True
+    },
+    'poc_7': {
         'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mfcc', 'limit_segments': 5
     },
+    'poc_8': {
+        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mfcc', 'limit_segments': 5, 'synthesize': True
+    },
+    'poc_9': {
+        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mel', 'limit_segments': 5
+    },
+    'poc_10': {
+        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mel', 'limit_segments': 5, 'synthesize': True
+    },
+    'poc_9': {
+        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5
+    },
+    'poc_10': {
+        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5, 'synthesize': True
+    }
 }
 # // @formatter:on
 
@@ -107,7 +149,7 @@ def set_poc():
         ['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original'])
     print(f'Results will be written to: {target_dir}')
 
-    num_features = 161 if args.feature_type == 'spec' else 13  # must override num_features because profile may override CLI args
+    num_features = get_num_features(args.feature_type)  # override num_features because profile may override CLI args
     log_file_path = os.path.join(target_dir, 'train.log')
     print_to_file_and_console(log_file_path)  # comment out to only log to console
     print(create_args_str(args))
@@ -132,7 +174,7 @@ def main():
     save_path = train_model(model_parms, train_set, dev_set, test_set)
     print(f'Model saved to path: {save_path}')
 
-    fig_ctc, fig_ler, = visualize_cost(target_dir, args)
+    fig_ctc, fig_ler, _ = visualize_cost(target_dir, args)
     fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
     fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
 
@@ -279,8 +321,8 @@ def train_model(model_parms, train_set, dev_set, test_set):
         val_lers = collections.deque(maxlen=10)
 
         convergence = False
-        # train until convergence
-        while not convergence:
+        # train until convergence or MAX_EPOCHS
+        while not convergence and curr_epoch < MAX_EPOCHS:
             add_distortion = curr_epoch > 0 and args.synthesize
             curr_epoch += 1
             num_samples = 0
@@ -361,7 +403,12 @@ def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
             if shift_audio:
                 speech_segment.audio = shift(audio)  # clip audio before calculating MFCC/spectrogram
 
-            features = speech_segment.mfcc() if args.feature_type == 'mfcc' else speech_segment.mel_specgram()
+            if args.feature_type == 'mfcc':
+                features = speech_segment.mfcc()
+            elif args.feature_type == 'mel':
+                features = speech_segment.mel_specgram().T
+            else:
+                features = speech_segment.power_specgram().T
             speech_segment.audio = audio  # restore original audio for next epoch
 
             batch.append((features, speech_segment.text))

@@ -28,7 +28,7 @@ def visualize_cost(target_dir, args):
     fig_ctc = create_figure(ctc_train, ctc_train_mean, ctc_val, ctc_val_mean, create_title('CTC', epochs, args))
     fig_ler = create_figure(ler_train, ler_train_mean, ler_val, ler_val_mean, create_title('LER', epochs, args))
 
-    return fig_ctc, fig_ler
+    return fig_ctc, fig_ler, int(max(epochs))
 
 
 def create_figure(loss_train, loss_train_mean, loss_val, loss_val_mean, title):

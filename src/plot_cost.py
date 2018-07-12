@@ -17,13 +17,15 @@ def parse_args_line(line):
 
 def show_plot(target_dir):
     _args = parse_args_line(open(os.path.join(target_dir, 'train.log')).readline())
-    fig_ctc, fig_ler = visualize_cost(target_dir, _args)
+    fig_ctc, fig_ler, epochs = visualize_cost(target_dir, _args)
     fig_ctc.show()
+    fig_ctc.savefig(os.path.join(target_dir, f'ctc_cost_{epochs}_epochs.png'), bbox_inches='tight')
     fig_ler.show()
+    fig_ler.savefig(os.path.join(target_dir, f'ler_cost_{epochs}_epochs.png'), bbox_inches='tight')
 
 
 if __name__ == '__main__':
-    target_dir = r'E:\2018-07-11-16-29-48_poc_3_de_spec_original'
+    target_dir = r'E:\2018-07-11-15-07-30_poc_1_de_mfcc_original'
     if args.target_dir:
         target_dir = args.target_dir
 

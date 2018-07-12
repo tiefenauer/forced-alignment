@@ -145,7 +145,7 @@ def main():
     save_path = train_model(model_parms, train_set, dev_set, test_set)
     print(f'Model saved to path: {save_path}')
 
-    fig_ctc, fig_ler = visualize_cost(target_dir, args)
+    fig_ctc, fig_ler, = visualize_cost(target_dir, args)
     fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
     fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
 

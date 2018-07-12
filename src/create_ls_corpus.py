@@ -14,7 +14,7 @@ from tqdm import tqdm
 from corpus.corpus import LibriSpeechCorpus
 from corpus.corpus_entry import CorpusEntry
 from corpus.corpus_segment import Speech, Pause, UnalignedSpeech
-from definitions import CORPUS_TARGET_ROOT, CORPUS_RAW_ROOT
+from constants import CORPUS_TARGET_ROOT, CORPUS_RAW_ROOT
 from util.audio_util import mp3_to_wav, crop_wav, calculate_frame
 from util.corpus_util import save_corpus, find_file_by_extension
 from util.log_util import log_setup, create_args_str

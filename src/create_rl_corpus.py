@@ -15,7 +15,7 @@ from tqdm import tqdm
 from corpus.corpus import ReadyLinguaCorpus
 from corpus.corpus_entry import CorpusEntry
 from corpus.corpus_segment import Speech, Pause
-from definitions import CORPUS_RAW_ROOT, CORPUS_TARGET_ROOT
+from constants import CORPUS_RAW_ROOT, CORPUS_TARGET_ROOT
 from util.audio_util import recalculate_frame, resample_wav, crop_wav
 from util.corpus_util import save_corpus, find_file_by_extension
 from util.log_util import log_setup, create_args_str

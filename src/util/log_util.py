@@ -9,7 +9,7 @@ import pygit2
 import streamtologger
 from os.path import exists
 
-from definitions import ROOT_DIR
+from constants import ROOT_DIR
 
 FORMAT_STR = '%(asctime)s : %(name)s : %(levelname)s : %(message)s'
 repo = pygit2.Repository(ROOT_DIR)

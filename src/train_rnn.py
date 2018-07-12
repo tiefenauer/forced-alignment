@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
-from definitions import TRAIN_TARGET_ROOT
+from constants import TRAIN_TARGET_ROOT, NUM_FEATURES_POW, NUM_FEATURES_MEL, NUM_FEATURES_MFCC
 from util.audio_util import distort, shift
 from util.corpus_util import load_corpus
 from util.log_util import *
@@ -23,9 +23,6 @@ MAX_EPOCHS = 10000  # number of epochs to train on
 LER_CONVERGENCE = 0.05  # LER value for convergence (average over last 10 epochs)
 NOW = datetime.now()
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
-NUM_FEATURES_POW = 161
-NUM_FEATURES_MEL = 40
-NUM_FEATURES_MFCC = 13
 FEATURE_TYPE = 'mfcc'
 SYNTHESIZE = False
 os.environ['CUDA_VISIBLE_DEVICES'] = "2"
@@ -42,7 +39,7 @@ parser.add_argument('-l', '--language', type=str,
                     help='language on which to train the RNN')
 parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=BATCH_SIZE,
                     help=f'(optional) number of speech segments to include in one batch (default:{BATCH_SIZE})')
-parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'spec'], default='mfcc',
+parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'mel', 'pow'], default='mfcc',
                     help=f'(optional) features to use for training (default: {FEATURE_TYPE})')
 parser.add_argument('-id', '--id', type=str, nargs='?',
                     help='(optional) specify ID of single corpus entry on which to train on')

@@ -9,7 +9,7 @@ from os.path import exists
 from tabulate import tabulate
 from tqdm import tqdm
 
-from definitions import CORPUS_TARGET_ROOT
+from constants import CORPUS_TARGET_ROOT
 from util.corpus_util import load_corpus
 from util.log_util import print_to_file_and_console
 from util.webrtc_util import split_segments

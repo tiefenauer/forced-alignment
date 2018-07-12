@@ -4,7 +4,7 @@ import librosa
 import numpy as np
 from python_speech_features import mfcc
 
-from train_rnn import NUM_FEATURES_MEL
+from constants import NUM_FEATURES_MEL
 from util.audio_util import ms_to_frames
 
 

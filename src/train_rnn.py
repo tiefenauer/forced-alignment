@@ -123,10 +123,10 @@ profiles = {
     'poc_10': {
         'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mel', 'limit_segments': 5, 'synthesize': True
     },
-    'poc_9': {
+    'poc_11': {
         'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5
     },
-    'poc_10': {
+    'poc_12': {
         'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5, 'synthesize': True
     }
 }

@@ -4,7 +4,6 @@ import os
 import random
 import wave
 
-import librosa
 import numpy as np
 import scipy.io.wavfile
 import scipy.signal
@@ -104,32 +103,6 @@ def calculate_spectrogram(audio, sample_rate, nperseg=200, noverlap=120):
     spec = np.flipud(spec)
 
     return freqs, times, spec
-
-
-def mag_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
-    if unit == 'ms':
-        window_size = ms_to_frames(window_size, sample_rate)
-        step_size = ms_to_frames(step_size, sample_rate)
-
-    D = librosa.stft(audio.astype(np.float32), n_fft=window_size, hop_length=step_size)
-    magnitude, phase = librosa.magphase(D)
-
-    return magnitude
-
-
-def pow_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms'):
-    mag = mag_specgram(audio.astype(np.float32), sample_rate, window_size, step_size, unit)
-    return librosa.amplitude_to_db(mag, ref=np.max)
-
-
-def mel_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms', n_mels=128):
-    if unit == 'ms':
-        window_size = ms_to_frames(window_size, sample_rate)
-        step_size = ms_to_frames(step_size, sample_rate)
-
-    spec = librosa.feature.melspectrogram(y=audio.astype(np.float32), sr=sample_rate,
-                                          n_fft=window_size, hop_length=step_size, n_mels=n_mels)
-    return librosa.power_to_db(spec, ref=np.max)
 
 
 # @deprecated(reason='spectrogram calculation with scipy has been replaced by librosa. Use log_spectgram instead')

@@ -140,7 +140,7 @@ def main():
 def create_train_dev_test(args, corpus):
     repeat_sample = None
 
-    if args.id:
+    if args.id is not None:
         if args.id not in corpus.keys:
             print(f'Error: no entry with id={args.id} found!')
             return exit()
@@ -148,7 +148,7 @@ def create_train_dev_test(args, corpus):
         print(f'training on corpus entry with id={args.id}')
         repeat_sample = corpus[args.id]
 
-    if args.ix:
+    if args.ix is not None:
         if args.ix > len(corpus):
             print(f'Error: {args.id} exceeds corpus bounds ({len(corpus)} entries)!')
             return exit()
@@ -361,7 +361,7 @@ def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
             if shift_audio:
                 speech_segment.audio = shift(audio)  # clip audio before calculating MFCC/spectrogram
 
-            features = speech_segment.mfcc() if args.feature_type == 'mfcc' else speech_segment.spectrogram()
+            features = speech_segment.mfcc() if args.feature_type == 'mfcc' else speech_segment.mel_specgram()
             speech_segment.audio = audio  # restore original audio for next epoch
 
             batch.append((features, speech_segment.text))
@@ -377,7 +377,7 @@ def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
 def create_cost_logger(log_dir, log_file):
     cost_logger = create_file_logger(log_dir, log_file)
     cost_logger.write_tabbed(
-        ['epoch', 'ctc_train', 'ler_train', 'ler_train_mean', 'ctc_val', 'ler_val', 'ler_val_mean'])
+        ['epoch', 'ctc_train', 'ctc_train_mean', 'ler_train', 'ler_train_mean', 'ctc_val', 'ler_val', 'ler_val_mean'])
     return cost_logger
 
 

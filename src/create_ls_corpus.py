@@ -38,7 +38,7 @@ parser.add_argument('-o', '--overwrite', default=False, action='store_true',
                     help='(optional) overwrite existing audio data if already present. If set to true this will '
                          'convert, resample and crop the audio data to a 16kHz mono WAV file which will prolong the'
                          'corpus creation process considerably. If set to false, the conversion of audio data will be'
-                         'skipped, if the file is already present in the target directory and the corpuss will only be'
+                         'skipped, if the file is already present in the target directory and the corpus will only be'
                          'updated with the most current corpus entries. Default=False)')
 args = parser.parse_args()
 

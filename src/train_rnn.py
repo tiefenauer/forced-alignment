@@ -70,38 +70,25 @@ num_hidden = 100
 num_layers = 1
 
 # PoC profiles
+# @formatter:off
 profiles = {
     'poc_1': {
-        'corpus': 'rl',
-        'language': 'de',
-        'id': 'andiefreudehokohnerauschenrein',
-        'feature_type': 'mfcc',
-        'limit_segments': 5
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc', 'limit_segments': 5
     },
     'poc_2': {
-        'corpus': 'rl',
-        'language': 'de',
-        'id': 'andiefreudehokohnerauschenrein',
-        'limit_segments': 5,
-        'feature_type': 'mfcc',
-        'synthesize': True
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc', 'limit_segments': 5, 'synthesize': True
     },
     'poc_3': {
-        'corpus': 'rl',
-        'language': 'de',
-        'id': 'andiefreudehokohnerauschenrein',
-        'limit_segments': 5,
-        'feature_type': 'spec'
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'spec', 'limit_segments': 5
     },
     'poc_4': {
-        'corpus': 'rl',
-        'language': 'de',
-        'id': 'andiefreudehokohnerauschenrein',
-        'limit_segments': 5,
-        'feature_type': 'spec',
-        'synthesize': True
+        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'spec', 'limit_segments': 5, 'synthesize': True
+    },
+    'poc_5': {
+        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mfcc', 'limit_segments': 5
     },
 }
+# // @formatter:on
 
 target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
 
@@ -120,7 +107,7 @@ def set_poc():
         ['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original'])
     print(f'Results will be written to: {target_dir}')
 
-    num_features = 161 if args.feature_type == 'spec' else 13   # must override num_features because profile may override CLI args
+    num_features = 161 if args.feature_type == 'spec' else 13  # must override num_features because profile may override CLI args
     log_file_path = os.path.join(target_dir, 'train.log')
     print_to_file_and_console(log_file_path)  # comment out to only log to console
     print(create_args_str(args))

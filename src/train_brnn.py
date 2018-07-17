@@ -15,6 +15,8 @@ from train_rnn import MAX_EPOCHS
 from util.rnn_util import encode
 from util.train_util import get_num_features, get_corpus
 
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+
 parser = argparse.ArgumentParser(
     description="""Train Bi-directionalRNN with CTC cost function for speech recognition""")
 parser.add_argument('-c', '--corpus', type=str, choices=['rl', 'ls'], default='ls',

@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
-from constants import TRAIN_TARGET_ROOT, NUM_FEATURES_POW, NUM_FEATURES_MEL, NUM_FEATURES_MFCC
+from constants import TRAIN_TARGET_ROOT
 from util.audio_util import distort, shift
 from util.corpus_util import load_corpus
 from util.log_util import *
@@ -63,20 +63,6 @@ args = parser.parse_args()
 ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
 rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
 
-
-# Hyper-parameters
-def get_num_features(feature_type):
-    if feature_type == 'pow':
-        return NUM_FEATURES_POW
-    elif feature_type == 'mel':
-        return NUM_FEATURES_MEL
-    elif feature_type == 'mfcc':
-        return NUM_FEATURES_MFCC
-    print(f'error: unknown feature type: {feature_type}', file=sys.stderr)
-    exit(1)
-
-
-num_features = get_num_features(args.feature_type)
 num_classes = len(CHAR_TOKENS) + 2  # 26 lowercase ASCII chars + space + blank = 28 labels
 num_hidden = 100
 num_layers = 1
@@ -127,53 +113,65 @@ profiles = {
         'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5, 'synthesize': True
     }
 }
+
+
 # // @formatter:on
-
-target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
-
-
-def set_poc():
-    """overrides the CLI args by preset values if PoC argument is set."""
-    global target_dir, num_features
-    print(create_args_str(args))
-    if not args.poc:
-        return
-    poc = profiles['poc_' + args.poc]
-    for key, value in poc.items():
-        setattr(args, key, value)
-
-    target_dir += '_'.join(
-        ['_poc_' + args.poc, args.language, args.feature_type, 'synthesized' if args.synthesize else 'original'])
-    print(f'Results will be written to: {target_dir}')
-
-    num_features = get_num_features(args.feature_type)  # override num_features because profile may override CLI args
-    log_file_path = os.path.join(target_dir, 'train.log')
-    print_to_file_and_console(log_file_path)  # comment out to only log to console
-    print(create_args_str(args))
 
 
 def main():
-    set_poc()
+    target_dir, num_features = set_poc()
+    corpus = set_corpus()
 
+    train_set, dev_set, test_set = create_train_dev_test(args, corpus)
+
+    model_parms = create_model(num_features)
+    train_model(model_parms, train_set, dev_set, test_set)
+
+    fig_ctc, fig_ler, _ = visualize_cost(target_dir, args)
+    fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
+    fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
+
+
+def set_poc():
+    print(create_args_str(args))
+    if args.poc:
+        print(f'applying profile for PoC#{args.poc}')
+        poc = profiles['poc_' + args.poc]
+        for key, value in poc.items():
+            setattr(args, key, value)
+    print(create_args_str(args))
+
+    target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
+    target_dir += '_'.join(['_poc_' + args.poc,
+                            args.language,
+                            args.feature_type,
+                            'synthesized' if args.synthesize else 'original'])
+
+    print(f'Results will be written to: {target_dir}')
+    log_file_path = os.path.join(target_dir, 'train.log')
+    print_to_file_and_console(log_file_path)  # comment out to only log to console
+    return target_dir, get_num_features(args.feature_type)
+
+
+def set_corpus():
     if args.corpus == 'rl':
         corpus = load_corpus(rl_corpus_root)
     elif args.corpus == 'ls':
         corpus = load_corpus(ls_corpus_root)
     corpus = corpus(languages=args.language)
     corpus.summary()
+    return corpus
 
-    train_set, dev_set, test_set = create_train_dev_test(args, corpus)
 
-    print('creating model')
-    model_parms = create_model()
-
-    print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
-    save_path = train_model(model_parms, train_set, dev_set, test_set)
-    print(f'Model saved to path: {save_path}')
-
-    fig_ctc, fig_ler, _ = visualize_cost(target_dir, args)
-    fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
-    fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
+def get_num_features(feature_type):
+    if feature_type == 'pow':
+        return 161
+    elif feature_type == 'mel':
+        return 40
+    elif feature_type == 'mfcc':
+        return 13
+    print(f'error: unknown feature type: {feature_type}', file=sys.stderr)
+    exit(1)
 
 
 def create_train_dev_test(args, corpus):
@@ -211,6 +209,7 @@ def create_train_dev_test(args, corpus):
 
 
 def create_model():
+    print('creating model')
     graph = tf.Graph()
     with graph.as_default():
         # Input sequences: Has size [batch_size, max_step_size, num_features], but the batch_size and max_step_size
@@ -285,6 +284,7 @@ def create_model():
 
 
 def train_model(model_parms, train_set, dev_set, test_set):
+    print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
     graph = model_parms['graph']
     cost = model_parms['cost']
     optimizer = model_parms['optimizer']
@@ -384,6 +384,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
         print(f'convergence reached after {curr_epoch} epochs!')
         saver = tf.train.Saver()
         save_path = saver.save(session, os.path.join(target_dir, 'model.ckpt'))
+        print(f'Model saved to path: {save_path}')
 
     return save_path
 

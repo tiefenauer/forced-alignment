@@ -4,7 +4,6 @@ import librosa
 import numpy as np
 from python_speech_features import mfcc
 
-from constants import NUM_FEATURES_MEL
 from util.audio_util import ms_to_frames
 
 
@@ -63,7 +62,7 @@ class Audible(ABC):
         self._pow_specgram = self.mag_specgram(window_size, step_size, unit)**2
         return self._pow_specgram
 
-    def mel_specgram(self, window_size=20, step_size=10, unit='ms', n_mels=NUM_FEATURES_MEL):
+    def mel_specgram(self, n_mels, window_size=20, step_size=10, unit='ms'):
         if self._mel_specgram is not None:
             return self._mel_specgram
 

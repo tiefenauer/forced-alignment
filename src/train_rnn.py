@@ -10,10 +10,10 @@ from os.path import exists
 
 from constants import TRAIN_TARGET_ROOT
 from util.audio_util import distort, shift
-from util.corpus_util import load_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
 from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, pad_sequences, sparse_tuple_from
+from util.train_util import get_poc, get_target_dir, get_num_features, get_corpus
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
@@ -21,7 +21,6 @@ from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, 
 BATCH_SIZE = 50
 MAX_EPOCHS = 10000  # number of epochs to train on
 LER_CONVERGENCE = 0.05  # LER value for convergence (average over last 10 epochs)
-NOW = datetime.now()
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
 FEATURE_TYPE = 'mfcc'
 SYNTHESIZE = False
@@ -55,123 +54,29 @@ parser.add_argument('-le', '--limit_entries', type=int, nargs='?',
                     help='(optional) number of corpus entries from training set to use for training (default: all)')
 parser.add_argument('-ls', '--limit_segments', type=int, nargs='?',
                     help='(optional) number of aligned speech segments to use per corpus entry (default: all)')
-args = parser.parse_args()
+args = get_poc(parser.parse_args())
 
 # -------------------------------------------------------------
 # Other values
 # -------------------------------------------------------------
-ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
-rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
-
 num_classes = len(CHAR_TOKENS) + 2  # 26 lowercase ASCII chars + space + blank = 28 labels
 num_hidden = 100
 num_layers = 1
 
-# PoC profiles
-# @formatter:off
-profiles = {
-    'poc_1': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc',
-        'limit_segments': 5
-    },
-    'poc_2': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mfcc',
-        'limit_segments': 5, 'synthesize': True
-    },
-    'poc_3': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mel',
-        'limit_segments': 5
-    },
-    'poc_4': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'mel',
-        'limit_segments': 5, 'synthesize': True
-    },
-    'poc_5': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'pow',
-        'limit_segments': 5
-    },
-    'poc_6': {
-        'corpus': 'rl', 'language': 'de', 'id': 'andiefreudehokohnerauschenrein', 'feature_type': 'pow',
-        'limit_segments': 5, 'synthesize': True
-    },
-    'poc_7': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mfcc', 'limit_segments': 5
-    },
-    'poc_8': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mfcc', 'limit_segments': 5, 'synthesize': True
-    },
-    'poc_9': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mel', 'limit_segments': 5
-    },
-    'poc_10': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mel', 'limit_segments': 5, 'synthesize': True
-    },
-    'poc_11': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5
-    },
-    'poc_12': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5, 'synthesize': True
-    }
-}
-
-
-# // @formatter:on
-
 
 def main():
-    target_dir, num_features = set_poc()
-    corpus = set_corpus()
+    target_dir = get_target_dir('RNN', args)
+    num_features = get_num_features(args.feature_type)
+    corpus = get_corpus(args)
 
     train_set, dev_set, test_set = create_train_dev_test(args, corpus)
 
     model_parms = create_model(num_features)
-    train_model(model_parms, train_set, dev_set, test_set)
+    train_model(model_parms, target_dir, train_set, dev_set, test_set)
 
     fig_ctc, fig_ler, _ = visualize_cost(target_dir, args)
     fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
     fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
-
-
-def set_poc():
-    print(create_args_str(args))
-    if args.poc:
-        print(f'applying profile for PoC#{args.poc}')
-        poc = profiles['poc_' + args.poc]
-        for key, value in poc.items():
-            setattr(args, key, value)
-    print(create_args_str(args))
-
-    target_dir = os.path.join(args.target_root, NOW.strftime('%Y-%m-%d-%H-%M-%S'))
-    target_dir += '_'.join(['_poc_' + args.poc,
-                            args.language,
-                            args.feature_type,
-                            'synthesized' if args.synthesize else 'original'])
-
-    print(f'Results will be written to: {target_dir}')
-    log_file_path = os.path.join(target_dir, 'train.log')
-    print_to_file_and_console(log_file_path)  # comment out to only log to console
-    return target_dir, get_num_features(args.feature_type)
-
-
-def set_corpus():
-    if args.corpus == 'rl':
-        corpus = load_corpus(rl_corpus_root)
-    elif args.corpus == 'ls':
-        corpus = load_corpus(ls_corpus_root)
-    corpus = corpus(languages=args.language)
-    corpus.summary()
-    return corpus
-
-
-def get_num_features(feature_type):
-    if feature_type == 'pow':
-        return 161
-    elif feature_type == 'mel':
-        return 40
-    elif feature_type == 'mfcc':
-        return 13
-    print(f'error: unknown feature type: {feature_type}', file=sys.stderr)
-    exit(1)
 
 
 def create_train_dev_test(args, corpus):
@@ -208,7 +113,7 @@ def create_train_dev_test(args, corpus):
     return train_set, dev_set, test_set
 
 
-def create_model():
+def create_model(num_features):
     print('creating model')
     graph = tf.Graph()
     with graph.as_default():
@@ -271,6 +176,7 @@ def create_model():
         ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), targets))
 
     return {
+        'num_features': num_features,
         'graph': graph,
         'cost': cost,
         'optimizer': optimizer,
@@ -283,8 +189,9 @@ def create_model():
     }
 
 
-def train_model(model_parms, train_set, dev_set, test_set):
+def train_model(model_parms, target_dir, train_set, dev_set, test_set):
     print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
+    num_features = model_parms['num_features']
     graph = model_parms['graph']
     cost = model_parms['cost']
     optimizer = model_parms['optimizer']
@@ -327,7 +234,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
             start = time.time()
 
             # iterate over batches for current epoch
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, distort_audio=add_distortion):
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, num_features, distort_audio=add_distortion):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -389,7 +296,7 @@ def train_model(model_parms, train_set, dev_set, test_set):
     return save_path
 
 
-def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
+def generate_batches(corpus_entries, num_features, shift_audio=False, distort_audio=False):
     speech_segments = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
     l = len(speech_segments)
     for ndx in range(0, l, args.batch_size):
@@ -404,7 +311,7 @@ def generate_batches(corpus_entries, shift_audio=False, distort_audio=False):
             if args.feature_type == 'mfcc':
                 features = speech_segment.mfcc()
             elif args.feature_type == 'mel':
-                features = speech_segment.mel_specgram().T
+                features = speech_segment.mel_specgram(num_features).T
             else:
                 features = speech_segment.power_specgram().T
             speech_segment.audio = audio  # restore original audio for next epoch
@@ -430,7 +337,7 @@ def create_epoch_logger(log_dir):
     epoch_logger = create_file_logger(log_dir, 'epochs.txt')
     revision, branch_name, timestamp, message = get_commit()
     epoch_logger.write(f'----------------------------------')
-    epoch_logger.write(f'Date: {NOW}')
+    epoch_logger.write(f'Directory: {log_dir}')
     epoch_logger.write(f'Branch: {branch_name}')
     epoch_logger.write(f'Commit: {revision} ({timestamp}, {message})')
     epoch_logger.write(f'----------------------------------')

@@ -56,13 +56,28 @@ class Audible(ABC):
         return self._mag_specgram
 
     def pow_specgram(self, window_size=20, step_size=10, unit='ms'):
+        """
+        Power-Spectrogram
+        :param window_size: size of sliding window in frames or milliseconds
+        :param step_size: step size for sliding window in frames or milliseconds
+        :param unit: unit of window size ('ms' for milliseconds or None for frames)
+        :return: (T_x, num_freqs) whereas num_freqs will be calculated from sample rate
+        """
         if self._pow_specgram is not None:
             return self._pow_specgram
 
         self._pow_specgram = self.mag_specgram(window_size, step_size, unit)**2
         return self._pow_specgram
 
-    def mel_specgram(self, n_mels, window_size=20, step_size=10, unit='ms'):
+    def mel_specgram(self, n_mels=40, window_size=20, step_size=10, unit='ms'):
+        """
+        Mel-Spectrogram
+        :param n_mels: number of mels to produce
+        :param window_size: size of sliding window in frames or milliseconds
+        :param step_size: step size for sliding window in frames or milliseconds
+        :param unit: unit of window size ('ms' for milliseconds or None for frames)
+        :return: (T_x, n_mels) matrix
+        """
         if self._mel_specgram is not None:
             return self._mel_specgram
 
@@ -74,9 +89,14 @@ class Audible(ABC):
                                                             n_fft=window_size, hop_length=step_size, n_mels=n_mels)
         return self._mel_specgram
 
-    def mfcc(self):
+    def mfcc(self, num_ceps=13):
+        """
+        MFCC coefficients
+        :param num_ceps: number of coefficients to produce
+        :return: (T_x, num_ceps) matrix
+        """
         if self._mfcc is not None:
             return self._mfcc
 
-        self._mfcc = mfcc(self.audio, self.rate)
+        self._mfcc = mfcc(self.audio, self.rate, numcep=num_ceps)
         return self._mfcc

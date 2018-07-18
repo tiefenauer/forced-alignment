@@ -42,6 +42,18 @@ class Audible(ABC):
     def _create_audio_and_rate(self):
         return None, None
 
+    def audio_features(self, feature_type):
+        if feature_type == 'mfcc':
+            return self.mfcc()
+        elif feature_type == 'mel':
+            return self.mel_specgram().T
+        elif feature_type == 'pow':
+            return self.pow_specgram().T
+        elif feature_type == 'log':
+            return np.log(self.mel_specgram().T + 1e-10)
+
+        raise ValueError(f'Unknown feature type: {feature_type}')
+
     def mag_specgram(self, window_size=20, step_size=10, unit='ms'):
         if self._mag_specgram is not None:
             return self._mag_specgram
@@ -66,13 +78,13 @@ class Audible(ABC):
         if self._pow_specgram is not None:
             return self._pow_specgram
 
-        self._pow_specgram = self.mag_specgram(window_size, step_size, unit)**2
+        self._pow_specgram = self.mag_specgram(window_size, step_size, unit) ** 2
         return self._pow_specgram
 
-    def mel_specgram(self, n_mels=40, window_size=20, step_size=10, unit='ms'):
+    def mel_specgram(self, num_mels=40, window_size=20, step_size=10, unit='ms'):
         """
         Mel-Spectrogram
-        :param n_mels: number of mels to produce
+        :param num_mels: number of mels to produce
         :param window_size: size of sliding window in frames or milliseconds
         :param step_size: step size for sliding window in frames or milliseconds
         :param unit: unit of window size ('ms' for milliseconds or None for frames)
@@ -86,7 +98,7 @@ class Audible(ABC):
             step_size = ms_to_frames(step_size, self.rate)
 
         self._mel_specgram = librosa.feature.melspectrogram(y=self.audio, sr=self.rate,
-                                                            n_fft=window_size, hop_length=step_size, n_mels=n_mels)
+                                                            n_fft=window_size, hop_length=step_size, n_mels=num_mels)
         return self._mel_specgram
 
     def mfcc(self, num_ceps=13):

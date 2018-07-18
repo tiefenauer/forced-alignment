@@ -31,10 +31,11 @@ def get_poc(args):
 
 def get_target_dir(rnn_type, args):
     target_dir = os.path.join(args.target_root, datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '_' + rnn_type)
-    target_dir += '_'.join(['_poc_' + args.poc,
+    target_dir += '_'.join(['_poc_' + args.poc if hasattr(args, 'poc') else '',
+                            args.architecture.upper() if hasattr(args, 'architecture') else '',
                             args.language,
                             args.feature_type,
-                            'synthesized' if args.synthesize else 'original'])
+                            'synthesized' if hasattr(args, 'synthesize') and args.synthesize else ''])
 
     print(f'Results will be written to: {target_dir}')
     log_file_path = os.path.join(target_dir, 'train.log')

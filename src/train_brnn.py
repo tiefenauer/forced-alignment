@@ -13,6 +13,7 @@ from keras.layers import Dense, Dropout, Input, TimeDistributed, Bidirectional, 
     BatchNormalization
 from keras.optimizers import Adam
 from keras.utils import get_custom_objects
+from tensorflow.contrib.layers import dense_to_sparse
 
 from constants import TRAIN_TARGET_ROOT
 from util.keras_util import ReportCallback, BatchGenerator
@@ -190,7 +191,7 @@ def train_model(model, target_dir, train_set, dev_set):
     print(f'Validating on {len(dev_batches)} batches ({len(dev_batches.speech_segments)} speech segments)')
 
     opt = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-8, clipnorm=5)
-    model.compile(optimizer=opt, loss=ctc)
+    model.compile(optimizer=opt, loss=ctc, metrics=[edit_distance])
 
     cb_list = []
     tb_cb = TensorBoard(log_dir=target_dir, write_graph=True, write_images=True)
@@ -233,6 +234,13 @@ def clipped_relu(x):
 
 def ctc(y_true, y_pred):
     return y_pred
+
+
+def edit_distance(y_true, y_pred):
+    actual = dense_to_sparse(y_true)
+    prediction = dense_to_sparse(y_pred)
+    res = tf.edit_distance(prediction, actual)
+    return res
 
 
 def ctc_lambda_func(args):

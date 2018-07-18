@@ -1,9 +1,10 @@
 # https://github.com/robmsmt/KerasDeepSpeech
 import argparse
 import os
+import pickle
 
 import tensorflow as tf
-from keras import Model, Sequential
+from keras import Model
 from keras import backend as K
 from keras.activations import relu
 from keras.callbacks import TensorBoard
@@ -56,11 +57,13 @@ def main():
     model = create_model(args.architecture, num_features)
     model.summary()
 
-    model, history = train_model(model, target_dir, train_set, dev_set)
+    history = train_model(model, target_dir, train_set, dev_set)
 
     evaluate_model(model, test_set)
 
     model.save(os.path.join(target_dir, 'model.h5'))
+    with open(os.path.join(target_dir, 'history.pkl'), 'wb') as f:
+        pickle.dump(history.history, f)
     K.clear_session()
 
 
@@ -90,34 +93,29 @@ def create_model_ds1(input_dim, fc_size=2048, rnn_size=512, output_dim=28):
 
     init = random_normal(stddev=0.046875)
 
-    model = Sequential()
-
     # input layer
-    # input_data = Input(shape=(None, input_dim), name='the_input')
-    model.add(BatchNormalization(axis=-1, input_shape=(None, input_dim), name='the'))
+    input_data = Input(shape=(None, input_dim), name='the_input')
+    X = BatchNormalization(axis=-1, input_shape=(None, input_dim), name='BN_1')(input_data)
 
     # 3 FC layers with dropout
-    model.add(TimeDistributed(
-        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_1')))
-    model.add(Dropout(0.1))
-    model.add(TimeDistributed(
-        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_2')))
-    model.add(Dropout(0.1))
-    model.add(TimeDistributed(
-        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_3')))
-    model.add(Dropout(0.1))
+    X = TimeDistributed(
+        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_1'))(X)
+    X = Dropout(0.1)(X)
+    X = TimeDistributed(
+        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_2'))(X)
+    X = Dropout(0.1)(X)
+    X = TimeDistributed(
+        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_3'))(X)
+    X = Dropout(0.1)(X)
 
     # RNN layer
-    model.add(Bidirectional(
+    X = Bidirectional(
         SimpleRNN(rnn_size, return_sequences=True, activation=clipped_relu, kernel_initializer='he_normal',
-                  name='BiRNN'), merge_mode='sum'))
+                  name='BiRNN'), merge_mode='sum')(X)
 
     # Output layer
-    model.add(TimeDistributed(Dense(output_dim, kernel_initializer=init, bias_initializer=init, activation='softmax'),
-                              name='y_pred'))
-
-    model_input = model.inputs[0]
-    y_pred = model.outputs[0]
+    y_pred = TimeDistributed(Dense(output_dim, kernel_initializer=init, bias_initializer=init, activation='softmax'),
+                             name='y_pred')(X)
 
     labels = Input(name='the_labels', shape=[None, ], dtype='int32')
     input_length = Input(name='input_length', shape=[1], dtype='int32')
@@ -126,7 +124,7 @@ def create_model_ds1(input_dim, fc_size=2048, rnn_size=512, output_dim=28):
     loss_out = Lambda(ctc_lambda_func, name='ctc')([y_pred, labels, input_length, label_length])
     # decoded_out = Lambda(ctc_decode_func, name='ctc_decoded')([y_pred, labels, input_length, label_length])
 
-    model = Model(inputs=[model_input, labels, input_length, label_length], outputs=loss_out)
+    model = Model(inputs=[input_data, labels, input_length, label_length], outputs=loss_out)
     return model
 
 
@@ -195,7 +193,7 @@ def train_model(model, target_dir, train_set, dev_set):
     model.compile(optimizer=opt, loss=ctc)
 
     cb_list = []
-    tb_cb = TensorBoard(log_dir=target_dir, histogram_freq=1, write_graph=True, write_images=True)
+    tb_cb = TensorBoard(log_dir=target_dir, write_graph=True, write_images=True)
     cb_list.append(tb_cb)
 
     y_pred = model.get_layer('ctc').input[0]
@@ -206,14 +204,14 @@ def train_model(model, target_dir, train_set, dev_set):
     # create/add more callbacks here
 
     history = model.fit_generator(generator=train_batches.next_batch(),
-                                  steps_per_epoch=train_batches.steps,
+                                  steps_per_epoch=train_batches.num_batches,
                                   epochs=args.num_epochs,
                                   callbacks=cb_list,
                                   validation_data=dev_batches.next_batch(),
-                                  # validation_steps=dev_batches.steps,
+                                  validation_steps=dev_batches.num_batches,
                                   verbose=1
                                   )
-    return model, history
+    return history
 
 
 def evaluate_model(model, test_set):

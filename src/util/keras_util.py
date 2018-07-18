@@ -44,7 +44,7 @@ class BatchGenerator(object):
             seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
         self.feature_type = feature_type
         self.batch_size = batch_size
-        self.steps = steps if steps else len(self.speech_segments) // self.batch_size
+        self.num_batches = steps if steps else len(self.speech_segments) // self.batch_size
 
     def shuffle(self):
         self.speech_segments = shuffle(self.speech_segments)
@@ -53,7 +53,7 @@ class BatchGenerator(object):
         return self.next_batch()
 
     def __len__(self):
-        return self.steps
+        return self.num_batches
 
     def next_batch(self):
         l = len(self.speech_segments)

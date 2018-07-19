@@ -227,14 +227,14 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
         convergence = False
         # train until convergence or MAX_EPOCHS
         while not convergence and curr_epoch < MAX_EPOCHS:
-            add_distortion = curr_epoch > 0 and args.synthesize
             curr_epoch += 1
             num_samples = 0
             ctc_train = ler_train = 0
             start = time.time()
 
             # iterate over batches for current epoch
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, num_features, distort_audio=add_distortion):
+            add_distortion = curr_epoch > 0 and args.synthesize
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, args.feature_type, distort_audio=add_distortion):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -270,7 +270,7 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
             convergence = ler_train_mean < LER_CONVERGENCE and abs(ler_diff) < 0.01
 
             # validate cost with a randomly chosen entry from the dev-set that has been randomly shifted
-            X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, True)))
+            X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, args.feature_type, shift_audio=True)))
             val_feed = {inputs: X_val, targets: Y_val, seq_len: val_seq_len}
             ctc_val, ler_val = session.run([cost, ler], feed_dict=val_feed)
             val_ctcs.append(ctc_val)
@@ -296,7 +296,7 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
     return save_path
 
 
-def generate_batches(corpus_entries, num_features, shift_audio=False, distort_audio=False):
+def generate_batches(corpus_entries, feature_type, shift_audio=False, distort_audio=False):
     speech_segments = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
     l = len(speech_segments)
     for ndx in range(0, l, args.batch_size):
@@ -308,12 +308,7 @@ def generate_batches(corpus_entries, num_features, shift_audio=False, distort_au
             if shift_audio:
                 speech_segment.audio = shift(audio)  # clip audio before calculating MFCC/spectrogram
 
-            if args.feature_type == 'mfcc':
-                features = speech_segment.mfcc()
-            elif args.feature_type == 'mel':
-                features = speech_segment.mel_specgram(num_features).T
-            else:
-                features = speech_segment.power_specgram().T
+            features = speech_segment.audio_features(feature_type)
             speech_segment.audio = audio  # restore original audio for next epoch
 
             batch.append((features, speech_segment.text))

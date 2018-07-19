@@ -18,7 +18,14 @@ class TestWebRtcUtil(TestCase):
             audio = np.concatenate([frame.audio for frame in voiced_segment])
             file_path = os.path.join('..', f'chunk-{i:0002d}.wav')
             print(f'Writing {file_path}')
-            write_wav_file(file_path, corpus_entry.rate, audio)
+            write_wav_file(file_path, audio, corpus_entry.rate)
 
-        corpus_entry = rl_corpus[0]
-        webrtc_util.split_segments(corpus_entry)
+    def test_split_into_segments_en(self):
+        ls_corpus = corpus_util.load_corpus(r'E:\librispeech-corpus')
+        corpus_entry = ls_corpus['171001']
+        voiced_segments, unvoiced_segments = webrtc_util.split_segments(corpus_entry)
+        for i, voiced_segment in enumerate(voiced_segments):
+            audio = np.concatenate([frame.audio for frame in voiced_segment])
+            file_path = os.path.join('..', f'chunk-{i:0002d}.wav')
+            print(f'Writing {file_path}')
+            write_wav_file(file_path, audio, corpus_entry.rate)

@@ -1,4 +1,5 @@
 import collections
+import numpy as np
 from webrtcvad import Vad
 
 
@@ -7,6 +8,14 @@ class Frame(object):
         self.audio = audio
         self.timestamp = timestamp
         self.duration = duration
+
+
+def extract_speech(corpus_entry):
+    voiced_segments, _ = split_segments(corpus_entry)
+    speech_audio = []
+    for frames in voiced_segments:
+        speech_audio.append(np.concatenate([frame.audio for frame in frames]))
+    return speech_audio
 
 
 def split_segments(corpus_entry, aggressiveness=3, window_duration_ms=30, frame_duration_ms=30):

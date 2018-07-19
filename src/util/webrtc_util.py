@@ -10,15 +10,15 @@ class Frame(object):
         self.duration = duration
 
 
-def extract_speech(corpus_entry):
-    voiced_segments, _ = split_segments(corpus_entry)
+def extract_speech(audio, rate):
+    voiced_segments, _ = split_segments(audio, rate)
     speech_audio = []
     for frames in voiced_segments:
         speech_audio.append(np.concatenate([frame.audio for frame in frames]))
     return speech_audio
 
 
-def split_segments(corpus_entry, aggressiveness=3, window_duration_ms=30, frame_duration_ms=30):
+def split_segments(audio, rate, aggressiveness=3, window_duration_ms=30, frame_duration_ms=30):
     # https://github.com/wiseman/py-webrtcvad/blob/master/example.py
     vad = Vad(aggressiveness)
 
@@ -30,9 +30,9 @@ def split_segments(corpus_entry, aggressiveness=3, window_duration_ms=30, frame_
     # initialize
     voiced_segments, unvoiced_segments, voiced_frames, unvoiced_frames = [], [], [], []
 
-    frames = generate_frames(corpus_entry.audio, corpus_entry.rate, frame_duration_ms)
+    frames = generate_frames(audio, rate, frame_duration_ms)
     for i, frame in enumerate(frames):
-        is_speech = vad.is_speech(frame.audio, corpus_entry.rate)
+        is_speech = vad.is_speech(frame.audio, rate)
         sliding_window.append((frame, is_speech))
 
         if not triggered:

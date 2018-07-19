@@ -9,7 +9,7 @@ from util.corpus_util import load_corpus
 
 class TestAsrUtil(unittest.TestCase):
 
-    # @unittest.skip('use this to create samples')
+    @unittest.skip('use this to create samples')
     def test_create_samples(self):
         corpus = load_corpus(r'E:\readylingua-corpus')
         corpus = corpus(languages='en')
@@ -42,6 +42,8 @@ class TestAsrUtil(unittest.TestCase):
     def test_transcribe_corpus_entry(self):
         ls_corpus = load_corpus(r'E:\librispeech-corpus')
         corpus_entry = ls_corpus['171001']
-        transcriptions = asr_util.transcribe_corpus_entry(corpus_entry, limit=5)
+
+        print(f'transcribing {corpus_entry.name} ({corpus_entry.id})')
+        transcriptions = asr_util.transcribe_corpus_entry(corpus_entry.audio, corpus_entry.rate, limit=5)
         for t in transcriptions:
             print(t)

@@ -16,13 +16,12 @@ from tqdm import tqdm
 from util.webrtc_util import extract_speech
 
 
-def transcribe_corpus_entry(corpus_entry, limit=None):
-    print(f'transcribing {corpus_entry.name} ({corpus_entry.id})')
+def transcribe_corpus_entry(audio, rate, limit=None):
     transcripts = []
-    speech_audio = extract_speech(corpus_entry)
+    speech_audio = extract_speech(audio, rate)
     print(f"got {len(speech_audio)} segments, transcribing {limit if limit else 'all'}")
     for audio in tqdm(speech_audio[:limit], unit='segments'):
-        transcript = transcribe_audio(audio, corpus_entry.rate)
+        transcript = transcribe_audio(audio, rate)
         transcripts.append(transcript)
     return transcripts
 

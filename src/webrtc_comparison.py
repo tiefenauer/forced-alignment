@@ -41,7 +41,7 @@ def calculate_boundaries(segments):
 
 
 def calculate_boundaries_webrtc(corpus_entry, aggressiveness=3):
-    voiced_segments, _ = split_segments(corpus_entry, aggressiveness=aggressiveness)
+    voiced_segments, _ = split_segments(corpus_entry.audio, corpus_entry.rate, aggressiveness=aggressiveness)
     boundaries = []
     for frames in voiced_segments:
         start_time = frames[0].timestamp

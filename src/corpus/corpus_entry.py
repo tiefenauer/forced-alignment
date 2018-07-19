@@ -40,8 +40,7 @@ class CorpusEntry(Audible):
         return self.speech_segments[item]
 
     def _create_audio_and_rate(self):
-        rate, audio = read_wav_file(self.audio_file)
-        return audio, rate
+        return read_wav_file(self.audio_file)
 
     @property
     def speech_segments(self):

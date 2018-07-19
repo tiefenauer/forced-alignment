@@ -74,6 +74,8 @@ def create_model(architecture, num_features):
         return create_model_ds1(num_features)
     elif architecture == 'ds2':
         return create_model_ds2(num_features)
+    elif architecture == 'poc':
+        return create_model_poc(num_features)
     return create_model_x(num_features)
 
 
@@ -123,14 +125,47 @@ def create_model_ds1(input_dim, fc_size=2048, rnn_size=512, output_dim=28):
     label_length = Input(name='label_length', shape=[1], dtype='int32')
 
     loss_out = Lambda(ctc_lambda_func, name='ctc')([y_pred, labels, input_length, label_length])
-    # decoded_out = Lambda(ctc_decode_func, name='ctc_decoded')([y_pred, labels, input_length, label_length])
+    # ler_out = Lambda(ctc_decode_func, name='ctc_decoded')([y_pred, labels, input_length, label_length])
 
-    model = Model(inputs=[input_data, labels, input_length, label_length], outputs=loss_out)
+    model = Model(inputs=[input_data, labels, input_length, label_length], outputs=[loss_out])
     return model
 
 
 def create_model_ds2(num_features, fc_size=2048, rnn_size=512, dropout=[0.1, 0.1, 0.1], output_dim=28):
     pass
+
+
+def create_model_poc(num_features):
+    num_hidden = 100
+    num_classes = 28
+
+    input_data = Input(shape=(None, None, num_features), name='the_input')
+
+    shape = K.shape(input_data)
+    batch_s, max_time_steps = shape[0], shape[1]
+
+    outputs = SimpleRNN(LSTM(num_hidden, return_sequences=True))(input_data)
+    outputs = K.reshape(outputs, [-1, num_hidden])
+
+    W = K.variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
+    b = K.variable(K.constant(0, shape=[num_classes]))
+    logits = K.dot(outputs, W) + b
+    logits = K.reshape(logits, [batch_s, -1, num_classes])
+    logits = tf.transpose(logits, (1, 0, 2))
+
+    labels = tf.sparse_placeholder(tf.int32, name='labels')
+    input_length = tf.placeholder(tf.int32, [None], name='input_length')
+    label_length = Input(name='label_length', shape=[1], dtype='int32')
+    loss = tf.nn.ctc_loss(labels, logits, input_length)
+    cost = tf.reduce_mean(loss)
+
+    # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-2, momentum=0.9).minimize(cost)
+
+    decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, input_length)
+
+    ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
+
+    model = Model(inputs=[input_data, labels, input_length, label_length], outputs=[decoded, ])
 
 
 def create_model_x(num_features, fc_size=2048, rnn_size=512, dropout=[0.1, 0.1, 0.1], output_dim=28):
@@ -201,7 +236,7 @@ def train_model(model, target_dir, train_set, dev_set):
     input_data = model.get_layer('the_input').input
     report = K.function([input_data, K.learning_phase()], [y_pred])
     report_cb = ReportCallback(report, dev_batches, model, target_dir)
-    # cb_list.append(report_cb)
+    cb_list.append(report_cb)
     # create/add more callbacks here
 
     history = model.fit_generator(generator=train_batches.next_batch(),
@@ -250,8 +285,14 @@ def ctc_lambda_func(args):
 
 def ctc_decode_func(args):
     y_pred, labels, input_length, label_length = args
-    sequences, probs = K.ctc_decode(y_pred, tf.reshape(input_length, [-1]), greedy=True)
-    return tf.cast(sequences[0], tf.float32)
+    decoded, log_prob = tf.nn.ctc_greedy_decoder(y_pred, tf.reshape(input_length, [-1]))
+    # decoded, log_prob = tf.nn.ctc_beam_search_decoder(y_pred, tf.reshape(input_length, [-1]))
+    # sparse = dense_to_sparse(decoded[0])
+    # ed = tf.edit_distance(tf.cast(sparse, tf.int32), labels)
+    # ler = tf.reduce_mean(ed)
+    # return tf.sparse_to_dense(ler)
+    # sequences, probs = K.ctc_decode(y_pred, tf.reshape(input_length, [-1]), greedy=False)
+    # return tf.cast(sequences[0], tf.float32)
 
 
 if __name__ == '__main__':

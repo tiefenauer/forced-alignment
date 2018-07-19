@@ -1,43 +1,17 @@
-import itertools
-
 import numpy as np
-import tensorflow as tf
 from keras import backend as K
 from keras import callbacks
-# def ler(y_true, y_pred):
-#     print(y_true)
-#     print(y_pred)
-#     ler = tf.edit_distance(dense_to_sparse(y_true), dense_to_sparse(y_pred))
-#     truth = decode(y_true)
-#     prediction = decode(y_pred)
-#     ler = edit_distance(truth, prediction)
-#     return ler
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.utils import shuffle
 
 from util.rnn_util import decode, encode
 
 
-def dense_to_sparse(tensor):
-    idx = tf.where(tf.not_equal(tensor, 0))
-    return tf.SparseTensor(idx, tf.gather_nd(tensor, idx), tensor.get_shape())
-
-
-def decode_batch(test_func, X):
-    ret = []
-    output = test_func([X])[0]
-
-    for j in range(X.shape[0]):
-        out = output[j]
-        best = list(np.argmax(out, axis=1))
-        merge = [k for k, g in itertools.groupby(best)]
-        outStr = decode(merge)
-        ret.append(outStr)
-
-    return ret
-
-
 class BatchGenerator(object):
+    """
+    Generates batches for training/validation/evaluation. Batches are created as tuples of dictionaries. Each dictionary
+    contains keys mapping to the data required by tensors of the model.
+    """
 
     def __init__(self, corpus_entries, feature_type, batch_size, steps=None):
         self.speech_segments = list(
@@ -102,8 +76,13 @@ class ReportCallback(callbacks.Callback):
     def validate_epoch_end(self, verbose=0):
         for inputs, outputs in self.dev_batches:
             X = inputs['the_input']
+            X_lengths = inputs['input_length']
             truths = inputs['source_str']
-            predictions = decode_batch(self.test_func, X)
+
+            y_pred = self.test_func([X])[0]
+            sequences, probs = K.ctc_decode(y_pred, X_lengths, greedy=False)
+            predictions = [decode(K.get_value(seq).reshape(-1)) for seq in sequences]
+
             for truth, pred in zip(truths, predictions):
                 print(f'truth: {truth}, prediction: {pred}')
             break

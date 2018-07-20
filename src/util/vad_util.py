@@ -5,7 +5,7 @@ from webrtcvad import Vad
 from util.audio_util import ms_to_frames
 
 
-class VoiceActivity(object):
+class Voice(object):
     """
     class representing voice activity inside an audio signal
     """
@@ -29,18 +29,17 @@ class Frame(object):
         self.duration = duration
 
 
-def extract_voice_activities(audio, rate, limit=None):
-    voiced_segments, _ = split_segments(audio, rate)
-    voice_activities = []
-    for frames in voiced_segments[:limit]:
+def extract_voice(audio, rate, limit=None):
+    voiced_frames, _ = split_segments(audio, rate)
+    voice_segments = []
+    for frames in voiced_frames[:limit]:
         start_time = frames[0].timestamp
         end_time = (frames[-1].timestamp + frames[-1].duration)
         start_frame = ms_to_frames(start_time * 1000, rate)
         end_frame = ms_to_frames(end_time * 1000, rate)
         audio = np.concatenate([frame.audio for frame in frames])
-        va = VoiceActivity(audio, rate, start_frame, end_frame)
-        voice_activities.append(va)
-    return voice_activities
+        voice_segments.append(Voice(audio, rate, start_frame, end_frame))
+    return voice_segments
 
 
 def split_segments(audio, rate, aggressiveness=3, window_duration_ms=30, frame_duration_ms=30):

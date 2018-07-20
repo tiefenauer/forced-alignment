@@ -3,7 +3,7 @@ import unittest
 import soundfile as sf
 
 from util.asr_util import transcribe_audio, transcribe_file
-from util.audio_util import write_wav_file, read_wav_file
+from util.audio_util import write_wav_file, read_audio
 from util.corpus_util import load_corpus
 
 
@@ -28,7 +28,7 @@ class TestAsrUtil(unittest.TestCase):
         print(transcript)
 
     def test_transcribe_audio_from_file(self):
-        audio, rate = read_wav_file('speech_segment_sample_en.wav')
+        audio, rate = read_audio('speech_segment_sample_en.wav')
         transcription = transcribe_audio(audio, rate, 'en')
         print(transcription)
 

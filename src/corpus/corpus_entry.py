@@ -7,7 +7,7 @@ from os.path import exists, join
 from tabulate import tabulate
 
 from corpus.audible import Audible
-from util.audio_util import read_wav_file
+from util.audio_util import read_audio
 from util.string_util import contains_numeric
 
 
@@ -51,7 +51,7 @@ class CorpusEntry(Audible):
         return self.speech_segments[item]
 
     def _create_audio_and_rate(self):
-        return read_wav_file(self.audio_file)
+        return read_audio(self.audio_file)
 
     @property
     def speech_segments(self):

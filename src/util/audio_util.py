@@ -47,7 +47,7 @@ def resample_wav(in_file, out_file, inrate=44100, outrate=16000, inchannels=1, o
 
 
 def crop_wav(wav_file, segments):
-    audio, rate = read_wav_file(wav_file)
+    audio, rate = read_audio(wav_file)
     crop_start = min(segment.start_frame for segment in segments)
     crop_end = max(segment.end_frame for segment in segments)
     write_wav_file(wav_file, audio[crop_start:crop_end], rate)
@@ -57,8 +57,8 @@ def crop_wav(wav_file, segments):
         segment.end_frame -= crop_start
 
 
-def read_wav_file(file_path):
-    return librosa.load(file_path, sr=None)
+def read_audio(file_path, sample_rate=None, mono=False):
+    return librosa.load(file_path, sr=sample_rate, mono=mono)
 
 
 def write_wav_file(file_path, audio, rate):

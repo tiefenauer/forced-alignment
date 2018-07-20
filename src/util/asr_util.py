@@ -13,37 +13,39 @@ from google.cloud.speech import enums
 from google.cloud.speech import types
 from tqdm import tqdm
 
-from util.webrtc_util import extract_speech
+from constants import LANGUAGE_CODES
 
 
-def transcribe_corpus_entry(audio, rate, limit=None):
-    transcripts = []
-    speech_audio = extract_speech(audio, rate)
-    print(f"got {len(speech_audio)} segments, transcribing {limit if limit else 'all'}")
-    for audio in tqdm(speech_audio[:limit], unit='segments'):
-        transcript = transcribe_audio(audio, rate)
-        transcripts.append(transcript)
-    return transcripts
+def transcribe(voice_activities, language, printout=False):
+    for va in tqdm(voice_activities, unit='voice activities'):
+        transcript = transcribe_audio(va.audio, va.rate, language)
+        if printout:
+            print(transcript)
+        va.transcript = transcript
+    return voice_activities
 
 
-def transcribe_audio(audio, rate):
+def transcribe_audio(audio, rate, language):
+    # ugly hack to create temporary file until a solution is found to call the TTS-API directly
     tmp_file = 'audio.wav.tmp'
     sf.write(tmp_file, audio, rate, format='wav', subtype='PCM_16')
-    transcription = transcribe_file(tmp_file)
+    transcription = transcribe_file(tmp_file, language)
     os.remove(tmp_file)
     return transcription
 
 
-def transcribe_file(path):
+def transcribe_file(path, language):
+    # transcribes a file --> should be changed to transcribe audio-bytes directly
     client = speech.SpeechClient()
     with io.open(path, 'rb') as audio_file:
         content = audio_file.read()
         audio = types.RecognitionAudio(content=content)
 
+    language_code = LANGUAGE_CODES[language]
     config = types.RecognitionConfig(
         encoding=enums.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=16000,
-        language_code='en-US')
+        language_code=language_code)
 
     # Detects speech in the audio file
     response = client.recognize(config, audio)

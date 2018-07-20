@@ -15,7 +15,7 @@ from tqdm import tqdm
 from corpus.corpus import ReadyLinguaCorpus
 from corpus.corpus_entry import CorpusEntry
 from corpus.corpus_segment import Speech, Pause
-from constants import CORPUS_RAW_ROOT, CORPUS_TARGET_ROOT
+from constants import CORPUS_RAW_ROOT, CORPUS_ROOT
 from util.audio_util import recalculate_frame, resample_wav, crop_wav
 from util.corpus_util import save_corpus, find_file_by_extension
 from util.log_util import log_setup, create_args_str
@@ -43,8 +43,8 @@ parser = argparse.ArgumentParser(description="""Create ReadyLingua corpus from r
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-s', '--source_root', default=CORPUS_RAW_ROOT,
                     help=f'(optional) source root directory (default: {CORPUS_RAW_ROOT}')
-parser.add_argument('-t', '--target_root', default=CORPUS_TARGET_ROOT,
-                    help=f'(optional) target root directory (default: {CORPUS_TARGET_ROOT})')
+parser.add_argument('-t', '--target_root', default=CORPUS_ROOT,
+                    help=f'(optional) target root directory (default: {CORPUS_ROOT})')
 parser.add_argument('-m', '--max_entries', type=int, default=None,
                     help='(optional) maximum number of corpus entries to process. Default=None=\'all\'')
 parser.add_argument('-o', '--overwrite', default=False, action='store_true',
@@ -91,23 +91,23 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
 
     progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr, unit='entries')
 
-    for directory in progress:
+    for raw_path in progress:
         if max_entries and len(corpus_entries) >= max_entries:
             break
 
-        progress.set_description(f'{directory:{100}}')
+        progress.set_description(f'{raw_path:{100}}')
 
-        files = collect_files(directory)
+        files = collect_files(raw_path)
         if not files:
-            log.warning(f'Skipping directory (not all files found): {directory}')
+            log.warning(f'Skipping directory (not all files found): {raw_path}')
             continue
 
-        parms = collect_corpus_entry_parms(directory, files)
+        parms = collect_corpus_entry_parms(raw_path, files)
 
-        segmentation_file = os.path.join(directory, files['segmentation'])
-        index_file = os.path.join(directory, files['index'])
-        transcript_file = os.path.join(directory, files['text'])
-        audio_file = os.path.join(directory, files['audio'])
+        segmentation_file = os.path.join(raw_path, files['segmentation'])
+        index_file = os.path.join(raw_path, files['index'])
+        transcript_file = os.path.join(raw_path, files['text'])
+        audio_file = os.path.join(raw_path, files['audio'])
 
         segments = create_segments(index_file, transcript_file, segmentation_file, parms['rate'])
 
@@ -119,7 +119,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
         parms['media_info'] = mediainfo(audio_resampled)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_resampled, segments, directory, parms)
+        corpus_entry = CorpusEntry(audio_resampled, segments, raw_path=raw_path, parms=parms)
         corpus_entries.append(corpus_entry)
 
     corpus = ReadyLinguaCorpus(corpus_entries, target_root)

@@ -1,11 +1,11 @@
 import audioop
 import logging
 import os
-import random
 import wave
 
 import librosa
 import numpy as np
+import random
 import scipy.io.wavfile
 import scipy.signal
 from librosa.effects import time_stretch, pitch_shift
@@ -126,6 +126,10 @@ def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms', mo
 
 def ms_to_frames(val_ms, sample_rate):
     return int(round(val_ms * sample_rate / 1e3))
+
+
+def frame_to_ms(val_frame, sample_rate):
+    return float(val_frame / sample_rate)
 
 
 def shift(audio, max_shift=None):

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <script src="../jquery-1.7.2.js"></script>
+    <script src="../audioaligner.js"></script>
+    <link href="../style.css" rel="stylesheet">
+</head>
+<body>
+<h1 id="demo_title"></h1>
+<audio id="player" controls></audio>
+<div id="container">
+    <div id="content">
+        <div id="target"></div>
+    </div>
+</div>
+
+<script>
+    var audio = document.getElementById('player');
+    if (!(audio.canPlayType && (audio.canPlayType('audio/mp3') || audio.canPlayType('audio/mpeg')))) {
+        alert('Please use a browser that can play MP3s like Chrome, Safari, IE9');
+    }
+    var aligner = new AudioAligner(document.getElementById('target'), audio);
+    aligner.align('audio.wav', 'alignment.json');
+</script>
+</body>
+</html>

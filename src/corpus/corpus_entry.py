@@ -13,7 +13,16 @@ from util.string_util import contains_numeric
 
 class CorpusEntry(Audible):
 
-    def __init__(self, audio_file, segments, original_path='', parms={}):
+    def __init__(self, audio_file, segments, full_transcript='', raw_path='', parms={}):
+        """
+        creates a new corpus entry
+        :param audio_file: path to the audio file (will be read on-the-fly)
+        :param segments: list of speech- and pause-segments
+        :param full_transcript: string containing the full transcript (if available) if not set, the concatenated
+                                transcripts of the segments will be used as full transcript
+        :param raw_path: path to the directory containing the raw data from which this entry was constructed
+        :param parms: dictionary containing arbitrary paths
+        """
         self.corpus = None
         self.audio_file = audio_file
 
@@ -21,7 +30,9 @@ class CorpusEntry(Audible):
             segment.corpus_entry = self
         self.segments = segments
 
-        self.original_path = original_path
+        self.full_transcript = full_transcript if full_transcript else self.transcript
+
+        self.raw_path = raw_path
         self.name = parms['name'] if 'name' in parms else ''
         self.id = parms['id'] if 'id' in parms else str(randint(1, 999999))
         self.language = parms['language'] if 'language' in parms else 'N/A'
@@ -132,9 +143,9 @@ class CorpusEntry(Audible):
         print(tabulate([(k,) + v for k, v in table.items()], headers=headers))
         print('')
         print(f'duration: {timedelta(seconds=self.audio_length)}')
-        print(f'original path: {self.original_path}')
-        print(f'original sampling rate: {self.original_sampling_rate}')
-        print(f'original #channels: {self.original_channels}')
+        print(f'raw path: {self.raw_path}')
+        print(f'raw sampling rate: {self.original_sampling_rate}')
+        print(f'raw #channels: {self.original_channels}')
         print(f'language: {self.language}')
         print(f'chapter ID: {self.chapter_id}')
         print(f'speaker_ID: {self.speaker_id}')

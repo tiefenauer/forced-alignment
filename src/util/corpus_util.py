@@ -2,7 +2,21 @@ import gzip
 import os
 import pickle
 from copy import copy
+
 from os.path import join
+
+from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
+
+
+def get_corpus(id):
+    if id == 'ls':
+        corpus = load_corpus(LS_CORPUS_ROOT)
+    elif id == 'rl':
+        corpus = load_corpus(RL_CORPUS_ROOT)
+    else:
+        raise ValueError('unknown corpus id')
+    corpus.summary()
+    return corpus
 
 
 def save_corpus(corpus_entries, target_root, gzip=False):

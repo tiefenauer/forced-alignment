@@ -8,8 +8,9 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
-from constants import TRAIN_TARGET_ROOT
+from constants import TRAIN_ROOT
 from util.audio_util import distort, shift
+from util.corpus_util import get_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
 from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, pad_sequences, sparse_tuple_from
@@ -46,8 +47,8 @@ parser.add_argument('-ix', '--ix', type=str, nargs='?',
                     help='(optional) specify index of single corpus entry on which to train on')
 parser.add_argument('-s', '--synthesize', action='store_true', default=SYNTHESIZE,
                     help=f'(optional) synthesize audio for training by adding distortion (default: {SYNTHESIZE})')
-parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_TARGET_ROOT,
-                    help=f'(optional) root directory where results will be written to (default: {TRAIN_TARGET_ROOT})')
+parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
+                    help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=MAX_EPOCHS,
                     help=f'(optional) number of epochs to train the model (default: {MAX_EPOCHS})')
 parser.add_argument('-le', '--limit_entries', type=int, nargs='?',
@@ -67,7 +68,7 @@ num_layers = 1
 def main():
     target_dir = get_target_dir('RNN', args)
     num_features = get_num_features(args.feature_type)
-    corpus = get_corpus(args)
+    corpus = get_corpus(args.corpus)
 
     train_set, dev_set, test_set = create_train_dev_test(args, corpus)
 

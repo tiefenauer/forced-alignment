@@ -5,6 +5,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 
+from constants import CORPUS_ROOT, RL_CORPUS_ROOT, LS_CORPUS_ROOT
 from util.audio_util import log_specgram
 from util.corpus_util import load_corpus, save_corpus
 from util.log_util import log_setup, create_args_str
@@ -15,7 +16,6 @@ log = logging.getLogger(__name__)
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
 # -------------------------------------------------------------
-DEFAULT_CORPUS_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1/'
 
 # -------------------------------------------------------------
 # CLI arguments
@@ -25,8 +25,8 @@ parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook co
 parser.add_argument('corpus', nargs='?', type=str, choices=['rl', 'ls'],
                     help='(optional) select which corpus to process (rl=ReadyLingua, ls=LibriSpeech). '
                          'Default=None (all)')
-parser.add_argument('-d', '--corpus_root', default=DEFAULT_CORPUS_ROOT,
-                    help=f'(optional) root directory where the corpora are stored. Default={DEFAULT_CORPUS_ROOT}')
+parser.add_argument('-d', '--corpus_root', default=CORPUS_ROOT,
+                    help=f'(optional) root directory where the corpora are stored. Default={CORPUS_ROOT}')
 parser.add_argument('-o', '--overwrite', default=False, action='store_true',
                     help='(optional) overwrite existing data if already present. Default=False)')
 parser.add_argument('-m', '--max_samples', type=int, default=None,
@@ -49,16 +49,14 @@ def main():
 
     # create LibriSpeech train-/dev-/test-data
     if not args.corpus or args.corpus == 'ls':
-        ls_corpus_root = os.path.join(args.corpus_root, 'librispeech-corpus')
-        print(f'Processing files from {ls_corpus_root}')
-        create_X_Y(ls_corpus_root, args.no_spectrograms, args.no_labels, args.max_samples)
+        print(f'Processing files from {LS_CORPUS_ROOT}')
+        create_X_Y(LS_CORPUS_ROOT, args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
     # create ReadyLingua train-/dev-/test-data
     if not args.corpus or args.corpus == 'rl':
-        rl_corpus_root = os.path.join(args.corpus_root, 'readylingua-corpus')
-        print(f'Processing files from {rl_corpus_root}')
-        create_X_Y(rl_corpus_root, args.no_spectrograms, args.no_labels, args.max_samples)
+        print(f'Processing files from {RL_CORPUS_ROOT}')
+        create_X_Y(RL_CORPUS_ROOT, args.no_spectrograms, args.no_labels, args.max_samples)
         print('Done!')
 
 
@@ -70,7 +68,7 @@ def create_X_Y(corpus_root, no_spectrograms=False, no_labels=False, max_samples=
         if not no_spectrograms:
             create_x(corpus_entry)
         if not no_labels:
-            create_y(corpus_entry, corpus_root)
+            create_y(corpus_entry)
     save_corpus(corpus, corpus_root)
 
 

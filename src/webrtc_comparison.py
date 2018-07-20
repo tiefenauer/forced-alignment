@@ -9,13 +9,10 @@ from os.path import exists
 from tabulate import tabulate
 from tqdm import tqdm
 
-from constants import CORPUS_TARGET_ROOT
+from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
 from util.corpus_util import load_corpus
 from util.log_util import print_to_file_and_console
-from util.webrtc_util import split_segments
-
-rl_corpus_root = os.path.join(CORPUS_TARGET_ROOT, 'readylingua-corpus')
-ls_corpus_root = os.path.join(CORPUS_TARGET_ROOT, 'librispeech-corpus')
+from util.vad_util import split_segments
 
 
 def calc_overlap(a, b):
@@ -41,7 +38,7 @@ def calculate_boundaries(segments):
 
 
 def calculate_boundaries_webrtc(corpus_entry, aggressiveness=3):
-    voiced_segments, _ = split_segments(corpus_entry, aggressiveness=aggressiveness)
+    voiced_segments, _ = split_segments(corpus_entry.audio, corpus_entry.rate, aggressiveness=aggressiveness)
     boundaries = []
     for frames in voiced_segments:
         start_time = frames[0].timestamp
@@ -138,7 +135,7 @@ def plot_stats(stats, title=None):
 
 
 if __name__ == '__main__':
-    rl_corpus = load_corpus(rl_corpus_root)
+    rl_corpus = load_corpus(RL_CORPUS_ROOT)
     create_corpus_stats(rl_corpus)
-    ls_corpus = load_corpus(ls_corpus_root)
+    ls_corpus = load_corpus(LS_CORPUS_ROOT)
     create_corpus_stats(ls_corpus)

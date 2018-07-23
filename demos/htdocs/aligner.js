@@ -30,7 +30,8 @@
         return node => {
             let isTextNode = [3, 4].includes(node.nodeType);
             let containsText = node.data.toLowerCase().includes(text.toLowerCase());
-            return isTextNode && containsText
+            let isAligned = $(node).hasClass('aligned') || $(node.parentElement).hasClass('aligned')
+            return isTextNode && containsText && !isAligned
         }
     }
 

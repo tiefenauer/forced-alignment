@@ -12,7 +12,7 @@ from tqdm import tqdm
 from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
 from util.corpus_util import load_corpus
 from util.log_util import print_to_file_and_console
-from util.vad_util import split_segments
+from util.vad_util import webrtc_split
 
 
 def calc_overlap(a, b):
@@ -38,7 +38,7 @@ def calculate_boundaries(segments):
 
 
 def calculate_boundaries_webrtc(corpus_entry, aggressiveness=3):
-    voiced_segments, _ = split_segments(corpus_entry.audio, corpus_entry.rate, aggressiveness=aggressiveness)
+    voiced_segments, _ = webrtc_split(corpus_entry.audio, corpus_entry.rate, aggressiveness=aggressiveness)
     boundaries = []
     for frames in voiced_segments:
         start_time = frames[0].timestamp

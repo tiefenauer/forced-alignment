@@ -15,7 +15,7 @@ class TestWebRtcUtil(TestCase):
 
         audio, rate = corpus_entry.audio, corpus_entry.rate
 
-        voiced_segments, unvoiced_segments = vad_util.split_segments(audio, rate)
+        voiced_segments, unvoiced_segments = vad_util.webrtc_split(audio, rate)
         for i, voiced_segment in enumerate(voiced_segments):
             audio = np.concatenate([frame.audio for frame in voiced_segment])
             file_path = os.path.join('..', f'chunk-{i:0002d}.wav')
@@ -28,7 +28,7 @@ class TestWebRtcUtil(TestCase):
 
         audio, rate = corpus_entry.audio, corpus_entry.rate
 
-        voiced_segments, unvoiced_segments = vad_util.split_segments(audio, rate)
+        voiced_segments, unvoiced_segments = vad_util.webrtc_split(audio, rate)
         for i, voiced_segment in enumerate(voiced_segments):
             audio = np.concatenate([frame.audio for frame in voiced_segment])
             file_path = os.path.join('..', f'chunk-{i:0002d}.wav')

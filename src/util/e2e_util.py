@@ -1,12 +1,13 @@
 import json
 import pickle
-from os import makedirs
+from os import makedirs, remove
 from pathlib import Path
 
 import langdetect
 import librosa
 from bs4 import BeautifulSoup
 from os.path import join, exists, splitext, basename
+from pydub import AudioSegment
 
 from constants import DEMO_ROOT
 from util.asr_util import transcribe
@@ -15,12 +16,14 @@ from util.lsa_util import align
 from util.vad_util import extract_voice
 
 
-def create_demo(audio_path, transcript_path, limit=None):
-    demo_id = splitext(basename(audio_path))[0]
+def create_demo(audio_path, transcript_path, id=None, limit=None):
+    file_name, file_ext = splitext(basename(audio_path))
+    demo_id = id if id else file_name
     print(f'assigned demo id: {demo_id}. Loading audio and transcript...')
     audio, rate = librosa.core.load(audio_path, sr=16000, mono=True)
     transcript = Path(transcript_path).read_text(encoding='utf-8').replace('\n', ' ')
     print(f'... audio and transcript loaded')
+
     language = langdetect.detect(transcript)
     print(f'detected language from transcript: {language}')
     create_demo_files(demo_id, audio, rate, transcript, language, limit)
@@ -41,13 +44,17 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
     print(f'all assets will be saved in {target_dir}')
 
     asr_pickle = join(target_dir, 'asr.pkl')  # cached STT-responses to regenerate files faster
-    audio_path = join(target_dir, 'audio.wav')
+    audio_path = join(target_dir, 'audio.mp3')
     transcript_path = join(target_dir, 'transcript.txt')
     transcript_asr_path = join(target_dir, 'transcript_asr.txt')
     alignment_json_path = join(target_dir, 'alignment.json')
 
     print(f'saving audio in {audio_path}')
-    write_wav_file(audio_path, audio, rate)
+    tmp_wav = join(target_dir, 'audio.tmp.wav')
+    write_wav_file(tmp_wav, audio, rate)
+    AudioSegment.from_wav(tmp_wav).export(audio_path, format='mp3')
+    remove(tmp_wav)
+
     print(f'saving transcript in {transcript_path}')
     with open(transcript_path, 'w', encoding='utf-8') as f:
         f.write(transcript)
@@ -58,7 +65,7 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
             voice_activities = pickle.load(f)
     else:
         print(f'VAD: Splitting audio into speech segments')
-        voice_activities = extract_voice(audio, rate, limit)
+        voice_activities = extract_voice(audio, rate, max_segments=limit)
         print(f'ASR: transcribing each segment')
         voice_activities = transcribe(voice_activities, language, printout=True)
         print(f'saving results to cache: {asr_pickle}')
@@ -84,8 +91,8 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
 def create_alignment_json(alignments):
     words = []
     for al in alignments:
-        start_ms = frame_to_ms(al.start_frame, al.rate) * 2
-        end_ms = frame_to_ms(al.end_frame, al.rate) * 2
+        start_ms = frame_to_ms(al.start_frame, al.rate)
+        end_ms = frame_to_ms(al.end_frame, al.rate)
         words.append([al.alignment_text, start_ms, end_ms])
 
     json_data = {}

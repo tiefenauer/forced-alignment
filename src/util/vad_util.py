@@ -1,5 +1,5 @@
 import collections
-import numpy as np
+import librosa
 from webrtcvad import Vad
 
 from util.audio_util import ms_to_frames
@@ -11,11 +11,15 @@ class Voice(object):
     """
 
     def __init__(self, audio, rate, start_frame, end_frame):
-        self.audio = audio
+        self._audio = audio
         self.rate = rate
         self.start_frame = start_frame
         self.end_frame = end_frame
         self.transcript = None
+
+    @property
+    def audio(self):
+        return self._audio[self.start_frame:self.end_frame]
 
 
 class Frame(object):
@@ -29,20 +33,47 @@ class Frame(object):
         self.duration = duration
 
 
-def extract_voice(audio, rate, limit=None):
-    voiced_frames, _ = split_segments(audio, rate)
-    voice_segments = []
+def extract_voice(audio, rate, min_segments=2, max_segments=None):
+    """
+    Extract voice from audio usingn WebRTC (if possible) or by splitting into non-silent intervals (fallback)
+    :param audio: audio signal as 1D-numpy array (mono)
+    :param rate: sample rate
+    :param min_segments: expected minimal number of segments
+    :param max_segments: maximum nuber of segments to return
+    :return:
+    """
+    voiced_segments = list(webrtc_voice(audio, rate, max_segments))
+    if len(voiced_segments) >= min_segments:
+        return voiced_segments
+    return list(librosa_voice(audio, rate, limit=max_segments))
+
+
+def webrtc_voice(audio, rate, limit=None):
+    voiced_frames, _ = webrtc_split(audio, rate)
     for frames in voiced_frames[:limit]:
         start_time = frames[0].timestamp
         end_time = (frames[-1].timestamp + frames[-1].duration)
         start_frame = ms_to_frames(start_time * 1000, rate)
         end_frame = ms_to_frames(end_time * 1000, rate)
-        audio = np.concatenate([frame.audio for frame in frames])
-        voice_segments.append(Voice(audio, rate, start_frame, end_frame))
-    return voice_segments
+        yield Voice(audio, rate, start_frame, end_frame)
 
 
-def split_segments(audio, rate, aggressiveness=3, window_duration_ms=30, frame_duration_ms=30):
+def librosa_voice(audio, rate, top_db=30, limit=None):
+    intervals = librosa.effects.split(audio, top_db=top_db)
+    for start, end in intervals[:limit]:
+        yield Voice(audio, rate, start, end)
+
+
+def webrtc_split(audio, rate, aggressiveness=3, window_duration_ms=30, frame_duration_ms=30):
+    """
+    Splic audio into voiced and unvoiced segments using WebRTC
+    :param audio:
+    :param rate:
+    :param aggressiveness:
+    :param window_duration_ms:
+    :param frame_duration_ms:
+    :return:
+    """
     # https://github.com/wiseman/py-webrtcvad/blob/master/example.py
     vad = Vad(aggressiveness)
 

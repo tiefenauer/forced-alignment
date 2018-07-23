@@ -13,8 +13,14 @@ body {
 
 .current {
     background: yellow;
-    outline: solid 2px yellow;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    outline: solid 5px yellow;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.aligned {
+    text-decoration: underline;
+    text-decoration-color: darkgray;
+    text-decoration-style: dotted;
 }
 
 .aligned:hover {

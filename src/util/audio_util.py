@@ -1,11 +1,11 @@
 import audioop
 import logging
 import os
+import random
 import wave
 
 import librosa
 import numpy as np
-import random
 import scipy.io.wavfile
 import scipy.signal
 from librosa.effects import time_stretch, pitch_shift

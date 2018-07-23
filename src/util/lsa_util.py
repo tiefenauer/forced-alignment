@@ -26,8 +26,7 @@ def align(voice_activities, transcript, printout=False):
             print(f'edit distance: {edit_distance:.2f}, transcript: {va.transcript}, alignment: {alignment_text}')
         if edit_distance > 0.5:
             alignments.append(Alignment(va, start, end, alignment_text))
+            # prevent identical transcripts to become aligned with the same part of the audio
+            a = transcript.replace(alignment_text, '-' * len(alignment_text), 1)
 
-        # clip first part of transcript that was matched
-        # clip = transcript.index(alignment_text) + len(alignment_text)
-        # transcript = transcript[clip:]
     return alignments

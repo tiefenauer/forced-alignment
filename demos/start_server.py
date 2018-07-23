@@ -1,8 +1,15 @@
-"""From https://gist.github.com/shivakar/82ac5c9cb17c95500db1906600e5e1ea"""
-
+"""adapted from: https://gist.github.com/shivakar/82ac5c9cb17c95500db1906600e5e1ea"""
+import argparse
 import os
 import sys
 from http.server import SimpleHTTPRequestHandler, HTTPServer
+
+parser = argparse.ArgumentParser(description='Start simple HTTP server supporting HTTP/1.1 requests (needed to play'
+                                             'the aligned audio in HTML5)!')
+parser.add_argument('cwd', type=str, nargs='?', default='htdocs',
+                    help='(optional) directory to serve from (default: \'htdocs\')')
+parser.add_argument('port', type=int, nargs='?', default=8000, help='(optional) port to use (default: 8000)')
+args = parser.parse_args()
 
 
 class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -105,45 +112,17 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
         return
 
 
-import pytest
-
-
-@pytest.fixture(scope='session')
-def range_http_test_server(request, xprocess):
-    xprocess.ensure("server8", lambda cwd:
-    ("started MJC", [sys.executable, os.path.abspath("test/fixtures/RangeHTTPServer.py"), 8056]))
-
-    def finalizer():
-        print('killing server8')
-        xprocess.getinfo('server8').kill()
-
-    request.addfinalizer(finalizer)
-    return xprocess.getinfo('server8')
-
-
 if __name__ == '__main__':
-    # arguments
-    try:
-        cwd = os.path.abspath(sys.argv[2])
-    except IndexError:
-        # root of repo as current working dir
-        # cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        cwd = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'htdocs')
-    try:
-        port = int(sys.argv[1])
-    except IndexError:
-        port = 8000
-    print('serving from cwd', cwd, 'port', port)
-
-    os.chdir(cwd)
-    server_address = ('', port)
+    print(f'serving from {args.cwd} on port {args.port}')
+    os.chdir(args.cwd)
+    server_address = ('', args.port)
 
     HandlerClass = RangeHTTPRequestHandler
     ServerClass = HTTPServer
     HandlerClass.protocol_version = "HTTP/1.1"
     httpd = ServerClass(server_address, HandlerClass)
     sa = httpd.socket.getsockname()
-    sys.stderr.write(f'started MJC\n cwd={cwd} port={port}')
+    sys.stderr.write(f'started MJC\n cwd={args.cwd} port={args.port}')
     sys.stderr.flush()
-    print("Serving HTTP on", sa[0], "port", sa[1], "... in background")
+    print(f'Serving HTTP on {sa[0]}:{sa[1]} ... in background')
     httpd.serve_forever()

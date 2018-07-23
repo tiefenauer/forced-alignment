@@ -1,62 +1,23 @@
 body {
-    margin: 0;
-    padding: 0;
-    background: #000;
-    font-family: Baskerville;
+    font-family: PT Serif, Georgia, Times, serif;
+    font-size: 137.5%;
+    line-height: 1.75;
 }
 
-#container {
-    width: 500px;
-    margin: 0 auto 20px;
-    background: #fff;
-    border: solid 5px #38342b;
-    border-radius: 5px;
-}
-
-#header {
-    margin: 20px auto 0;
-    width: 500px;
-    color: #fff;
-    padding: 10px;
+.container {
     text-align: center;
+    max-width: 990px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-#header h1 {
-    margin: 0;
-}
-
-#menu {
-    background: #ddd;
-    padding: 10px;
-    position: relative;
-    height: 30px;
-}
-
-#content {
-    padding: 30px;
-    min-height: 300px;
-    line-height: 1.4;
-}
-
-#footer {
-    background: #ccc;
-    color: #333;
-    font-size: 11px;
-    padding: 10px;
-
-}
-
-.word-data {
-    -x-background: #ffffee;
-}
-
-.current-word {
+.current {
     background: yellow;
     outline: solid 2px yellow;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-.aligned-word:hover {
+.aligned:hover {
     cursor: pointer;
     background: #FEFFDC;
 }

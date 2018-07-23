@@ -1,28 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title></title>
-    <script src="../jquery-1.7.2.js"></script>
-    <script src="../audioaligner.js"></script>
-    <link href="../style.css" rel="stylesheet">
+    <meta charset="utf-8"/>
+    <title>This text will be replaced by a title</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="../aligner.js"></script>
+    <link href="../style.css" rel="stylesheet"/>
 </head>
 <body>
-<h1 id="demo_title"></h1>
-<audio id="player" controls></audio>
-<div id="container">
-    <div id="content">
-        <div id="target"></div>
-    </div>
+<div class="container">
+    <h1 id="demo_title">This text will be replaced by a title</h1>
+    <audio controls="" id="player"></audio>
+    <div id="target">This text will be replaced by the transcript</div>
 </div>
-
-<script>
-    var audio = document.getElementById('player');
-    if (!(audio.canPlayType && (audio.canPlayType('audio/mp3') || audio.canPlayType('audio/mpeg')))) {
-        alert('Please use a browser that can play MP3s like Chrome, Safari, IE9');
-    }
-    var aligner = new AudioAligner(document.getElementById('target'), audio);
-    aligner.align('audio.wav', 'alignment.json');
-</script>
 </body>
 </html>

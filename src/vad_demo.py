@@ -7,7 +7,7 @@ from os.path import exists
 from util import vad_util
 from util.audio_util import read_audio, write_wav_file
 
-in_file = r'../assets/demo_files/address.wav'
+in_file = r'../assets/demo_files/dinsmore.wav'
 target_dir = os.path.join('..', 'tmp')
 if not exists(target_dir):
     makedirs(target_dir)

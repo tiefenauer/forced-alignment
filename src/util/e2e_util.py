@@ -12,7 +12,6 @@ from constants import DEMO_ROOT
 from util.asr_util import transcribe
 from util.audio_util import write_wav_file, frame_to_ms
 from util.lsa_util import align
-from util.string_util import normalize
 from util.vad_util import extract_voice
 
 
@@ -20,7 +19,7 @@ def create_demo(audio_path, transcript_path, limit=None):
     demo_id = splitext(basename(audio_path))[0]
     print(f'assigned demo id: {demo_id}. Loading audio and transcript...')
     audio, rate = librosa.core.load(audio_path, sr=16000, mono=True)
-    transcript = Path(transcript_path).read_text(encoding='utf-8')
+    transcript = Path(transcript_path).read_text(encoding='utf-8').replace('\n', ' ')
     print(f'... audio and transcript loaded')
     language = langdetect.detect(transcript)
     print(f'detected language from transcript: {language}')
@@ -30,7 +29,7 @@ def create_demo(audio_path, transcript_path, limit=None):
 def create_demo_from_corpus_entry(corpus_entry, limit=None):
     demo_id = corpus_entry.id
     audio, rate = corpus_entry.audio, corpus_entry.rate
-    transcript, language = normalize(corpus_entry.full_transcript), corpus_entry.language
+    transcript, language = corpus_entry.full_transcript, corpus_entry.language
     create_demo_files(demo_id, audio, rate, transcript, language, limit)
 
 

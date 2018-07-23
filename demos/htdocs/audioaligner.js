@@ -244,7 +244,7 @@ AudioAligner.prototype = {
 			for (var i=0, il=t.timingData.length; i<il; i++) {
 				var point = t.timingData[i];
 				
-				if (time >= point[1] && time <= point[2]) {
+				if (time >= point[1] && time <= point[2] && point[3]) {
 					var node = point[3];
 					node.className += ' ' + t.currentWordClassName;
 					node.focus();

@@ -1,7 +1,7 @@
+from pattern3.metrics import levenshtein_similarity
 from tqdm import tqdm
 
 from smith_waterman import smith_waterman
-from util.string_util import normalize
 from util.vad_util import Voice
 
 
@@ -15,15 +15,17 @@ class Alignment(Voice):
 
 
 def align(voice_activities, transcript, printout=False):
-    a = normalize(transcript)  # transcript[end:]  # transcript[:len(transcript)//2]
+    a = transcript  # transcript[end:]  # transcript[:len(transcript)//2]
     alignments = []
-    for va in tqdm(voice_activities, unit='voice activities'):
-        b = normalize(va.transcript)
+    for va in tqdm([va for va in voice_activities if len(va.transcript.strip()) > 0], unit='voice activities'):
+        b = va.transcript
         start, end, b_ = smith_waterman(a, b)
         alignment_text = transcript[start:end]
+        edit_distance = levenshtein_similarity(va.transcript, alignment_text)
         if printout:
-            print(f'transcript: {va.transcript} alignment: {alignment_text}')
-        alignments.append(Alignment(va, start, end, alignment_text))
+            print(f'edit distance: {edit_distance:.2f}, transcript: {va.transcript}, alignment: {alignment_text}')
+        if edit_distance > 0.5:
+            alignments.append(Alignment(va, start, end, alignment_text))
 
         # clip first part of transcript that was matched
         # clip = transcript.index(alignment_text) + len(alignment_text)

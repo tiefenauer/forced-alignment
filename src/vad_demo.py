@@ -5,10 +5,7 @@ from os.path import exists, join
 from util.audio_util import read_audio, write_wav_file
 from util.vad_util import extract_voice
 
-# in_file = r'D:\code\ip8\assets\demo_files\andiefreude_44.wav'
-
-# in_file = r'D:\code\ip8\assets\demo_files\andiefreude_16.wav'
-# in_file = r'D:\code\ip8\assets\demo_files\address.wav'
+# in_file = r'D:\code\ip8\assets\demo_files\andiefreude.wav'
 in_file = r'D:\code\ip8\assets\demo_files\address.mp3'
 target_dir = join('..', 'tmp')
 if not exists(target_dir):

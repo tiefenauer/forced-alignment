@@ -16,15 +16,20 @@ from tqdm import tqdm
 from constants import LANGUAGE_CODES
 
 
-def transcribe(voice_activities, language, printout=False):
-    progress = tqdm(voice_activities, unit='voice activities')
-    for va in progress:
-        transcript = transcribe_audio(va.audio, va.rate, language)
+def transcribe(voice_segments, language, printout=False):
+    progress = tqdm(voice_segments, unit='voice activities')
+    for voice in progress:
+        transcript = transcribe_audio(voice.audio, voice.rate, language)
         progress.set_description(transcript)
         if printout and type(printout) is bool:
             print(transcript)
-        va.transcript = transcript
-    return voice_activities
+        voice.transcript = transcript
+
+    if printout and type(printout) is str:
+        print(f'saving ASR-transcripts to {printout}')
+        with open(printout, 'w', encoding='utf-8') as f:
+            f.writelines('\n'.join(voice.transcript for voice in voice_segments))
+    return voice_segments
 
 
 def transcribe_audio(audio, rate, language):

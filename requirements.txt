@@ -16,3 +16,5 @@ pydub
 PyHamcrest
 google-cloud-speech
 soundfile
+langdetect
+pattern3

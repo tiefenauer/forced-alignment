@@ -94,8 +94,7 @@ def vad_collector(sample_rate, frame_duration_ms,
         yield b''.join([f.bytes for f in voiced_frames])
 
 
-# in_file = r'D:\code\ip8\assets\demo_files\andiefreude_44.wav'
-# in_file = r'D:\code\ip8\assets\demo_files\andiefreude_16.wav'
+# in_file = r'D:\code\ip8\assets\demo_files\andiefreude.wav'
 in_file = r'D:\code\ip8\assets\demo_files\address.wav'
 # in_file = r'D:\code\ip8\assets\demo_files\address.mp3'
 target_dir = join('..', 'tmp')

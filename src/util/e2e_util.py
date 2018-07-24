@@ -1,11 +1,12 @@
 import json
+import os
 import pickle
 from os import makedirs, remove
 from pathlib import Path
 
 import langdetect
 from bs4 import BeautifulSoup
-from os.path import join, exists, splitext, basename
+from os.path import join, exists, splitext, basename, relpath
 from pydub import AudioSegment
 
 from constants import DEMO_ROOT
@@ -22,19 +23,19 @@ def create_demo(audio_path, transcript_path, id=None, limit=None):
 
     print(f'Loading audio and transcript...')
     audio, rate = read_audio(audio_path, 16000, True)
-    transcript = Path(transcript_path).read_text(encoding='utf-8').replace('\n', ' ')
+    transcript = Path(transcript_path).read_text(encoding='utf-8')
     print(f'... audio and transcript loaded')
 
     language = langdetect.detect(transcript)
     print(f'detected language from transcript: {language}')
-    create_demo_files(demo_id, audio, rate, transcript, language, limit)
+    return create_demo_files(demo_id, audio, rate, transcript, language, limit=limit)
 
 
 def create_demo_from_corpus_entry(corpus_entry, limit=None):
     demo_id = corpus_entry.id
     audio, rate = corpus_entry.audio, corpus_entry.rate
     transcript, language = corpus_entry.full_transcript, corpus_entry.language
-    create_demo_files(demo_id, audio, rate, transcript, language, limit)
+    return create_demo_files(demo_id, audio, rate, transcript, language, limit=limit)
 
 
 def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
@@ -48,6 +49,7 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
     audio_path = join(target_dir, 'audio.mp3')
     transcript_path = join(target_dir, 'transcript.txt')
     transcript_asr_path = join(target_dir, 'transcript_asr.txt')
+    alignment_text_path = join(target_dir, 'alignment.txt')
     alignment_json_path = join(target_dir, 'alignment.json')
 
     print(f'saving audio in {audio_path}')
@@ -59,34 +61,34 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
     print(f'saving transcript in {transcript_path}')
     with open(transcript_path, 'w', encoding='utf-8') as f:
         f.write(transcript)
+    transcript = transcript.replace('\n', ' ')
 
     if exists(asr_pickle):
         print(f'VAD + ASR: loading cached results from pickle: {asr_pickle}')
         with open(asr_pickle, 'rb') as f:
             voice_segments = pickle.load(f)
+        with open(transcript_asr_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join([voice.transcript for voice in voice_segments]))
     else:
         print(f'VAD: Splitting audio into speech segments')
         voice_segments = extract_voice(audio, rate, max_segments=limit)
         print(f'ASR: transcribing each segment')
-        voice_segments = transcribe(voice_segments, language, printout=True)
+        voice_segments = transcribe(voice_segments, language, printout=transcript_asr_path)
         print(f'saving results to cache: {asr_pickle}')
         with open(asr_pickle, 'wb') as f:
             pickle.dump(voice_segments, f)
 
-    print(f'saving ASR-transcripts to {transcript_asr_path}')
-    with open(transcript_asr_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(va.transcript for va in voice_segments))
-
     print(f'aligning audio with transcript')
-    alignment = align(voice_segments, transcript, printout=True)
+    alignment = align(voice_segments, transcript, printout=alignment_text_path)
 
     print(f'saving alignment information to {alignment_json_path}')
     json_data = create_alignment_json(alignment)
     with open(alignment_json_path, 'w') as f:
         json.dump(json_data, f, indent=2)
 
-    create_demo_index(target_dir, demo_id, transcript)
     update_index(demo_id)
+    demo_path = create_demo_index(target_dir, demo_id, transcript)
+    return create_url(demo_path, target_dir)
 
 
 def create_alignment_json(alignments):
@@ -108,11 +110,11 @@ def create_demo_index(target_dir, demo_id, transcript):
     soup.find(id='demo_title').string = f'Forced Alignment for {demo_id}'
     soup.find(id='target').string = transcript.replace('\n', ' ')
 
-    demo_html = join(target_dir, 'index.html')
-    with open(demo_html, 'w', encoding='utf-8') as f:
+    demo_path = join(target_dir, 'index.html')
+    with open(demo_path, 'w', encoding='utf-8') as f:
         f.write(soup.prettify())
 
-    return demo_html
+    return demo_path
 
 
 def update_index(demo_id):
@@ -129,3 +131,7 @@ def update_index(demo_id):
 
         with open(index_path, 'w') as f:
             f.write(soup.prettify())
+
+
+def create_url(demo_path, target_dir):
+    return 'http://localhost:8000/' + relpath(demo_path, Path(target_dir).parent).replace(os.sep, '/')

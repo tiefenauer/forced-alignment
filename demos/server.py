@@ -3,6 +3,7 @@ import argparse
 import os
 import sys
 from http.server import SimpleHTTPRequestHandler, HTTPServer
+from os.path import realpath, join, dirname
 
 parser = argparse.ArgumentParser(description='Start simple HTTP server supporting HTTP/1.1 requests (needed to play'
                                              'the aligned audio in HTML5)!')
@@ -114,7 +115,7 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     print(f'serving from {args.cwd} on port {args.port}')
-    os.chdir(args.cwd)
+    os.chdir(join(dirname(realpath(__file__)), args.cwd))
     server_address = ('', args.port)
 
     HandlerClass = RangeHTTPRequestHandler

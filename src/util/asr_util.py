@@ -17,9 +17,11 @@ from constants import LANGUAGE_CODES
 
 
 def transcribe(voice_activities, language, printout=False):
-    for va in tqdm(voice_activities, unit='voice activities'):
+    progress = tqdm(voice_activities, unit='voice activities')
+    for va in progress:
         transcript = transcribe_audio(va.audio, va.rate, language)
-        if printout:
+        progress.set_description(transcript)
+        if printout and type(printout) is bool:
             print(transcript)
         va.transcript = transcript
     return voice_activities

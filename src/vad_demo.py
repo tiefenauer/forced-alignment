@@ -1,19 +1,21 @@
 import os
 from os import makedirs
-
-from os.path import exists
+from os.path import exists, join
 
 from util.audio_util import read_audio, write_wav_file
 from util.vad_util import extract_voice
 
-in_file = r'../assets/demo_files/address.wav'
-target_dir = os.path.join('..', 'tmp')
+# in_file = r'D:\code\ip8\assets\demo_files\andiefreude_44.wav'
+
+# in_file = r'D:\code\ip8\assets\demo_files\andiefreude_16.wav'
+# in_file = r'D:\code\ip8\assets\demo_files\address.wav'
+in_file = r'D:\code\ip8\assets\demo_files\address.mp3'
+target_dir = join('..', 'tmp')
 if not exists(target_dir):
     makedirs(target_dir)
 
 if __name__ == '__main__':
     audio, rate = read_audio(in_file, sample_rate=16000, mono=True)
-
     voice_segments = extract_voice(audio, rate)
 
     for i, voice in enumerate(voice_segments):

@@ -58,11 +58,29 @@ def crop_wav(wav_file, segments):
 
 
 def read_audio(file_path, sample_rate=None, mono=False):
+    """
+    read audio data from arbitrary files with optional resampling and conversion to mono
+    """
     return librosa.load(file_path, sr=sample_rate, mono=mono)
 
 
 def write_wav_file(file_path, audio, rate):
     librosa.output.write_wav(file_path, audio, rate)
+
+
+def read_pcm16_wave(file_path):
+    with wave.open(file_path, 'rb') as wf:
+        sample_rate = wf.getframerate()
+        pcm_data = wf.readframes(wf.getnframes())
+        return pcm_data, sample_rate
+
+
+def write_pcm16_wave(path, audio, sample_rate):
+    with wave.open(path, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(audio)
 
 
 def recalculate_frame(old_frame, old_sampling_rate=44100, new_sampling_rate=16000):

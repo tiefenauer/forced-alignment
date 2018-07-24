@@ -4,14 +4,13 @@ from os import makedirs, remove
 from pathlib import Path
 
 import langdetect
-import librosa
 from bs4 import BeautifulSoup
 from os.path import join, exists, splitext, basename
 from pydub import AudioSegment
 
 from constants import DEMO_ROOT
 from util.asr_util import transcribe
-from util.audio_util import write_wav_file, frame_to_ms
+from util.audio_util import write_wav_file, frame_to_ms, read_audio
 from util.lsa_util import align
 from util.vad_util import extract_voice
 
@@ -19,8 +18,10 @@ from util.vad_util import extract_voice
 def create_demo(audio_path, transcript_path, id=None, limit=None):
     file_name, file_ext = splitext(basename(audio_path))
     demo_id = id if id else file_name
-    print(f'assigned demo id: {demo_id}. Loading audio and transcript...')
-    audio, rate = librosa.core.load(audio_path, sr=16000, mono=True)
+    print(f'assigned demo id: {demo_id}.')
+
+    print(f'Loading audio and transcript...')
+    audio, rate = read_audio(audio_path, 16000, True)
     transcript = Path(transcript_path).read_text(encoding='utf-8').replace('\n', ' ')
     print(f'... audio and transcript loaded')
 
@@ -62,22 +63,22 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
     if exists(asr_pickle):
         print(f'VAD + ASR: loading cached results from pickle: {asr_pickle}')
         with open(asr_pickle, 'rb') as f:
-            voice_activities = pickle.load(f)
+            voice_segments = pickle.load(f)
     else:
         print(f'VAD: Splitting audio into speech segments')
-        voice_activities = extract_voice(audio, rate, max_segments=limit)
+        voice_segments = extract_voice(audio, rate, max_segments=limit)
         print(f'ASR: transcribing each segment')
-        voice_activities = transcribe(voice_activities, language, printout=True)
+        voice_segments = transcribe(voice_segments, language, printout=True)
         print(f'saving results to cache: {asr_pickle}')
         with open(asr_pickle, 'wb') as f:
-            pickle.dump(voice_activities, f)
+            pickle.dump(voice_segments, f)
 
     print(f'saving ASR-transcripts to {transcript_asr_path}')
     with open(transcript_asr_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(va.transcript for va in voice_activities))
+        f.write('\n'.join(va.transcript for va in voice_segments))
 
     print(f'aligning audio with transcript')
-    alignment = align(voice_activities, transcript, printout=True)
+    alignment = align(voice_segments, transcript, printout=True)
 
     print(f'saving alignment information to {alignment_json_path}')
     json_data = create_alignment_json(alignment)

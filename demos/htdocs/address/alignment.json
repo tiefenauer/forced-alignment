@@ -1,289 +1,184 @@
 {
   "words": [
     [
-      "My fellow American",
-      0.416,
-      1.536
+      "My fellow Americans",
+      0.42,
+      1.95
     ],
     [
-      "This week, prosecutors",
-      2.112,
-      3.68
+      "This week, prosecutors, law enforcement officers, homeland security officials",
+      2.16,
+      7.35
     ],
     [
-      "law enforcement officers, homeland security official",
-      3.744,
-      7.008
+      "lawmakers joined me at the White House to address",
+      7.68,
+      10.92
     ],
     [
-      "a very vicious threa",
-      11.264,
-      12.864
+      "a very vicious threat to our communities",
+      11.31,
+      14.34
     ],
     [
-      "to our communit",
-      12.96,
-      14.016
+      "the savage gang, MS-13",
+      14.55,
+      17.52
     ],
     [
-      "the savage gang, MS",
-      14.528,
-      16.288
-    ],
-    [
-      "13",
-      16.448,
-      17.184
-    ],
-    [
-      "laring loopholes in our laws have allowed criminals and gang members to break into our country",
-      17.728,
-      23.2
+      "Glaring loopholes in our laws have allowed criminals and gang members to break into our country",
+      17.73,
+      23.52
     ],
     [
       "For example",
-      23.744,
-      24.544
+      23.79,
+      24.87
     ],
     [
       "under current law, unaccompanied alien minors at the border",
-      24.896,
-      28.896
+      24.93,
+      29.22
     ],
     [
-      "into American communities no matter where",
-      30.112,
-      33.184
+      "are released into American communities no matter where",
+      29.31,
+      33.45
     ],
     [
       "no matter how",
-      33.536,
-      34.624
+      33.57,
+      34.92
     ],
     [
-      "it is so easy for them because the laws are bad",
-      34.976,
-      38.336
-    ],
-    [
-      "and they have",
-      38.592,
-      39.136
-    ],
-    [
-      "to be changed",
-      39.168,
-      40.032
+      "so easy for them because the laws are bad and they have to be changed",
+      35.37,
+      40.35
     ],
     [
       "This loophole is easily exploited by MS-13",
-      40.608,
-      44.32
+      40.65,
+      44.61
     ],
     [
-      "which now operates in at least",
-      44.8,
-      46.688
+      "which now operates in at least 40 states",
+      44.85,
+      48.03
     ],
     [
-      "40 state",
-      46.912,
-      47.712
-    ],
-    [
-      "In addition to MS",
-      48.352,
-      49.92
+      "In addition to MS-13",
+      48.36,
+      50.7
     ],
     [
       "many other gangs are breaking into our country routinely",
-      50.688,
-      54.56
+      50.73,
+      54.9
     ],
     [
-      "because our laws are so w",
-      54.88,
-      56.544
+      "because our laws are so weak",
+      54.93,
+      57.0
     ],
     [
       "so sad",
-      56.96,
-      57.888
+      57.06,
+      58.26
     ],
     [
       "At this week\u2019s roundtable, we learned the story of one family right here in Washington, D.C",
-      59.712,
-      65.44
+      59.76,
+      65.73
     ],
     [
       "that hosted a person in their home",
-      65.856,
-      67.904
+      65.88,
+      68.22
     ],
     [
-      "who then began to",
-      68.16,
-      69.536
+      "who then began to recruit their young son",
+      68.22,
+      71.28
     ],
     [
-      "young son",
-      69.568,
-      70.976
-    ],
-    [
-      "13",
-      72.256,
-      73.024
-    ],
-    [
-      "When the boy\u2019s mother tried to stop",
-      73.536,
-      75.776
-    ],
-    [
-      "the gang member shot her in the head",
-      76.16,
-      78.432
+      "When the boy\u2019s mother tried to stop it, the gang member shot her in the head",
+      73.56,
+      78.75
     ],
     [
       "blinding her for life",
-      78.72,
-      80.128
+      78.75,
+      80.49
     ],
     [
-      "She\u2019s lucky she live",
-      80.608,
-      82.048
-    ],
-    [
-      "paying a very big",
-      82.752,
-      84.096
-    ],
-    [
-      "price",
-      84.192,
-      84.8
+      "She\u2019s lucky she lived, but she\u2019s paying a very big price",
+      80.61,
+      85.02
     ],
     [
       "During my State of the Union, I called on Congress to immediately close dangerous loopholes in federal law",
-      85.28,
-      92.096
+      85.32,
+      92.4
     ],
     [
-      "that have endangered our communit",
-      92.576,
-      94.656
+      "that have endangered our communities",
+      92.61,
+      94.98
     ],
     [
-      "and imposed enormous burdens on U.S.",
-      95.072,
-      98.048
+      "My Administration has identified three major priorities",
+      99.12,
+      103.35
     ],
     [
-      "My Administration has identified",
-      99.072,
-      101.472
+      "creating a safe",
+      103.77,
+      105.21
     ],
     [
-      "three major priorities",
-      101.504,
-      103.072
-    ],
-    [
-      "for creating a safe",
-      103.52,
-      104.832
-    ],
-    [
-      "modern",
-      105.312,
-      105.984
+      "modern and lawful immigration system: fully securing the border",
+      105.36,
+      110.7
     ],
     [
       "ending chain migration",
-      110.72,
-      112.64
+      110.73,
+      112.98
     ],
     [
-      "and canceling",
-      112.96,
-      114.208
+      "Chain migration is a disaster and very unfair to our country",
+      116.16,
+      121.29
     ],
     [
-      "The visa lottery",
-      114.368,
-      115.712
+      "The visa lottery is something that should have never been allowed in the first place",
+      121.35,
+      126.69
     ],
     [
-      "Chain migration is a disaster",
-      116.128,
-      118.688
-    ],
-    [
-      "and very unfair to our country",
-      118.912,
-      120.96
-    ],
-    [
-      "The visa lottery is something that should have never",
-      121.312,
-      124.512
-    ],
-    [
-      "been allowed in the first",
-      124.544,
-      125.984
-    ],
-    [
-      "pla",
-      126.016,
-      126.432
-    ],
-    [
-      "People enter a lottery",
-      126.816,
-      128.352
-    ],
-    [
-      "to come into our country",
-      128.608,
-      130.048
+      "People enter a lottery to come into our country",
+      126.84,
+      130.38
     ],
     [
       "What kind of a system is that",
-      130.336,
-      132.096
+      130.38,
+      132.42
     ],
     [
-      "It is time for Congress to act",
-      132.448,
-      134.176
-    ],
-    [
-      "tect America",
-      134.72,
-      135.584
+      "is time for Congress to act and to protect Americans",
+      132.51,
+      135.9
     ],
     [
       "Every member of Congress should choose the side of law enforcement",
-      136.128,
-      139.552
-    ],
-    [
-      "and sec",
-      139.872,
-      140.672
-    ],
-    [
-      "of the American People",
-      140.864,
-      142.24
+      136.17,
+      139.83
     ],
     [
       "That\u2019s the way it has to be",
-      142.528,
-      144.48
+      142.59,
+      144.78
     ]
   ]
 }

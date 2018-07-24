@@ -59,8 +59,8 @@ def traceback(H, b, b_='', old_i=0):
     if H[i, j] == 0:
         return b_, i
 
-    # replace characters that are skipped in string A with a dash
-    rows_skipped = old_i - i - 1
+    # represent characters that are skipped in string A (i.e. insertions in B) with a dash
+    rows_skipped = max(old_i - i - 1,0)
     infix = '-' * rows_skipped
 
     b_ = b[j - 1] + infix + b_

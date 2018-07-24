@@ -1,3 +1,7 @@
+"""
+Compares the speech segments detected by WebRTC with the ones derived from the corpus metadata by measuring precision
+and recall.
+"""
 import os
 from operator import itemgetter
 from os import remove
@@ -38,7 +42,7 @@ def calculate_boundaries(segments):
 
 
 def calculate_boundaries_webrtc(corpus_entry, aggressiveness=3):
-    voiced_segments, _ = webrtc_split(corpus_entry.audio, corpus_entry.rate, aggressiveness=aggressiveness)
+    voiced_segments = webrtc_split(corpus_entry.audio, corpus_entry.rate, aggressiveness=aggressiveness)
     boundaries = []
     for frames in voiced_segments:
         start_time = frames[0].timestamp

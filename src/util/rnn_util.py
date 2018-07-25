@@ -78,7 +78,7 @@ def tokenize(text):
 
 def encode(text):
     tokens = tokenize(text)
-    return [encode_token(token) for token in tokens]
+    return np.array([encode_token(token) for token in tokens])
 
 
 def encode_token(token):

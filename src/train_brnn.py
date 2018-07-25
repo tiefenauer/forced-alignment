@@ -3,26 +3,29 @@ import argparse
 import os
 import pickle
 
+import keras
 import tensorflow as tf
-from keras import Model
 from keras import backend as K
 from keras.activations import relu
 from keras.callbacks import TensorBoard
-from keras.initializers import random_normal
-from keras.layers import Dense, Dropout, Input, TimeDistributed, Bidirectional, LSTM, Lambda, SimpleRNN, \
-    BatchNormalization
+from keras.layers import Dense, Dropout, Input, TimeDistributed, Bidirectional, SimpleRNN, Activation
 from keras.optimizers import Adam
 from keras.utils import get_custom_objects
-from tensorflow.contrib.layers import dense_to_sparse
 
 from constants import TRAIN_ROOT
+from core.callbacks import CustomProgbarLogger, ReportCallback
+from core.ctc_util import ctc_model
+from core.dataset_generator import BatchGenerator
 from util.corpus_util import get_corpus
-from util.keras_util import ReportCallback, BatchGenerator
 from util.train_util import get_num_features, get_target_dir
 
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
-
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+# some Keras/TF setup
+# os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+config = tf.ConfigProto()
+config.gpu_options.visible_device_list = "2"
+config.gpu_options.allow_growth = True
+session = tf.Session(config=config)
+K.set_session(session)
 
 parser = argparse.ArgumentParser(
     description="""Train Bi-directionalRNN with CTC cost function for speech recognition""")
@@ -70,181 +73,114 @@ def main():
 
 
 def create_model(architecture, num_features):
-    get_custom_objects().update({"clipped_relu": clipped_relu})
-    if architecture == 'ds1':
-        return create_model_ds1(num_features)
-    elif architecture == 'ds2':
-        return create_model_ds2(num_features)
-    elif architecture == 'poc':
-        return create_model_poc(num_features)
-    return create_model_x(num_features)
-
-
-def create_model_ds1(input_dim, fc_size=2048, rnn_size=512, output_dim=28):
     """
-    DeepSpeech 1 model architecture with a few changes:
-    - Feature type can be selected (number of features may therefore vary)
-    - no language model integrated
-
-    Reference: https://arxiv.org/abs/1412.5567
-
-    :param input_dim: number of input features
-    :param fc_size: number of units in FC layers
-    :param rnn_size: number of units in recurrent layer
-    :param output_dim: number of units in output layer (=number of target classes)
+    create uncompiled model with given architecture
+    NOTE: currently only the DeepSpeech model is supported. Other models can be added here
+    :param architecture: name of the architecture (see descriptions in argparse)
+    :param num_features: number of features in the input layer
     :return:
     """
+    get_custom_objects().update({"clipped_relu": clipped_relu})
+    return deep_speech_model(num_features)
+    # if architecture == 'ds1':
+    #     return deep_speech_model(num_features)
+    # elif architecture == 'ds2':
+    #     return create_model_ds2(num_features)
+    # elif architecture == 'poc':
+    #     return create_model_poc(num_features)
+    # return create_model_x(num_features)
 
-    init = random_normal(stddev=0.046875)
 
-    # input layer
-    input_data = Input(shape=(None, input_dim), name='the_input')
-    X = BatchNormalization(axis=-1, input_shape=(None, input_dim), name='BN_1')(input_data)
+def deep_speech_model(num_features, num_hidden=2048, dropout=0.1, num_classes=28):
+    """
+    Deep Speech model with architecture as described in the paper:
+        5 Layers (3xFC + 1xBRNN + 1xFC) with Dropout applied to FC layer
+    The output contains 28 classes: a..z, space, blank
 
-    # 3 FC layers with dropout
-    X = TimeDistributed(
-        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_1'))(X)
-    X = Dropout(0.1)(X)
-    X = TimeDistributed(
-        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_2'))(X)
-    X = Dropout(0.1)(X)
-    X = TimeDistributed(
-        Dense(fc_size, kernel_initializer=init, bias_initializer=init, activation=clipped_relu, name='FC_3'))(X)
-    X = Dropout(0.1)(X)
+    Differences to the original setup:
+        * We are not translating the raw audio files by 5 ms (Sec 2.1 in [1])
+        * We are not striding the RNN to halve the timesteps (Sec 3.3 in [1])
+        * We are not using frames of context
 
-    # RNN layer
-    X = Bidirectional(
-        SimpleRNN(rnn_size, return_sequences=True, activation=clipped_relu, kernel_initializer='he_normal',
-                  name='BiRNN'), merge_mode='sum')(X)
+    Reference: [1] https://arxiv.org/abs/1412.5567
+    """
+    x = Input(name='inputs', shape=(None, num_features))
+    o = x
+
+    # First layer
+    o = TimeDistributed(Dense(num_hidden))(o)
+    o = TimeDistributed(Activation(clipped_relu))(o)
+    o = TimeDistributed(Dropout(dropout))(o)
+
+    # Second layer
+    o = TimeDistributed(Dense(num_hidden))(o)
+    o = TimeDistributed(Activation(clipped_relu))(o)
+    o = TimeDistributed(Dropout(dropout))(o)
+
+    # Third layer
+    o = TimeDistributed(Dense(num_hidden))(o)
+    o = TimeDistributed(Activation(clipped_relu))(o)
+    o = TimeDistributed(Dropout(dropout))(o)
+
+    # Fourth layer
+    o = Bidirectional(SimpleRNN(num_hidden, return_sequences=True,
+                                dropout=dropout,
+                                activation=clipped_relu,
+                                kernel_initializer='he_normal'), merge_mode='sum')(o)
+    o = TimeDistributed(Dropout(dropout))(o)
+
+    # Fifth layer
+    o = TimeDistributed(Dense(num_hidden))(o)
+    o = TimeDistributed(Activation(clipped_relu))(o)
+    o = TimeDistributed(Dropout(dropout))(o)
 
     # Output layer
-    y_pred = TimeDistributed(Dense(output_dim, kernel_initializer=init, bias_initializer=init, activation='softmax'),
-                             name='y_pred')(X)
+    o = TimeDistributed(Dense(num_classes))(o)
 
-    labels = Input(name='the_labels', shape=[None, ], dtype='int32')
-    input_length = Input(name='input_length', shape=[1], dtype='int32')
-    label_length = Input(name='label_length', shape=[1], dtype='int32')
-
-    loss_out = Lambda(ctc_lambda_func, name='ctc')([y_pred, labels, input_length, label_length])
-    # ler_out = Lambda(ctc_decode_func, name='ctc_decoded')([y_pred, labels, input_length, label_length])
-
-    model = Model(inputs=[input_data, labels, input_length, label_length], outputs=[loss_out])
-    return model
-
-
-def create_model_ds2(num_features, fc_size=2048, rnn_size=512, dropout=[0.1, 0.1, 0.1], output_dim=28):
-    pass
-
-
-def create_model_poc(num_features):
-    num_hidden = 100
-    num_classes = 28
-
-    input_data = Input(shape=(None, None, num_features), name='the_input')
-
-    shape = K.shape(input_data)
-    batch_s, max_time_steps = shape[0], shape[1]
-
-    outputs = SimpleRNN(LSTM(num_hidden, return_sequences=True))(input_data)
-    outputs = K.reshape(outputs, [-1, num_hidden])
-
-    W = K.variable(tf.truncated_normal([num_hidden, num_classes], stddev=0.1))
-    b = K.variable(K.constant(0, shape=[num_classes]))
-    logits = K.dot(outputs, W) + b
-    logits = K.reshape(logits, [batch_s, -1, num_classes])
-    logits = tf.transpose(logits, (1, 0, 2))
-
-    labels = tf.sparse_placeholder(tf.int32, name='labels')
-    input_length = tf.placeholder(tf.int32, [None], name='input_length')
-    label_length = Input(name='label_length', shape=[1], dtype='int32')
-    loss = tf.nn.ctc_loss(labels, logits, input_length)
-    cost = tf.reduce_mean(loss)
-
-    # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-2, momentum=0.9).minimize(cost)
-
-    decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, input_length)
-
-    ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
-
-    model = Model(inputs=[input_data, labels, input_length, label_length], outputs=[decoded, ])
-
-
-def create_model_x(num_features, fc_size=2048, rnn_size=512, dropout=[0.1, 0.1, 0.1], output_dim=28):
-    """
-    Architecture from https://github.com/robmsmt/KerasDeepSpeech (ds1_dropout)
-    - LSTM instead of Simple RNN
-    - no BatchNorm
-    - Dropout in RNN Layer
-    """
-
-    input_data = Input(shape=(None, num_features), name='the_input')
-    init = random_normal(stddev=0.046875)
-
-    x = TimeDistributed(
-        Dense(fc_size, name='fc1', kernel_initializer=init, bias_initializer=init, activation=clipped_relu))(input_data)
-
-    # Layers 1-3: FC
-    x = TimeDistributed(Dropout(dropout[0]))(x)
-    x = TimeDistributed(
-        Dense(fc_size, name='fc2', kernel_initializer=init, bias_initializer=init, activation=clipped_relu))(x)
-    x = TimeDistributed(Dropout(dropout[0]))(x)
-    x = TimeDistributed(
-        Dense(fc_size, name='fc3', kernel_initializer=init, bias_initializer=init, activation=clipped_relu))(x)
-    x = TimeDistributed(Dropout(dropout[0]))(x)
-
-    # Layer 4 BiDirectional RNN
-    x = Bidirectional(LSTM(rnn_size, return_sequences=True, activation=clipped_relu, dropout=dropout[1],
-                           kernel_initializer='he_normal', name='birnn'), merge_mode='sum')(x)
-
-    # Layer 5+6 Time Dist Dense Layer & Softmax
-    # x = TimeDistributed(Dense(fc_size, activation=clipped_relu, kernel_initializer=init, bias_initializer=init))(x)
-    x = TimeDistributed(Dropout(dropout[2]))(x)
-    y_pred = TimeDistributed(
-        Dense(output_dim, name="y_pred", kernel_initializer=init, bias_initializer=init, activation="softmax"),
-        name="out")(x)
-
-    # Change shape
-    labels = Input(name='the_labels', shape=[None, ], dtype='int32')
-    input_length = Input(name='input_length', shape=[1], dtype='int32')
-    label_length = Input(name='label_length', shape=[1], dtype='int32')
-
-    # Keras doesn't currently support loss funcs with extra parameters
-    # so CTC loss is implemented in a lambda layer
-    loss_out = Lambda(ctc_lambda_func, output_shape=(1,), name='ctc')([y_pred,
-                                                                       labels,
-                                                                       input_length,
-                                                                       label_length])
-
-    model = Model(inputs=[input_data, labels, input_length, label_length], outputs=loss_out)
-    return model
+    return ctc_model(x, o)
 
 
 def train_model(model, target_dir, train_set, dev_set):
     train_batches = BatchGenerator(train_set, args.feature_type, args.batch_size, args.train_steps)
     dev_batches = BatchGenerator(dev_set, args.feature_type, args.batch_size, args.valid_steps)
 
-    print(f'Training on {len(train_batches)} batches ({len(train_batches.speech_segments)} speech segments)')
-    print(f'Validating on {len(dev_batches)} batches ({len(dev_batches.speech_segments)} speech segments)')
+    print(f'Training on {len(train_batches)} batches over {len(train_batches.speech_segments)} speech segments')
+    print(f'Validating on {len(dev_batches)} batches over {len(dev_batches.speech_segments)} speech segments')
 
     opt = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-8, clipnorm=5)
-    model.compile(optimizer=opt, loss=ctc, metrics=[edit_distance])
+    model.compile(loss={'ctc': ctc_dummy_loss, 'decoder': decoder_dummy_loss},
+                  optimizer=opt,
+                  metrics={'decoder': ler},  #
+                  loss_weights=[1, 0]  # only optimize CTC cost
+                  )
 
+    # callbacks
     cb_list = []
     tb_cb = TensorBoard(log_dir=target_dir, write_graph=True, write_images=True)
     cb_list.append(tb_cb)
 
-    y_pred = model.get_layer('ctc').input[0]
-    input_data = model.get_layer('the_input').input
-    report = K.function([input_data, K.learning_phase()], [y_pred])
-    report_cb = ReportCallback(report, dev_batches, model, target_dir)
-    cb_list.append(report_cb)
+    # y_pred = model.get_layer('ctc').input[0]
+    # input_data = model.get_layer('the_input').input
+    # report = K.function([input_data, K.learning_phase()], [y_pred])
+    # report_cb = ReportCallback(report, dev_batches, model, target_dir)
+    # cb_list.append(report_cb)
+
+    # model_ckpt = MetaCheckpoint(join(target_dir, 'model.h5'), training_args=args, meta=meta)
+    # cb_list.append(model_ckpt)
+    # best_ckpt = MetaCheckpoint(join(target_dir, 'best.h5'), monitor='val_decoder_ler',
+    #                            save_best_only=True, mode='min', training_args=args, meta=meta)
+    # cb_list.append(best_ckpt)
     # create/add more callbacks here
 
-    history = model.fit_generator(generator=train_batches.next_batch(),
+    # avoid logging the dummy losses
+    # keras.callbacks.ProgbarLogger = lambda count_mode, stateful_metrics: CustomProgbarLogger(
+    #     stateful_metrics=['loss', 'decoder_ler', 'val_loss', 'val_decoder_ler'])
+
+    history = model.fit_generator(generator=train_batches.generate_batches(),
                                   steps_per_epoch=train_batches.num_batches,
                                   epochs=args.num_epochs,
                                   callbacks=cb_list,
-                                  validation_data=dev_batches.next_batch(),
+                                  validation_data=dev_batches.generate_batches(),
                                   validation_steps=dev_batches.num_batches,
                                   verbose=1
                                   )
@@ -268,15 +204,26 @@ def clipped_relu(x):
     return relu(x, max_value=20)
 
 
-def ctc(y_true, y_pred):
+def ctc_dummy_loss(y_true, y_pred):
+    """
+    CTC-Loss for Keras. Because Keras has no CTC-loss built-in, we create this dummy.
+    We simply use the output of the RNN, which corresponds to the CTC loss.
+    """
     return y_pred
 
 
-def edit_distance(y_true, y_pred):
-    actual = dense_to_sparse(y_true)
-    prediction = dense_to_sparse(y_pred)
-    res = tf.edit_distance(prediction, actual)
-    return res
+def decoder_dummy_loss(y_true, y_pred):
+    """
+    Loss of the decoded sequence. Since this is not optimized, we simply return a zero-Tensor
+    """
+    return K.zeros((1,))
+
+
+def ler(y_true, y_pred, **kwargs):
+    """
+    LER-Loss (see https://www.tensorflow.org/api_docs/python/tf/edit_distance)
+    """
+    return tf.reduce_mean(tf.edit_distance(y_pred, y_true, **kwargs))
 
 
 def ctc_lambda_func(args):

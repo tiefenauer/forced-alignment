@@ -14,6 +14,7 @@ class BatchGenerator(Iterator):
 
     def __init__(self, corpus_entries, feature_type, batch_size, shuffle=True, seed=None):
         speech_segs = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
+        # speech_segs = speech_segs[:5]
         super().__init__(len(speech_segs), batch_size, shuffle, seed)
         self.speech_segments = np.array(speech_segs)
         self.feature_type = feature_type
@@ -43,11 +44,13 @@ class BatchGenerator(Iterator):
         :param index_array: array with indices of speech segments to use for batch
         :return: (inputs, outputs) as specified above
         """
-        X_data = [seg.audio_features(self.feature_type) for seg in self.speech_segments[index_array]]
+        speech_segments = self.speech_segments[index_array]
+        X_data = [seg.audio_features(self.feature_type) for seg in speech_segments]
+        Y_data = [encode(seg.text) for seg in speech_segments]
+
         X = pad_sequences(X_data, dtype='float32', padding='post')
         X_lengths = np.array([f.shape[0] for f in X_data])
 
-        Y_data = [encode(seg.text) for seg in self.speech_segments[index_array]]
         rows, cols, data = [], [], []
         for row, label in enumerate(Y_data):
             cols.extend(range(len(label)))

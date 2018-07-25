@@ -62,7 +62,7 @@ def main():
     model = create_model(args.architecture, num_features)
     model.summary()
 
-    history = train_model(model, target_dir, train_set[:5], dev_set[:5])
+    history = train_model(model, target_dir, train_set, dev_set)
 
     evaluate_model(model, test_set)
 

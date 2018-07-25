@@ -14,7 +14,7 @@ from tqdm import tqdm
 from corpus.corpus import LibriSpeechCorpus
 from corpus.corpus_entry import CorpusEntry
 from corpus.corpus_segment import Speech, Pause, UnalignedSpeech
-from constants import CORPUS_TARGET_ROOT, CORPUS_RAW_ROOT
+from constants import CORPUS_ROOT, CORPUS_RAW_ROOT
 from util.audio_util import mp3_to_wav, crop_wav, calculate_frame
 from util.corpus_util import save_corpus, find_file_by_extension
 from util.log_util import log_setup, create_args_str
@@ -30,8 +30,8 @@ parser = argparse.ArgumentParser(description="""Create LibriSpeech corpus from r
 parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-s', '--source_root', default=CORPUS_RAW_ROOT,
                     help=f'(optional) source root directory (default: {CORPUS_RAW_ROOT}')
-parser.add_argument('-t', '--target_root', default=CORPUS_TARGET_ROOT,
-                    help=f'(optional) target root directory (default: {CORPUS_TARGET_ROOT})')
+parser.add_argument('-t', '--target_root', default=CORPUS_ROOT,
+                    help=f'(optional) target root directory (default: {CORPUS_ROOT})')
 parser.add_argument('-m', '--max_entries', type=int, default=None,
                     help='(optional) maximum number of corpus entries to process. Default=None=\'all\'')
 parser.add_argument('-o', '--overwrite', default=False, action='store_true',
@@ -115,20 +115,20 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
     directories = [root for root, subdirs, files in os.walk(audio_root) if not subdirs]
     progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr, unit='entries')
 
-    for directory in progress:
+    for raw_path in progress:
         if max_entries and len(corpus_entries) >= max_entries:
             break
 
-        progress.set_description(f'{directory:{100}}')
+        progress.set_description(f'{raw_path:{100}}')
 
-        parms = collect_corpus_entry_parms(directory, book_info, chapter_info, speaker_info)
+        parms = collect_corpus_entry_parms(raw_path, book_info, chapter_info, speaker_info)
 
-        segments_file, transcript_file, mp3_file = collect_corpus_entry_files(directory, parms)
-        segments_file = os.path.join(directory, segments_file)
-        transcript_file = os.path.join(directory, transcript_file)
+        segments_file, transcript_file, mp3_file = collect_corpus_entry_files(raw_path, parms)
+        segments_file = os.path.join(raw_path, segments_file)
+        transcript_file = os.path.join(raw_path, transcript_file)
 
         if not segments_file or not transcript_file or not mp3_file:
-            log.warning(f'Skipping directory (not all files found): {directory}')
+            log.warning(f'Skipping directory (not all files found): {raw_path}')
             break
 
         book_id = parms['book_id']
@@ -136,18 +136,18 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         if not book_text:
             log.warning(f'No book text found. Processing directory, but speech pauses might be wrong.')
 
-        segments = create_segments(segments_file, transcript_file, book_text)
+        segments, full_transcript = create_segments(segments_file, transcript_file, book_text)
 
         # Convert, resample and crop audio
         audio_file = os.path.join(target_root, mp3_file.split(".")[0] + ".wav")
         if not exists(audio_file) or args.overwrite:
-            in_file = os.path.join(directory, mp3_file)
+            in_file = os.path.join(raw_path, mp3_file)
             mp3_to_wav(in_file, audio_file)
             crop_wav(audio_file, segments)
         parms['media_info'] = mediainfo(audio_file)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, segments, directory, parms)
+        corpus_entry = CorpusEntry(audio_file, segments, full_transcript=full_transcript, raw_path=raw_path, parms=parms)
         corpus_entries.append(corpus_entry)
 
     corpus = LibriSpeechCorpus(corpus_entries, target_root)
@@ -311,6 +311,7 @@ def find_text_between(prev_text, next_text, book_text):
 
 def create_segments(segments_file, transcript_file, book_text):
     book_text = normalize_text(book_text)
+    full_transcript = ''
 
     segment_texts = {}
     with open(transcript_file, 'r') as f_transcript:
@@ -323,7 +324,8 @@ def create_segments(segments_file, transcript_file, book_text):
         lines = f_segments.readlines()
         for i, line in enumerate(lines):
             segment_id, next_start, next_end = parse_segment_line(line)
-            segment_text = segment_texts[segment_id] if segment_id in segment_texts else None
+            segment_text = segment_texts[segment_id] if segment_id in segment_texts else ''
+            full_transcript += segment_text + '\n'
 
             # add pause or missing speech segment between speeches (if there is one)
             if i > 0:
@@ -335,6 +337,7 @@ def create_segments(segments_file, transcript_file, book_text):
                 between_end = next_start - 1
                 if between_end - between_start > 0:
                     if between_text:
+                        full_transcript += between_text + '\n'
                         between_segment = UnalignedSpeech(start_frame=between_start, end_frame=between_end,
                                                           transcript=between_text)
                     else:
@@ -344,7 +347,7 @@ def create_segments(segments_file, transcript_file, book_text):
             speech = Speech(start_frame=next_start, end_frame=next_end, transcript=segment_text)
             segments.append(speech)
 
-    return segments
+    return segments, full_transcript
 
 
 def parse_segment_line(line):

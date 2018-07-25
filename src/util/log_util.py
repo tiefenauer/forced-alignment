@@ -1,18 +1,19 @@
-import builtins
 import logging
-import os
 import sys
 from datetime import datetime
 from os import makedirs
+from os.path import exists, dirname
 
 import pygit2
 import streamtologger
-from os.path import exists
 
 from constants import ROOT_DIR
 
 FORMAT_STR = '%(asctime)s : %(name)s : %(levelname)s : %(message)s'
 repo = pygit2.Repository(ROOT_DIR)
+
+stdout = sys.stdout
+stderr = sys.stderr
 
 
 def log_setup(filename=None):
@@ -23,12 +24,20 @@ def log_setup(filename=None):
     return logger
 
 
-def print_to_file_and_console(log_file_path):
+def redirect_to_file(log_file_path, append=False, format="[{timestamp:%Y-%m-%d %H:%M:%S} - {level:5}] "):
     """wraps print function to print to stdout and file simultaneously.
     Returns file handle (file must be closed manually!)"""
-    if not exists(os.path.dirname(log_file_path)):
-        makedirs(os.path.dirname(log_file_path))
-    streamtologger.redirect(log_file_path)
+    if not exists(dirname(log_file_path)):
+        makedirs(dirname(log_file_path))
+    streamtologger.redirect(log_file_path, append=append, header_format=format)
+
+
+def reset_redirect():
+    global stdout
+    global stderr
+    sys.stdout = stdout
+    sys.stderr = stderr
+    streamtologger._is_redirected = False
 
 
 def log_prediction(logger, ground_truth, prediction, subset_name):

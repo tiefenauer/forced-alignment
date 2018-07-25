@@ -2,8 +2,6 @@ import itertools
 
 import numpy as np
 
-from util.string_util import normalize
-
 
 def smith_waterman(a, b, match_score=3, gap_cost=2):
     """
@@ -13,7 +11,10 @@ def smith_waterman(a, b, match_score=3, gap_cost=2):
     :param b: string
     :return: (start:end) start and end index for local alignment of b with a
     """
-    a, b = normalize(a), normalize(b)
+    # normalize by making everything uppercase
+    # this could be enhanced by removing special characters etc. as in util.string_util.normalize but then the
+    # positional information does not match up with the original input strings!
+    a, b = a.upper(), b.upper()
     H = matrix(a, b, match_score, gap_cost)
     b_, pos = traceback(H, b)
     return pos, pos + len(b_), b_
@@ -57,5 +58,10 @@ def traceback(H, b, b_='', old_i=0):
     # print(H, i,j)
     if H[i, j] == 0:
         return b_, i
-    b_ = b[j - 1] + '-' + b_ if old_i - i > 1 else b[j - 1] + b_
+
+    # represent characters that are skipped in string A (i.e. insertions in B) with a dash
+    rows_skipped = max(old_i - i - 1,0)
+    infix = '-' * rows_skipped
+
+    b_ = b[j - 1] + infix + b_
     return traceback(H[0:i, 0:j], b, b_, i)

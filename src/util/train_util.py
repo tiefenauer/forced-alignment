@@ -3,8 +3,7 @@ import sys
 from datetime import datetime
 
 from constants import POC_PROFILES
-from util.corpus_util import load_corpus
-from util.log_util import create_args_str, print_to_file_and_console
+from util.log_util import create_args_str, redirect_to_file
 
 
 def get_num_features(feature_type):
@@ -39,17 +38,5 @@ def get_target_dir(rnn_type, args):
 
     print(f'Results will be written to: {target_dir}')
     log_file_path = os.path.join(target_dir, 'train.log')
-    print_to_file_and_console(log_file_path)  # comment out to only log to console
+    redirect_to_file(log_file_path)  # comment out to only log to console
     return target_dir
-
-
-def get_corpus(args):
-    ls_corpus_root = os.path.join(args.target_root, 'librispeech-corpus')
-    rl_corpus_root = os.path.join(args.target_root, 'readylingua-corpus')
-    if args.corpus == 'rl':
-        corpus = load_corpus(rl_corpus_root)
-    elif args.corpus == 'ls':
-        corpus = load_corpus(ls_corpus_root)
-    corpus = corpus(languages=args.language)
-    corpus.summary()
-    return corpus

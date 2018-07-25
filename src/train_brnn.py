@@ -15,9 +15,10 @@ from keras.optimizers import Adam
 from keras.utils import get_custom_objects
 from tensorflow.contrib.layers import dense_to_sparse
 
-from constants import TRAIN_TARGET_ROOT
+from constants import TRAIN_ROOT
+from util.corpus_util import get_corpus
 from util.keras_util import ReportCallback, BatchGenerator
-from util.train_util import get_num_features, get_corpus, get_target_dir
+from util.train_util import get_num_features, get_target_dir
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 
@@ -33,8 +34,8 @@ parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=5,
                     help=f'(optional) number of speech segments to include in one batch (default: 5)')
 parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'mel', 'pow'], default='mfcc',
                     help=f'(optional) features to use for training (default: mfcc)')
-parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_TARGET_ROOT,
-                    help=f'(optional) root directory where results will be written to (default: {TRAIN_TARGET_ROOT})')
+parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
+                    help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=20,
                     help=f'(optional) number of epochs to train the model (default: {20})')
 parser.add_argument('--train_steps', type=int, nargs='?', default=0,
@@ -49,7 +50,7 @@ args = parser.parse_args()
 def main():
     target_dir = get_target_dir('BRNN', args)
     print('loading train-/dev-/test-set')
-    corpus = get_corpus(args)
+    corpus = get_corpus(args.corpus)
     train_set, dev_set, test_set = corpus.train_dev_test_split()
     print(f'train/dev/test: {len(train_set)}/{len(dev_set)}/{len(test_set)} '
           f'({100*len(train_set)//len(corpus)}/{100*len(dev_set)//len(corpus)}/{100*len(test_set)//len(corpus)}%)')

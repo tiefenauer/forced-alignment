@@ -8,8 +8,9 @@ import numpy as np
 import tensorflow as tf
 from os.path import exists
 
-from constants import TRAIN_TARGET_ROOT
+from constants import TRAIN_ROOT
 from util.audio_util import distort, shift
+from util.corpus_util import get_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
 from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, pad_sequences, sparse_tuple_from
@@ -46,8 +47,8 @@ parser.add_argument('-ix', '--ix', type=str, nargs='?',
                     help='(optional) specify index of single corpus entry on which to train on')
 parser.add_argument('-s', '--synthesize', action='store_true', default=SYNTHESIZE,
                     help=f'(optional) synthesize audio for training by adding distortion (default: {SYNTHESIZE})')
-parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_TARGET_ROOT,
-                    help=f'(optional) root directory where results will be written to (default: {TRAIN_TARGET_ROOT})')
+parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
+                    help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
 parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=MAX_EPOCHS,
                     help=f'(optional) number of epochs to train the model (default: {MAX_EPOCHS})')
 parser.add_argument('-le', '--limit_entries', type=int, nargs='?',
@@ -67,7 +68,7 @@ num_layers = 1
 def main():
     target_dir = get_target_dir('RNN', args)
     num_features = get_num_features(args.feature_type)
-    corpus = get_corpus(args)
+    corpus = get_corpus(args.corpus)
 
     train_set, dev_set, test_set = create_train_dev_test(args, corpus)
 
@@ -227,14 +228,14 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
         convergence = False
         # train until convergence or MAX_EPOCHS
         while not convergence and curr_epoch < MAX_EPOCHS:
-            add_distortion = curr_epoch > 0 and args.synthesize
             curr_epoch += 1
             num_samples = 0
             ctc_train = ler_train = 0
             start = time.time()
 
             # iterate over batches for current epoch
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, num_features, distort_audio=add_distortion):
+            add_distortion = curr_epoch > 0 and args.synthesize
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, args.feature_type, distort_audio=add_distortion):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -270,7 +271,7 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
             convergence = ler_train_mean < LER_CONVERGENCE and abs(ler_diff) < 0.01
 
             # validate cost with a randomly chosen entry from the dev-set that has been randomly shifted
-            X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, True)))
+            X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, args.feature_type, shift_audio=True)))
             val_feed = {inputs: X_val, targets: Y_val, seq_len: val_seq_len}
             ctc_val, ler_val = session.run([cost, ler], feed_dict=val_feed)
             val_ctcs.append(ctc_val)
@@ -296,7 +297,7 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
     return save_path
 
 
-def generate_batches(corpus_entries, num_features, shift_audio=False, distort_audio=False):
+def generate_batches(corpus_entries, feature_type, shift_audio=False, distort_audio=False):
     speech_segments = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
     l = len(speech_segments)
     for ndx in range(0, l, args.batch_size):
@@ -308,12 +309,7 @@ def generate_batches(corpus_entries, num_features, shift_audio=False, distort_au
             if shift_audio:
                 speech_segment.audio = shift(audio)  # clip audio before calculating MFCC/spectrogram
 
-            if args.feature_type == 'mfcc':
-                features = speech_segment.mfcc()
-            elif args.feature_type == 'mel':
-                features = speech_segment.mel_specgram(num_features).T
-            else:
-                features = speech_segment.power_specgram().T
+            features = speech_segment.audio_features(feature_type)
             speech_segment.audio = audio  # restore original audio for next epoch
 
             batch.append((features, speech_segment.text))

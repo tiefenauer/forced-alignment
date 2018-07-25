@@ -1,0 +1,29 @@
+body {
+    font-family: PT Serif, Georgia, Times, serif;
+    font-size: 137.5%;
+    line-height: 1.75;
+}
+
+.container {
+    text-align: center;
+    max-width: 990px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.current {
+    background: yellow;
+    outline: solid 5px yellow;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.aligned {
+    text-decoration: underline;
+    text-decoration-color: darkgray;
+    text-decoration-style: dotted;
+}
+
+.aligned:hover {
+    cursor: pointer;
+    background: #FEFFDC;
+}

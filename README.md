@@ -32,3 +32,10 @@ The following jupyter notebooks illustrate the whole project process interactive
 | [02_create_labelled_data](./src/02_create_labelled_data.ipynb) | How labelled data was created from corpus data |
 | [03_train_rnn](./src/03_train_rnn.ipynb) | RNN architecture and training information |
 
+
+## Jupyter Notebook extensions
+
+The following extensions for Jupyter Notebook were used:
+
+* [jupyter_contrib_nbextensions](https://github.com/ipython-contrib/jupyter_contrib_nbextensions): A collection of useful extensions (like a TOC) that also includes a manager that allows enabling/disabling individual extensiosn from the web interface
+* [cite2c](https://github.com/takluyver/cite2c): For managing citations made with [Zotero](https://www.zotero.org/)

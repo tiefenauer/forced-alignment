@@ -4,6 +4,7 @@ import os
 import random
 import wave
 
+import librosa
 import numpy as np
 import scipy.io.wavfile
 import scipy.signal
@@ -46,22 +47,40 @@ def resample_wav(in_file, out_file, inrate=44100, outrate=16000, inchannels=1, o
 
 
 def crop_wav(wav_file, segments):
-    wav_rate, wav_data = read_wav_file(wav_file)
+    audio, rate = read_audio(wav_file)
     crop_start = min(segment.start_frame for segment in segments)
     crop_end = max(segment.end_frame for segment in segments)
-    write_wav_file(wav_file, wav_rate, wav_data[crop_start:crop_end])
+    write_wav_file(wav_file, audio[crop_start:crop_end], rate)
 
     for segment in segments:
         segment.start_frame -= crop_start
         segment.end_frame -= crop_start
 
 
-def read_wav_file(file_path):
-    return scipy.io.wavfile.read(file_path)
+def read_audio(file_path, sample_rate=None, mono=False):
+    """
+    read audio data from arbitrary files with optional resampling and conversion to mono
+    """
+    return librosa.load(file_path, sr=sample_rate, mono=mono)
 
 
-def write_wav_file(file_path, wav_rate, wav_data):
-    scipy.io.wavfile.write(file_path, wav_rate, wav_data)
+def write_wav_file(file_path, audio, rate):
+    librosa.output.write_wav(file_path, audio, rate)
+
+
+def read_pcm16_wave(file_path):
+    with wave.open(file_path, 'rb') as wf:
+        sample_rate = wf.getframerate()
+        pcm_data = wf.readframes(wf.getnframes())
+        return pcm_data, sample_rate
+
+
+def write_pcm16_wave(path, audio, sample_rate):
+    with wave.open(path, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(audio)
 
 
 def recalculate_frame(old_frame, old_sampling_rate=44100, new_sampling_rate=16000):
@@ -125,6 +144,10 @@ def log_specgram(audio, sample_rate, window_size=20, step_size=10, unit='ms', mo
 
 def ms_to_frames(val_ms, sample_rate):
     return int(round(val_ms * sample_rate / 1e3))
+
+
+def frame_to_ms(val_frame, sample_rate):
+    return float(val_frame / sample_rate)
 
 
 def shift(audio, max_shift=None):

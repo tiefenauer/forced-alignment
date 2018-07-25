@@ -38,15 +38,15 @@ def extract_voice(audio, rate, min_segments=2, max_segments=None):
 
 def webrtc_voice(audio, rate, aggressiveness=3):
     voiced_frames = webrtc_split(audio, rate, aggressiveness=aggressiveness)
-    for frames in voiced_frames:
-        voice_bytes = b''.join([f.bytes for f in frames])
+    for voice_frames, voice_rate in voiced_frames:
+        voice_bytes = b''.join([f.bytes for f in voice_frames])
         voice_audio, rate = from_pcm16(voice_bytes, rate)
 
-        start_time = frames[0].timestamp
-        end_time = (frames[-1].timestamp + frames[-1].duration)
+        start_time = voice_frames[0].timestamp
+        end_time = (voice_frames[-1].timestamp + voice_frames[-1].duration)
         start_frame = ms_to_frames(start_time * 1000, rate)
         end_frame = ms_to_frames(end_time * 1000, rate)
-        yield Voice(voice_audio, rate, start_frame, end_frame)
+        yield Voice(voice_audio, voice_rate, start_frame, end_frame)
 
 
 def librosa_voice(audio, rate, top_db=30, limit=None):
@@ -57,7 +57,7 @@ def librosa_voice(audio, rate, top_db=30, limit=None):
 
 def webrtc_split(audio, rate, aggressiveness=3, frame_duration_ms=30, window_duration_ms=300):
     # adapted from https://github.com/wiseman/py-webrtcvad/blob/master/example.py
-    audio_bytes, rate = to_pcm16(audio, rate)
+    audio_bytes, audio_rate = to_pcm16(audio, rate)
 
     vad = Vad(aggressiveness)
     num_window_frames = int(window_duration_ms / frame_duration_ms)
@@ -65,8 +65,8 @@ def webrtc_split(audio, rate, aggressiveness=3, frame_duration_ms=30, window_dur
     triggered = False
 
     voiced_frames = []
-    for frame in generate_frames(audio_bytes, rate, frame_duration_ms):
-        is_speech = vad.is_speech(frame.bytes, rate)
+    for frame in generate_frames(audio_bytes, audio_rate, frame_duration_ms):
+        is_speech = vad.is_speech(frame.bytes, audio_rate)
         sliding_window.append((frame, is_speech))
 
         if not triggered:
@@ -80,11 +80,11 @@ def webrtc_split(audio, rate, aggressiveness=3, frame_duration_ms=30, window_dur
             num_unvoiced = len([f for f, speech in sliding_window if not speech])
             if num_unvoiced > 0.9 * sliding_window.maxlen:
                 triggered = False
-                yield voiced_frames
+                yield voiced_frames, audio_rate
                 sliding_window.clear()
                 voiced_frames = []
     if voiced_frames:
-        yield voiced_frames
+        yield voiced_frames, audio_rate
 
 
 class Frame(object):

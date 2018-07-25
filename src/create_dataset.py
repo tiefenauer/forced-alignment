@@ -23,45 +23,44 @@ args = parser.parse_args()
 def precompute_features(corpus, feature_type, target_file):
     subset_segments = ((corpus_entry.subset, seg) for corpus_entry in corpus for seg in
                        corpus_entry.speech_segments_not_numeric)
-    progress = tqdm(list(subset_segments), unit='speech segments')
-    data = []
-    for subset, speech_segment in progress:
-        features = speech_segment.audio_features(feature_type)
-        labels = speech_segment.text
-        duration = speech_segment.audio_length
-        data.append({'subset': subset, 'input': features, 'label': labels, 'duration': duration})
-        desc = f'subset: {subset}, t_x: {len(features)}, t_y: {len(labels)}, duration: {timedelta(seconds=duration)}'
-        progress.set_description(desc)
+    progress = tqdm(enumerate(list(subset_segments)), unit='speech segments')
 
-    print(f'created features for {len(data)} speech segments. Saving to {target_file}...')
     with h5py.File(target_file) as f:
-        data.sort(key=lambda item: item['subset'])
-        for i, (subset, items) in tqdm(enumerate(groupby(data, key=lambda item: item['subset'])), unit='datasets'):
-            items = list(items)
-            group = f.create_group(subset) if subset not in f else f[subset]
+        for i, (subset, speech_segment) in progress:
+            inp = speech_segment.audio_features(feature_type)
+            lbl = speech_segment.text
+            dur = speech_segment.audio_length
+            desc = f'subset: {subset}, t_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
+            progress.set_description(desc)
 
-            dt_inputs = h5py.special_dtype(vlen=np.float64)
-            inputs = group.create_dataset(name='inputs', shape=(0,), maxshape=(None,), dtype=dt_inputs)
-            for input in [item['input'] for item in items]:
-                inputs.resize(inputs.shape[0] + 1, axis=0)
-                inputs[inputs.shape[0] - 1] = input.flatten().astype(np.float32)
+            if subset not in f:
+                group = f.create_group(subset)
+                dt_inputs = h5py.special_dtype(vlen=np.float64)
+                group.create_dataset(name='inputs', shape=(0,), maxshape=(None,), dtype=dt_inputs)
 
-            dt_labels = h5py.special_dtype(vlen=np.unicode)
-            labels = group.create_dataset(name='labels', shape=(0,), maxshape=(None,), dtype=dt_labels)
-            for label in [item['label'] for item in items]:
-                labels.resize(labels.shape[0] + 1, axis=0)
-                labels[labels.shape[0] - 1] = label.encode('utf8')
+                dt_labels = h5py.special_dtype(vlen=np.unicode)
+                group.create_dataset(name='labels', shape=(0,), maxshape=(None,), dtype=dt_labels)
 
-            durations = group.create_dataset(name='durations', shape=(0,), maxshape=(None,))
-            for duration in [item['duration'] for item in items]:
-                durations.resize(durations.shape[0] + 1, axis=0)
-                durations[durations.shape[0] - 1] = duration
+                group.create_dataset(name='durations', shape=(0,), maxshape=(None,))
+
+            inputs = f[subset]['inputs']
+            labels = f[subset]['labels']
+            durations = f[subset]['durations']
+
+            inputs.resize(inputs.shape[0] + 1, axis=0)
+            inputs[inputs.shape[0] - 1] = inp.flatten().astype(np.float32)
+
+            labels.resize(labels.shape[0] + 1, axis=0)
+            labels[labels.shape[0] - 1] = lbl.encode('utf8')
+
+            durations.resize(durations.shape[0] + 1, axis=0)
+            durations[durations.shape[0] - 1] = dur
 
             if i % 128 == 0:
                 f.flush()
 
         f.flush()
-    print(f'...done! {len(data)} datasets saved in {target_file}')
+    print(f'...done! {i} datasets saved in {target_file}')
 
 
 if __name__ == '__main__':

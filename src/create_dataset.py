@@ -36,7 +36,7 @@ def precompute_features(corpus, feature_type, target_file):
     print(f'created features for {len(data)} speech segments. Saving to {target_file}...')
     with h5py.File(target_file) as f:
         data.sort(key=lambda item: item['subset'])
-        for subset, items in tqdm(groupby(data, key=lambda item: item['subset']), unit='datasets'):
+        for i, (subset, items) in tqdm(enumerate(groupby(data, key=lambda item: item['subset'])), unit='datasets'):
             items = list(items)
             group = f.create_group(subset) if subset not in f else f[subset]
 
@@ -56,6 +56,9 @@ def precompute_features(corpus, feature_type, target_file):
             for duration in [item['duration'] for item in items]:
                 durations.resize(durations.shape[0] + 1, axis=0)
                 durations[durations.shape[0] - 1] = duration
+
+            if i % 128 == 0:
+                f.flush()
 
         f.flush()
     print(f'...done! {len(data)} datasets saved in {target_file}')

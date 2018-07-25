@@ -3,7 +3,6 @@ import argparse
 import os
 import pickle
 
-import keras
 import tensorflow as tf
 from keras import backend as K
 from keras.activations import relu
@@ -13,12 +12,12 @@ from keras.optimizers import Adam
 from keras.utils import get_custom_objects
 
 from constants import TRAIN_ROOT
-from core.callbacks import CustomProgbarLogger, ReportCallback
 from core.ctc_util import ctc_model
 from core.dataset_generator import BatchGenerator
 from util.corpus_util import get_corpus
 from util.train_util import get_num_features, get_target_dir
 
+# -------------------------------------------------------------
 # some Keras/TF setup
 # os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 config = tf.ConfigProto()
@@ -26,6 +25,7 @@ config.gpu_options.visible_device_list = "2"
 config.gpu_options.allow_growth = True
 session = tf.Session(config=config)
 K.set_session(session)
+# -------------------------------------------------------------
 
 parser = argparse.ArgumentParser(
     description="""Train Bi-directionalRNN with CTC cost function for speech recognition""")
@@ -62,7 +62,7 @@ def main():
     model = create_model(args.architecture, num_features)
     model.summary()
 
-    history = train_model(model, target_dir, train_set, dev_set)
+    history = train_model(model, target_dir, train_set[:5], dev_set[:5])
 
     evaluate_model(model, test_set)
 
@@ -141,8 +141,8 @@ def deep_speech_model(num_features, num_hidden=2048, dropout=0.1, num_classes=28
 
 
 def train_model(model, target_dir, train_set, dev_set):
-    train_batches = BatchGenerator(train_set, args.feature_type, args.batch_size, args.train_steps)
-    dev_batches = BatchGenerator(dev_set, args.feature_type, args.batch_size, args.valid_steps)
+    train_batches = BatchGenerator(train_set, args.feature_type, args.batch_size)
+    dev_batches = BatchGenerator(dev_set, args.feature_type, args.batch_size)
 
     print(f'Training on {len(train_batches)} batches over {len(train_batches.speech_segments)} speech segments')
     print(f'Validating on {len(dev_batches)} batches over {len(dev_batches.speech_segments)} speech segments')
@@ -176,12 +176,12 @@ def train_model(model, target_dir, train_set, dev_set):
     # keras.callbacks.ProgbarLogger = lambda count_mode, stateful_metrics: CustomProgbarLogger(
     #     stateful_metrics=['loss', 'decoder_ler', 'val_loss', 'val_decoder_ler'])
 
-    history = model.fit_generator(generator=train_batches.generate_batches(),
-                                  steps_per_epoch=train_batches.num_batches,
+    history = model.fit_generator(generator=train_batches,
+                                  steps_per_epoch=train_batches.num_elements,
                                   epochs=args.num_epochs,
                                   callbacks=cb_list,
-                                  validation_data=dev_batches.generate_batches(),
-                                  validation_steps=dev_batches.num_batches,
+                                  validation_data=dev_batches,
+                                  # validation_steps=dev_batches.num_batches,
                                   verbose=1
                                   )
     return history

@@ -20,9 +20,9 @@ args = parser.parse_args()
 
 
 def precompute_features(corpus, feature_type, target_file):
-    subset_segments = ((corpus_entry.subset, seg) for corpus_entry in corpus for seg in
-                       corpus_entry.speech_segments_not_numeric)
-    progress = tqdm(enumerate(list(subset_segments)), unit='speech segments')
+    subset_segments = list((corpus_entry.subset, seg) for corpus_entry in corpus for seg in
+                           corpus_entry.speech_segments_not_numeric)
+    progress = tqdm(enumerate(subset_segments), total=len(subset_segments), unit='speech segments')
 
     with h5py.File(target_file) as f:
         for i, (subset, speech_segment) in progress:

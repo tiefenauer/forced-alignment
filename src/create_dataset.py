@@ -55,7 +55,7 @@ def precompute_features(corpus, feature_type, target_file):
             durations.resize(durations.shape[0] + 1, axis=0)
             durations[durations.shape[0] - 1] = dur
 
-            if i % 128 == 0:
+            if i % 4096 == 0:
                 f.flush()
 
         f.flush()

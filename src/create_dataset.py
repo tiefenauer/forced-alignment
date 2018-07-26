@@ -1,6 +1,5 @@
 import argparse
 from datetime import timedelta
-from itertools import groupby
 from os import makedirs, remove
 from os.path import exists, join, dirname
 
@@ -15,7 +14,7 @@ parser.add_argument('-c', '--corpus', nargs='?', type=str, choices=['rl', 'ls'],
                     help='(optional) corpus to create features for')
 parser.add_argument('-f', '--feature_type', nargs='?', type=str, choices=['mfcc', 'mel', 'pow'], default=None,
                     help='(optional) feature type to precompute (default: all)')
-parser.add_argument('-t', '--target_file', nargs='?', type=str,
+parser.add_argument('-t', '--target_file', nargs='?', type=str, default=None,
                     help='(optional) target directory to save results (default: corpus directory)')
 args = parser.parse_args()
 
@@ -63,18 +62,30 @@ def precompute_features(corpus, feature_type, target_file):
     print(f'...done! {i} datasets saved in {target_file}')
 
 
+def get_target_file(corpus, feature_type, target_file):
+    return f'{target_file}_{feature_type}.h5' if target_file else join(corpus.root_path, f'features_{feature_type}.h5')
+
+
+def check_target_files(corpus, feature_types, file):
+    check_files = [(feature, get_target_file(corpus, feature, file)) for feature in feature_types]
+    feature_files = []
+    for feature, file in check_files:
+        if exists(file):
+            override = input(f'target file {file} already exists. Overwrite? [Y/n]')
+            if override.lower() in ['', 'y']:
+                remove(file)
+                feature_files.append((feature, file))
+        else:
+            feature_files.append((feature, file))
+    return feature_files
+
+
 if __name__ == '__main__':
     corpus = get_corpus(args.corpus)
     feature_types = [args.feature_type] if args.feature_type else ['mfcc', 'mel', 'pow']
-    for feature_type in feature_types:
-        target_file = f'{args.target_file}.{feature_type}' if args.target_file else join(corpus.root_path,
-                                                                                         f'features_{feature_type}.h5')
+    target_files = check_target_files(corpus, feature_types, args.target_file)
+    for feature_type, target_file in target_files:
         if not exists(dirname(target_file)):
             makedirs(dirname(target_file))
-
-        # if exists(target_file):
-        #     override = input(f'target file {target_file} already exists. Overwrite? [Y/n]')
-        #     if override.lower() in ['', 'y']:
-        #         remove(target_file)
         print(f'precomputing {feature_type} features. Results will be written to {target_file}')
         precompute_features(corpus, feature_type, target_file)

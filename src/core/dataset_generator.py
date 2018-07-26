@@ -15,9 +15,8 @@ class BatchGenerator(Iterator, ABC):
     contains keys mapping to the data required by tensors of the model.
     """
 
-    def __init__(self, elements, feature_type, batch_size, shuffle, seed):
-        super().__init__(len(elements), batch_size, shuffle, seed)
-        self.elements = elements
+    def __init__(self, n, feature_type, batch_size, shuffle, seed):
+        super().__init__(n, batch_size, shuffle, seed)
         self.num_features = get_num_features(feature_type)
 
     def _get_batches_of_transformed_samples(self, index_array):
@@ -60,7 +59,7 @@ class OnTheFlyFeaturesIterator(BatchGenerator):
     def __init__(self, corpus_entries, feature_type, batch_size, shuffle=True, seed=None):
         speech_segs = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
         speech_segs = np.array(speech_segs)
-        super().__init__(speech_segs, feature_type, batch_size, shuffle=shuffle, seed=seed)
+        super().__init__(len(speech_segs), feature_type, batch_size, shuffle=shuffle, seed=seed)
 
     def _get_batches_of_transformed_samples(self, index_array):
         """
@@ -113,12 +112,12 @@ class HFS5BatchGenerator(BatchGenerator):
     """
 
     def __init__(self, dataset, feature_type, batch_size, shuffle=True, seed=None):
-        super().__init__(dataset, feature_type, batch_size, shuffle, seed)
         self.inputs = dataset['inputs']
         self.labels = dataset['labels']
+        super().__init__(len(self.inputs), feature_type, batch_size, shuffle, seed)
 
     def create_input_features(self, index_array):
-        return [inp.reshape((-1, self.num_features)) for inp in self.inputs[index_array]]
+        return [inp.reshape((-1, self.num_features)) for inp in (self.inputs[i] for i in index_array)]
 
     def create_labels_encoded(self, index_array):
-        return [encode(label) for label in self.labels[index_array]]
+        return [encode(label) for label in (self.labels[i] for i in index_array)]

@@ -73,8 +73,9 @@ def main():
     model.summary()
 
     train_it, val_it, test_it = create_train_dev_test(corpus, args.feature_type, args.batch_size)
-    print(f'train/dev/test: {len(train_set)}/{len(dev_set)}/{len(test_set)} '
-          f'({100*len(train_set)//len(corpus)}/{100*len(dev_set)//len(corpus)}/{100*len(test_set)//len(corpus)}%)')
+    total_n = train_it.n + val_it.n + test_it.n
+    print(f'train/dev/test: {train_it.n}/{val_it.n}/{test_it.n} '
+          f'({100*train_it.n//total_n}/{100*val_it.n//total_n}/{100*test_it.n//total_n}%)')
     history = train_model(model, target_dir, train_it, val_it)
 
     evaluate_model(model, test_it)
@@ -90,7 +91,8 @@ def create_train_dev_test(corpus, feature_type, batch_size):
                        if splitext(file)[0].startswith('features')
                        and feature_type in splitext(file)[0]
                        and splitext(file)[1] == '.h5')
-    feature_file = h5_features[0] if h5_features else None
+    default_featuers = f'features_{feature_type}.h5'
+    feature_file = default_featuers if default_featuers in h5_features else h5_features[0] if h5_features else None
     if feature_file:
         print(f'found precomputed features: {feature_file}. Using HDF5-Features')
         f = h5py.File(feature_file, 'r')
@@ -206,7 +208,7 @@ def train_model(model, target_dir, train_it, val_it):
     # create/add more callbacks here
 
     # hack: avoid logging the dummy losses
-    keras.callbacks.ProgbarLogger = CustomProgbarLogger
+    # keras.callbacks.ProgbarLogger = CustomProgbarLogger
 
     history = model.fit_generator(generator=train_it,
                                   validation_data=val_it,

@@ -104,3 +104,6 @@ ENV/
 .idea/
 corpora/
 2018-*
+
+# other
+tmp/

@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from os.path import exists
+from os.path import exists, splitext, join
 from pydub.utils import mediainfo
 from tqdm import tqdm
 
@@ -82,8 +82,8 @@ whitespace_pattern = re.compile(r'\s+')
 
 def main():
     print(create_args_str(args))
-    source_root = os.path.join(args.source_root, 'librispeech-raw')
-    target_root = os.path.join(args.target_root, 'librispeech-corpus')
+    source_root = join(args.source_root, 'librispeech-raw')
+    target_root = join(args.target_root, 'librispeech-corpus')
     print(f'Processing files from {source_root} and saving them in {target_root}')
 
     corpus, corpus_file = create_corpus(source_root, target_root, args.max_entries)
@@ -92,21 +92,21 @@ def main():
 
 
 def create_corpus(source_root, target_root, max_entries):
-    if not os.path.exists(source_root):
+    if not exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
-    if not os.path.exists(target_root):
+    if not exists(target_root):
         os.makedirs(target_root)
 
     return create_librispeech_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
 
 
 def create_librispeech_corpus(source_root, target_root, max_entries):
-    audio_root = os.path.join(source_root, 'audio')
+    audio_root = join(source_root, 'audio')
     book_info, chapter_info, speaker_info = collect_corpus_info(audio_root)
 
     print('loading book texts')
-    books_root = os.path.join(source_root, 'books')
+    books_root = join(source_root, 'books')
     books = collect_book_texts(books_root)
 
     print('creating corpus entries')
@@ -124,8 +124,8 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         parms = collect_corpus_entry_parms(raw_path, book_info, chapter_info, speaker_info)
 
         segments_file, transcript_file, mp3_file = collect_corpus_entry_files(raw_path, parms)
-        segments_file = os.path.join(raw_path, segments_file)
-        transcript_file = os.path.join(raw_path, transcript_file)
+        segments_file = join(raw_path, segments_file)
+        transcript_file = join(raw_path, transcript_file)
 
         if not segments_file or not transcript_file or not mp3_file:
             log.warning(f'Skipping directory (not all files found): {raw_path}')
@@ -139,9 +139,9 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         segments, full_transcript = create_segments(segments_file, transcript_file, book_text)
 
         # Convert, resample and crop audio
-        audio_file = os.path.join(target_root, mp3_file.split(".")[0] + ".wav")
+        audio_file = join(target_root, splitext(mp3_file)[0] + ".wav")
         if not exists(audio_file) or args.overwrite:
-            in_file = os.path.join(raw_path, mp3_file)
+            in_file = join(raw_path, mp3_file)
             mp3_to_wav(in_file, audio_file)
             crop_wav(audio_file, segments)
         parms['media_info'] = mediainfo(audio_file)
@@ -158,17 +158,17 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
 def collect_corpus_info(directory):
     # books
     books_file = find_file_by_extension(directory, 'BOOKS.TXT')
-    books_file = os.path.join(directory, books_file)
+    books_file = join(directory, books_file)
     books = collect_books(books_file)
 
     # chapters
     chapters_file = find_file_by_extension(directory, 'CHAPTERS.TXT')
-    chapters_file = os.path.join(directory, chapters_file)
+    chapters_file = join(directory, chapters_file)
     chapters = collect_chapters(chapters_file)
 
     # speakers
     speakers_file = find_file_by_extension(directory, 'SPEAKERS.TXT')
-    speakers_file = os.path.join(directory, speakers_file)
+    speakers_file = join(directory, speakers_file)
     speakers = collect_speakers(speakers_file)
 
     return books, chapters, speakers
@@ -229,7 +229,7 @@ def collect_book_texts(books_root):
     book_texts = {}
     for root, files in tqdm([(root, files) for root, subdirs, files in os.walk(books_root)
                              if not subdirs and len(files) == 1], unit='books'):
-        book_path = os.path.join(root, files[0])
+        book_path = join(root, files[0])
         encoding = 'latin-1' if 'ascii' in book_path else 'utf-8'  # use latin-1 for ascii files because of encoding problems
 
         book_id = root.split(os.sep)[-1]

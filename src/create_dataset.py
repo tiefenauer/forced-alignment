@@ -22,23 +22,41 @@ parser.add_argument('-l', '--limit', nargs='?', type=int, default=None,
 args = parser.parse_args()
 
 
+def generate_speech_segments(corpus):
+    """
+    create a generateor of (subset, segment)-tuples from a corpus whereas subset is either train|dev|test and segment
+    is a speech segment that does not contain numbers in its transcrupt
+    :param corpus: a corpus
+    :return: generator as specified above
+    """
+    return ((corpus_entry.subset, seg) for corpus_entry in corpus for seg in corpus_entry.speech_segments_not_numeric)
+
+
 def precompute_features(corpus, feature_type, target_file, limit=None):
-    subset_segments = enumerate((corpus_entry.subset, seg) for corpus_entry in corpus
-                                for seg in corpus_entry.speech_segments_not_numeric)
-    subset_segments = list(takewhile(lambda x: x[0] < limit, subset_segments)) if limit else list(subset_segments)
-    progress = tqdm(subset_segments, unit='speech segments')
+    # get number of elements and delete it right afterwards to prevent memory error
+    subset_segments = list(generate_speech_segments(corpus))
+    num_segments = len(subset_segments)
+    del subset_segments
+
+    if limit:
+        subset_segments = list(takewhile(lambda x: x[0] < limit, generate_speech_segments(corpus)))
+    else:
+        subset_segments = generate_speech_segments(corpus)
 
     with h5py.File(target_file) as f:
+        progress = tqdm(enumerate(subset_segments), total=num_segments, unit='speech segments')
         for i, (subset, speech_segment) in progress:
             inp = speech_segment.audio_features(feature_type)
             lbl = speech_segment.text
             dur = speech_segment.audio_length
-            desc = f'subset: {subset}, t_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
+            set_name = 'train' if subset.startswith('train') else 'dev' if subset.startswith('dev') else 'test'
+            desc = f'set: {set_name}, subset: {subset}, t_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
             progress.set_description(desc)
 
-            if subset not in f:
-                group = f.create_group(subset)
-                dt_inputs = h5py.special_dtype(vlen=np.float64)
+            if set_name not in f:
+                group = f.create_group(set_name)
+                group.attrs['subset'] = subset
+                dt_inputs = h5py.special_dtype(vlen=np.float32)
                 group.create_dataset(name='inputs', shape=(0,), maxshape=(None,), dtype=dt_inputs)
 
                 dt_labels = h5py.special_dtype(vlen=np.unicode)
@@ -46,9 +64,9 @@ def precompute_features(corpus, feature_type, target_file, limit=None):
 
                 group.create_dataset(name='durations', shape=(0,), maxshape=(None,))
 
-            inputs = f[subset]['inputs']
-            labels = f[subset]['labels']
-            durations = f[subset]['durations']
+            inputs = f[set_name]['inputs']
+            labels = f[set_name]['labels']
+            durations = f[set_name]['durations']
 
             inputs.resize(inputs.shape[0] + 1, axis=0)
             inputs[inputs.shape[0] - 1] = inp.flatten().astype(np.float32)
@@ -59,7 +77,7 @@ def precompute_features(corpus, feature_type, target_file, limit=None):
             durations.resize(durations.shape[0] + 1, axis=0)
             durations[durations.shape[0] - 1] = dur
 
-            if i % 4096 == 0:
+            if i % 256 == 0:
                 f.flush()
 
         f.flush()

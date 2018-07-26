@@ -1,5 +1,6 @@
 import argparse
 from datetime import timedelta
+from itertools import takewhile
 from os import makedirs, remove
 from os.path import exists, join, dirname
 
@@ -9,20 +10,23 @@ from tqdm import tqdm
 
 from util.corpus_util import get_corpus
 
-parser = argparse.ArgumentParser(description="""Precompute audio features and labels""")
+parser = argparse.ArgumentParser(description="""Precompute audio features and labels for speech segments""")
 parser.add_argument('-c', '--corpus', nargs='?', type=str, choices=['rl', 'ls'], default='rl',
                     help='(optional) corpus to create features for')
 parser.add_argument('-f', '--feature_type', nargs='?', type=str, choices=['mfcc', 'mel', 'pow'], default=None,
                     help='(optional) feature type to precompute (default: all)')
 parser.add_argument('-t', '--target_file', nargs='?', type=str, default=None,
                     help='(optional) target directory to save results (default: corpus directory)')
+parser.add_argument('-l', '--limit', nargs='?', type=int, default=None,
+                    help='(optional) maximum number of speechs egments to process')
 args = parser.parse_args()
 
 
-def precompute_features(corpus, feature_type, target_file):
-    subset_segments = list((corpus_entry.subset, seg) for corpus_entry in corpus for seg in
-                           corpus_entry.speech_segments_not_numeric)
-    progress = tqdm(enumerate(subset_segments), total=len(subset_segments), unit='speech segments')
+def precompute_features(corpus, feature_type, target_file, limit=None):
+    subset_segments = enumerate((corpus_entry.subset, seg) for corpus_entry in corpus
+                                for seg in corpus_entry.speech_segments_not_numeric)
+    subset_segments = list(takewhile(lambda x: x[0] < limit, subset_segments)) if limit else list(subset_segments)
+    progress = tqdm(subset_segments, unit='speech segments')
 
     with h5py.File(target_file) as f:
         for i, (subset, speech_segment) in progress:
@@ -63,7 +67,8 @@ def precompute_features(corpus, feature_type, target_file):
 
 
 def get_target_file(corpus, feature_type, target_file):
-    return f'{target_file}_{feature_type}.h5' if target_file else join(corpus.root_path, f'features_{feature_type}.h5')
+    prefix = target_file if target_file else 'features'
+    return join(corpus.root_path, f'{prefix}_{feature_type}.h5')
 
 
 def check_target_files(corpus, feature_types, file):
@@ -88,4 +93,4 @@ if __name__ == '__main__':
         if not exists(dirname(target_file)):
             makedirs(dirname(target_file))
         print(f'precomputing {feature_type} features. Results will be written to {target_file}')
-        precompute_features(corpus, feature_type, target_file)
+        precompute_features(corpus, feature_type, target_file, args.limit)

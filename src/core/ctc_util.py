@@ -22,7 +22,7 @@ def ctc_model(inputs, output, **kwargs):
     # Define loss as a layer
     loss = ctc([output, labels, inputs_length])
 
-    return Model(input=[inputs, labels, inputs_length], output=[loss, y_pred])
+    return Model(inputs=[inputs, labels, inputs_length], outputs=[loss, y_pred])
 
 
 def decode(inputs, **kwargs):

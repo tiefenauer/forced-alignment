@@ -1,27 +1,66 @@
+from abc import ABC, abstractmethod
+
 import numpy as np
 import scipy
 from keras.preprocessing.image import Iterator
 from keras.preprocessing.sequence import pad_sequences
 
 from util.rnn_util import encode
+from util.train_util import get_num_features
 
 
-class BatchGenerator(Iterator):
+class BatchGenerator(Iterator, ABC):
     """
     Generates batches for training/validation/evaluation. Batches are created as tuples of dictionaries. Each dictionary
     contains keys mapping to the data required by tensors of the model.
     """
 
-    def __init__(self, corpus_entries, feature_type, batch_size, shuffle=True, seed=None):
-        speech_segs = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
-        # speech_segs = speech_segs[:5]
-        super().__init__(len(speech_segs), batch_size, shuffle, seed)
-        self.speech_segments = np.array(speech_segs)
-        self.feature_type = feature_type
+    def __init__(self, elements, feature_type, batch_size, shuffle, seed):
+        super().__init__(len(elements), batch_size, shuffle, seed)
+        self.elements = elements
+        self.num_features = get_num_features(feature_type)
+
+    def _get_batches_of_transformed_samples(self, index_array):
+        inputs = self.create_input_features(index_array)
+        labels = self.create_labels_encoded(index_array)
+
+        X, X_lengths = self.make_batch_input(inputs)
+        Y = self.make_batch_output(labels)
+        return [X, Y, X_lengths], [np.zeros((X.shape[0],)), Y]
+
+    def make_batch_input(self, inputs_features):
+        batch_inputs = pad_sequences(inputs_features, dtype='float32', padding='post')
+        batch_inputs_len = np.array([inp.shape[0] for inp in inputs_features])
+        return batch_inputs, batch_inputs_len
+
+    def make_batch_output(self, labels_encoded):
+        rows, cols, data = [], [], []
+        for row, label in enumerate(labels_encoded):
+            cols.extend(range(len(label)))
+            rows.extend(len(label) * [row])
+            data.extend(label)
+
+        return scipy.sparse.coo_matrix((data, (rows, cols)), dtype='int32')
+
+    @abstractmethod
+    def create_input_features(self, index_array):
+        pass
+
+    @abstractmethod
+    def create_labels_encoded(self, index_array):
+        pass
 
     @property
     def num_elements(self):
-        return len(self.speech_segments)
+        return len(self.elements)
+
+
+class OnTheFlyFeaturesIterator(BatchGenerator):
+
+    def __init__(self, corpus_entries, feature_type, batch_size, shuffle=True, seed=None):
+        speech_segs = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
+        speech_segs = np.array(speech_segs)
+        super().__init__(speech_segs, feature_type, batch_size, shuffle=shuffle, seed=seed)
 
     def _get_batches_of_transformed_samples(self, index_array):
         """
@@ -44,7 +83,7 @@ class BatchGenerator(Iterator):
         :param index_array: array with indices of speech segments to use for batch
         :return: (inputs, outputs) as specified above
         """
-        speech_segments = self.speech_segments[index_array]
+        speech_segments = self.elements[index_array]
         X_data = [seg.audio_features(self.feature_type) for seg in speech_segments]
         Y_data = [encode(seg.text) for seg in speech_segments]
 
@@ -60,3 +99,26 @@ class BatchGenerator(Iterator):
         Y = scipy.sparse.coo_matrix((data, (rows, cols)), dtype='int32')
 
         return [X, Y, X_lengths], [np.zeros((X.shape[0],)), Y]
+
+    def create_input_features(self, index_array):
+        pass
+
+    def create_labels_encoded(self, index_array):
+        pass
+
+
+class HFS5BatchGenerator(BatchGenerator):
+    """
+    Creates batches for training/validation/evaluation by iterating over a HDF5 file.
+    """
+
+    def __init__(self, dataset, feature_type, batch_size, shuffle=True, seed=None):
+        super().__init__(dataset, feature_type, batch_size, shuffle, seed)
+        self.inputs = dataset['inputs']
+        self.labels = dataset['labels']
+
+    def create_input_features(self, index_array):
+        return [inp.reshape((-1, self.num_features)) for inp in self.inputs[index_array]]
+
+    def create_labels_encoded(self, index_array):
+        return [encode(label) for label in self.labels[index_array]]

@@ -2,7 +2,11 @@
 import argparse
 import os
 import pickle
+from os import listdir
+from os.path import splitext, join
 
+import h5py
+import keras
 import tensorflow as tf
 from keras import backend as K
 from keras.activations import relu
@@ -12,9 +16,12 @@ from keras.optimizers import Adam
 from keras.utils import get_custom_objects
 
 from constants import TRAIN_ROOT
+from core.callbacks import CustomProgbarLogger
 from core.ctc_util import ctc_model
-from core.dataset_generator import BatchGenerator
+from core.dataset_generator import BatchGenerator, OnTheFlyFeaturesIterator, HFS5BatchGenerator
 from util.corpus_util import get_corpus
+from util.hdf5_util import combine_subsets
+from util.log_util import redirect_to_file
 from util.train_util import get_num_features, get_target_dir
 
 # -------------------------------------------------------------
@@ -39,7 +46,7 @@ parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc'
                     help=f'(optional) features to use for training (default: mfcc)')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
-parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=20,
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=1,
                     help=f'(optional) number of epochs to train the model (default: {20})')
 parser.add_argument('--train_steps', type=int, nargs='?', default=0,
                     help=f'(optional) number of batches per epoch to use for training (default: all)')
@@ -52,24 +59,53 @@ args = parser.parse_args()
 
 def main():
     target_dir = get_target_dir('BRNN', args)
-    print('loading train-/dev-/test-set')
+    log_file_path = os.path.join(target_dir, 'train.log')
+    redirect_to_file(log_file_path)  # comment out to only log to console
+    print(f'Results will be written to: {target_dir}')
+
     corpus = get_corpus(args.corpus)
-    train_set, dev_set, test_set = corpus.train_dev_test_split()
-    print(f'train/dev/test: {len(train_set)}/{len(dev_set)}/{len(test_set)} '
-          f'({100*len(train_set)//len(corpus)}/{100*len(dev_set)//len(corpus)}/{100*len(test_set)//len(corpus)}%)')
+    print(f'training on corpus {corpus.name}')
 
     num_features = get_num_features(args.feature_type)
+    print(f'number of features is: {num_features}')
+
     model = create_model(args.architecture, num_features)
     model.summary()
 
-    history = train_model(model, target_dir, train_set, dev_set)
+    train_it, val_it, test_it = create_train_dev_test(corpus, args.feature_type, args.batch_size)
+    print(f'train/dev/test: {len(train_set)}/{len(dev_set)}/{len(test_set)} '
+          f'({100*len(train_set)//len(corpus)}/{100*len(dev_set)//len(corpus)}/{100*len(test_set)//len(corpus)}%)')
+    history = train_model(model, target_dir, train_it, val_it)
 
-    evaluate_model(model, test_set)
+    evaluate_model(model, test_it)
 
     model.save(os.path.join(target_dir, 'model.h5'))
     with open(os.path.join(target_dir, 'history.pkl'), 'wb') as f:
         pickle.dump(history.history, f)
     K.clear_session()
+
+
+def create_train_dev_test(corpus, feature_type, batch_size):
+    h5_features = list(join(corpus.root_path, file) for file in listdir(corpus.root_path)
+                       if splitext(file)[0].startswith('features')
+                       and feature_type in splitext(file)[0]
+                       and splitext(file)[1] == '.h5')
+    feature_file = h5_features[0] if h5_features else None
+    if feature_file:
+        print(f'found precomputed features: {feature_file}. Using HDF5-Features')
+        f = h5py.File(feature_file, 'r')
+        train_it = HFS5BatchGenerator(f['train'], feature_type, batch_size)
+        val_it = HFS5BatchGenerator(f['dev'], feature_type, batch_size)
+        test_it = HFS5BatchGenerator(f['test'], feature_type, batch_size)
+
+    else:
+        print(f'No precomputed features found. Generating features on the fly...')
+        train_entries, val_entries, test_entries = corpus.train_dev_test_split()
+        train_it = OnTheFlyFeaturesIterator(train_entries, feature_type, batch_size)
+        val_it = OnTheFlyFeaturesIterator(val_entries, feature_type, batch_size)
+        test_it = OnTheFlyFeaturesIterator(test_entries, feature_type, batch_size)
+
+    return train_it, val_it, test_it
 
 
 def create_model(architecture, num_features):
@@ -140,12 +176,9 @@ def deep_speech_model(num_features, num_hidden=2048, dropout=0.1, num_classes=28
     return ctc_model(x, o)
 
 
-def train_model(model, target_dir, train_set, dev_set):
-    train_batches = BatchGenerator(train_set, args.feature_type, args.batch_size)
-    dev_batches = BatchGenerator(dev_set, args.feature_type, args.batch_size)
-
-    print(f'Training on {len(train_batches)} batches over {len(train_batches.speech_segments)} speech segments')
-    print(f'Validating on {len(dev_batches)} batches over {len(dev_batches.speech_segments)} speech segments')
+def train_model(model, target_dir, train_it, val_it):
+    print(f'Training on {len(train_it)} batches over {train_it.n} speech segments')
+    print(f'Validating on {len(val_it)} batches over {val_it.n} speech segments')
 
     opt = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-8, clipnorm=5)
     model.compile(loss={'ctc': ctc_dummy_loss, 'decoder': decoder_dummy_loss},
@@ -172,15 +205,14 @@ def train_model(model, target_dir, train_set, dev_set):
     # cb_list.append(best_ckpt)
     # create/add more callbacks here
 
-    # avoid logging the dummy losses
-    # keras.callbacks.ProgbarLogger = lambda count_mode, stateful_metrics: CustomProgbarLogger(
-    #     stateful_metrics=['loss', 'decoder_ler', 'val_loss', 'val_decoder_ler'])
+    # hack: avoid logging the dummy losses
+    keras.callbacks.ProgbarLogger = CustomProgbarLogger
 
-    history = model.fit_generator(generator=train_batches,
-                                  steps_per_epoch=train_batches.num_elements,
+    history = model.fit_generator(generator=train_it,
+                                  validation_data=val_it,
+                                  # steps_per_epoch=train_it.n,
                                   epochs=args.num_epochs,
                                   callbacks=cb_list,
-                                  validation_data=dev_batches,
                                   # validation_steps=dev_batches.num_batches,
                                   verbose=1
                                   )

@@ -53,8 +53,7 @@ class MetaCheckpoint(callbacks.ModelCheckpoint):
 class CustomProgbarLogger(callbacks.ProgbarLogger):
 
     def __init__(self, count_mode='steps', stateful_metrics=None):
-        # super(CustomProgbarLogger, self).__init__()
-        super(CustomProgbarLogger, self).__init__(count_mode)
+        super(CustomProgbarLogger, self).__init__(count_mode, ['loss', 'decoder_ler', 'val_loss', 'val_decoder_ler'])
         self.show_metrics = stateful_metrics
 
     def on_train_begin(self, logs=None):

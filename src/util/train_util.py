@@ -35,8 +35,4 @@ def get_target_dir(rnn_type, args):
                             args.language,
                             args.feature_type,
                             'synthesized' if hasattr(args, 'synthesize') and args.synthesize else ''])
-
-    print(f'Results will be written to: {target_dir}')
-    log_file_path = os.path.join(target_dir, 'train.log')
-    redirect_to_file(log_file_path)  # comment out to only log to console
     return target_dir

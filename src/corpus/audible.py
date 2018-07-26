@@ -36,7 +36,7 @@ class Audible(ABC):
         if self._rate is not None:
             return self._rate
         self._audio, self._rate = self._create_audio_and_rate()
-        return self._audio
+        return self._rate
 
     @abstractmethod
     def _create_audio_and_rate(self):

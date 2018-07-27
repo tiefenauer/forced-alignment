@@ -43,7 +43,7 @@ parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc'
                     help=f'(optional) features to use for training (default: mfcc)')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
-parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=1,
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=20,
                     help=f'(optional) number of epochs to train the model (default: {20})')
 parser.add_argument('--train_steps', type=int, nargs='?', default=0,
                     help=f'(optional) number of batches per epoch to use for training (default: all)')

@@ -12,6 +12,9 @@ from util.string_util import contains_numeric
 
 
 class CorpusEntry(Audible):
+    # cache audio and rate
+    _audio = None
+    _rate = None
 
     def __init__(self, audio_file, segments, full_transcript='', raw_path='', parms={}):
         """
@@ -43,15 +46,30 @@ class CorpusEntry(Audible):
         self.subset = parms['subset'] if 'subset' in parms else 'N/A'
         self.media_info = parms['media_info'] if 'media_info' in parms else {}
 
+    @property
+    def audio(self):
+        if self._audio is not None:
+            return self._audio
+        self.audio, self._rate = read_audio(self.audio_file)
+        return self._audio
+
+    @audio.setter
+    def audio(self, audio):
+        self._audio = audio.astype(np.float32)
+
+    @property
+    def rate(self):
+        if self._rate is not None:
+            return self._rate
+        self._audio, self._rate = read_audio(self.audio_file)
+        return self._rate
+
     def __iter__(self):
         for segment in self.segments:
             yield segment
 
     def __getitem__(self, item):
         return self.speech_segments[item]
-
-    def _create_audio_and_rate(self):
-        return read_audio(self.audio_file)
 
     @property
     def speech_segments(self):

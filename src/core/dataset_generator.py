@@ -120,8 +120,8 @@ class HFS5BatchGenerator(BatchGenerator):
     """
 
     def __init__(self, dataset, feature_type, batch_size, shuffle=True, seed=None):
-        self.inputs = dataset['inputs'][:5]
-        self.labels = dataset['labels'][:5]
+        self.inputs = dataset['inputs']
+        self.labels = dataset['labels']
         super().__init__(len(self.inputs), feature_type, batch_size, shuffle, seed)
 
     def create_input_features(self, index_array):

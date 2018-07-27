@@ -6,7 +6,6 @@ from os import listdir
 from os.path import splitext, join
 
 import h5py
-import keras
 import tensorflow as tf
 from keras import backend as K
 from keras.activations import relu
@@ -16,11 +15,9 @@ from keras.optimizers import Adam
 from keras.utils import get_custom_objects
 
 from constants import TRAIN_ROOT
-from core.callbacks import CustomProgbarLogger
 from core.ctc_util import ctc_model
-from core.dataset_generator import BatchGenerator, OnTheFlyFeaturesIterator, HFS5BatchGenerator
+from core.dataset_generator import OnTheFlyFeaturesIterator, HFS5BatchGenerator
 from util.corpus_util import get_corpus
-from util.hdf5_util import combine_subsets
 from util.log_util import redirect_to_file
 from util.train_util import get_num_features, get_target_dir
 

@@ -1,8 +1,7 @@
+import tensorflow as tf
 from keras import Input, Model
-from keras.layers import Lambda
-import tensorflow as tf
 from keras import backend as K
-import tensorflow as tf
+from keras.layers import Lambda
 
 
 def ctc_model(inputs, output, **kwargs):

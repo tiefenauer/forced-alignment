@@ -46,33 +46,35 @@ def precompute_features(corpus, feature_type, target_file, limit=None):
     with h5py.File(target_file) as f:
         progress = tqdm(enumerate(subset_segments), total=num_segments, unit='speech segments')
         for i, (subset, speech_segment) in progress:
+            lang = speech_segment.corpus_entry.language
             inp = speech_segment.audio_features(feature_type)
             lbl = speech_segment.text
             dur = speech_segment.audio_length
-            set_name = 'train' if subset.startswith('train') else 'dev' if subset.startswith('dev') else 'test'
-            desc = f'set: {set_name}, subset: {subset}, t_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
+            group_name = 'train' if subset.startswith('train') else 'dev' if subset.startswith(
+                'dev') else 'test' if subset.startswith('test') else 'generic'
+            desc = f'group: {group_name}, subset: {subset}, language: {lang},' \
+                   f't_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
             progress.set_description(desc)
 
-            if set_name not in f:
-                group = f.create_group(set_name)
-                group.attrs['subset'] = subset
-                dt_inputs = h5py.special_dtype(vlen=np.float32)
-                group.create_dataset(name='inputs', shape=(0,), maxshape=(None,), dtype=dt_inputs)
+            inp_path = f'{group_name}/{lang}/inputs'
+            if inp_path not in f:
+                f.create_dataset(inp_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=np.float32))
+            lbl_path = f'{group_name}/{lang}/labels'
+            if lbl_path not in f:
+                f.create_dataset(lbl_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
+            dur_path = f'{group_name}/{lang}/durations'
+            if dur_path not in f:
+                f.create_dataset(dur_path, shape=(0,), maxshape=(None,))
 
-                dt_labels = h5py.special_dtype(vlen=np.unicode)
-                group.create_dataset(name='labels', shape=(0,), maxshape=(None,), dtype=dt_labels)
-
-                group.create_dataset(name='durations', shape=(0,), maxshape=(None,))
-
-            inputs = f[set_name]['inputs']
-            labels = f[set_name]['labels']
-            durations = f[set_name]['durations']
+            inputs = f[group_name][lang]['inputs']
+            labels = f[group_name][lang]['labels']
+            durations = f[group_name][lang]['durations']
 
             inputs.resize(inputs.shape[0] + 1, axis=0)
             inputs[inputs.shape[0] - 1] = inp.flatten().astype(np.float32)
 
             labels.resize(labels.shape[0] + 1, axis=0)
-            labels[labels.shape[0] - 1] = lbl.encode('utf8')
+            labels[labels.shape[0] - 1] = lbl
 
             durations.resize(durations.shape[0] + 1, axis=0)
             durations[durations.shape[0] - 1] = dur

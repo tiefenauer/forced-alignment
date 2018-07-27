@@ -167,4 +167,4 @@ if __name__ == '__main__':
     for corpus_id in corpora:
         corpus = get_corpus(corpus_id)
         stats = create_corpus_stats(corpus)
-        save_stats(rl_stats, rl_corpus)
+        save_stats(stats, corpus)

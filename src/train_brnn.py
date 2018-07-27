@@ -177,7 +177,7 @@ def deep_speech_model(num_features, num_hidden=2048, dropout=0.1, num_classes=28
     o = TimeDistributed(Dropout(dropout))(o)
 
     # Output layer
-    o = TimeDistributed(Dense(num_classes))(o)
+    o = TimeDistributed(Dense(num_classes, name='y_pred', activation='softmax'), name='out')(o)
 
     return ctc_model(x, o)
 

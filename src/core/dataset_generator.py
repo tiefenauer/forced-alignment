@@ -25,7 +25,7 @@ class BatchGenerator(Iterator, ABC):
 
         X, X_lengths = self.make_batch_input(inputs)
         Y, Y_lengths = self.make_batch_output(labels)
-        return [X, Y, X_lengths], [np.zeros((X.shape[0],)), Y]
+        return [X, Y, X_lengths, Y_lengths], [np.zeros((X.shape[0],)), Y]
 
     def make_batch_input(self, inputs_features):
         batch_inputs = pad_sequences(inputs_features, dtype='float32', padding='post')
@@ -33,17 +33,20 @@ class BatchGenerator(Iterator, ABC):
         return batch_inputs, batch_inputs_len
 
     def make_batch_output(self, labels_encoded):
-        # batch_outputs = pad_sequences(labels_encoded, dtype='int32', padding='post')
-        # return batch_outputs
-        # create sparse matrix
+        batch_outputs_len = np.array([len(label) for label in labels_encoded])
+
+        # the following would create labels as (padded) dense matrix, but then the receiving tensor must be dense too!
+        # labels_encoded = pad_sequences(labels_encoded, dtype='int32', padding='post')
+
+        # create labels (ground truth) as sparse matrix: more performant than dense matrix because the labels are
+        # of different lengths and hence the matrix will contain a lot of zeros
         rows, cols, data = [], [], []
         for row, label in enumerate(labels_encoded):
             cols.extend(range(len(label)))
             rows.extend(len(label) * [row])
             data.extend(label)
 
-        batch_outputs = scipy.sparse.coo_matrix((data, (rows, cols)), dtype='int32')
-        batch_outputs_len = np.array([len(label) for label in labels_encoded])
+        batch_outputs = scipy.sparse.coo_matrix((data, (rows, cols)), dtype=np.int32)
         return batch_outputs, batch_outputs_len
 
     @abstractmethod
@@ -100,7 +103,7 @@ class OnTheFlyFeaturesIterator(BatchGenerator):
             rows.extend(len(label) * [row])
             data.extend(label)
 
-        Y = scipy.sparse.coo_matrix((data, (rows, cols)), dtype='int32')
+        Y = scipy.sparse.coo_matrix((data, (rows, cols)), dtype=np.int32)
 
         return [X, Y, X_lengths], [np.zeros((X.shape[0],)), Y]
 

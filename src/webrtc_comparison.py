@@ -2,6 +2,7 @@
 Compares the speech segments detected by WebRTC with the ones derived from the corpus metadata by measuring precision
 and recall.
 """
+import argparse
 from operator import itemgetter
 from os import remove
 from os.path import exists, join
@@ -13,9 +14,14 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
-from util.corpus_util import load_corpus
+from util.corpus_util import load_corpus, get_corpus
 from util.log_util import redirect_to_file, reset_redirect
 from util.vad_util import webrtc_voice
+
+parser = argparse.ArgumentParser(description="""Measure WebRTC-VAD performance by calculating precision/recall""")
+parser.add_argument('-c', '--corpus', nargs='?', type=str, choices=['rl', 'ls'], default=None,
+                    help='(optional) corpus to use (default: all)')
+args = parser.parse_args()
 
 
 def calc_overlap(a, b):
@@ -157,9 +163,8 @@ def save_stats(stats, corpus):
 
 
 if __name__ == '__main__':
-    rl_corpus = load_corpus(RL_CORPUS_ROOT)
-    rl_stats = create_corpus_stats(rl_corpus)
-    save_stats(rl_stats, rl_corpus)
-    ls_corpus = load_corpus(LS_CORPUS_ROOT)
-    ls_stats = create_corpus_stats(ls_corpus)
-    save_stats(ls_stats, ls_corpus)
+    corpora = [args.corpus] if args.corpus else ['rl', 'ls']
+    for corpus_id in corpora:
+        corpus = get_corpus(corpus_id)
+        stats = create_corpus_stats(corpus)
+        save_stats(rl_stats, rl_corpus)

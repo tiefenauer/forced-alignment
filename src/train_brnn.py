@@ -63,7 +63,7 @@ def main():
     redirect_to_file(log_file_path)  # comment out to only log to console
     print(f'Results will be written to: {target_dir}')
 
-    corpus = get_corpus(args.corpus)
+    corpus = get_corpus(args.corpus, args.language)
     print(f'training on corpus {corpus.name}')
 
     num_features = get_num_features(args.feature_type)
@@ -72,7 +72,7 @@ def main():
     model = create_model(args.architecture, num_features)
     model.summary()
 
-    train_it, val_it, test_it = create_train_dev_test(corpus, args.feature_type, args.batch_size)
+    train_it, val_it, test_it = create_train_dev_test(corpus, args.language, args.feature_type, args.batch_size)
     total_n = train_it.n + val_it.n + test_it.n
     print(f'train/dev/test: {train_it.n}/{val_it.n}/{test_it.n} '
           f'({100*train_it.n//total_n}/{100*val_it.n//total_n}/{100*test_it.n//total_n}%)')
@@ -86,7 +86,7 @@ def main():
     K.clear_session()
 
 
-def create_train_dev_test(corpus, feature_type, batch_size):
+def create_train_dev_test(corpus, language, feature_type, batch_size):
     h5_features = list(join(corpus.root_path, file) for file in listdir(corpus.root_path)
                        if splitext(file)[0].startswith('features')
                        and feature_type in splitext(file)[0]
@@ -96,13 +96,17 @@ def create_train_dev_test(corpus, feature_type, batch_size):
     if feature_file:
         print(f'found precomputed features: {feature_file}. Using HDF5-Features')
         f = h5py.File(feature_file, 'r')
-        train_it = HFS5BatchGenerator(f['train'], feature_type, batch_size)
-        val_it = HFS5BatchGenerator(f['dev'], feature_type, batch_size)
-        test_it = HFS5BatchGenerator(f['test'], feature_type, batch_size)
+        # hack for RL corpus: because there are no train/dev/test-subsets train/validate/test on same subset
+        train_ds = f['train'][language] if args.corpus == 'ls' else f['generic'][language]
+        dev_ds = f['dev'][language] if args.corpus == 'ls' else f['generic'][language]
+        test_ds = f['test'][language] if args.corpus == 'ls' else f['generic'][language]
+        train_it = HFS5BatchGenerator(train_ds, feature_type, batch_size)
+        val_it = HFS5BatchGenerator(dev_ds, feature_type, batch_size)
+        test_it = HFS5BatchGenerator(test_ds, feature_type, batch_size)
 
     else:
         print(f'No precomputed features found. Generating features on the fly...')
-        train_entries, val_entries, test_entries = corpus.train_dev_test_split()
+        train_entries, val_entries, test_entries = corpus(languages=[language]).train_dev_test_split()
         train_it = OnTheFlyFeaturesIterator(train_entries, feature_type, batch_size)
         val_it = OnTheFlyFeaturesIterator(val_entries, feature_type, batch_size)
         test_it = OnTheFlyFeaturesIterator(test_entries, feature_type, batch_size)
@@ -221,10 +225,9 @@ def train_model(model, target_dir, train_it, val_it):
     return history
 
 
-def evaluate_model(model, test_set):
-    test_batches = BatchGenerator(test_set, args.feature_type, args.batch_size)
-    print(f'Evaluating on {len(test_batches)} batches ({len(test_batches.speech_segments)} speech segments)')
-    # model.evaluate_generator(test_batches.next_batch(), steps=test_batches.steps)
+def evaluate_model(model, test_it):
+    print(f'Evaluating on {len(test_it)} batches ({test_it.n} speech segments)')
+    model.evaluate_generator(test_it)
 
     # for inputs, outputs in test_batches.next_batch():
     #     X_lengths = inputs['input_length']

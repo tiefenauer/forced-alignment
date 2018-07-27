@@ -2,19 +2,20 @@ import gzip
 import os
 import pickle
 from copy import copy
-
 from os.path import join
 
 from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
 
 
-def get_corpus(id):
+def get_corpus(id, lang=None):
     if id == 'ls':
         corpus = load_corpus(LS_CORPUS_ROOT)
     elif id == 'rl':
         corpus = load_corpus(RL_CORPUS_ROOT)
     else:
         raise ValueError('unknown corpus id')
+    if lang:
+        corpus = corpus(languages=[lang])
     corpus.summary()
     return corpus
 

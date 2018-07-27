@@ -24,7 +24,7 @@ class BatchGenerator(Iterator, ABC):
         labels = self.create_labels_encoded(index_array)
 
         X, X_lengths = self.make_batch_input(inputs)
-        Y = self.make_batch_output(labels)
+        Y, Y_lengths = self.make_batch_output(labels)
         return [X, Y, X_lengths], [np.zeros((X.shape[0],)), Y]
 
     def make_batch_input(self, inputs_features):
@@ -33,13 +33,18 @@ class BatchGenerator(Iterator, ABC):
         return batch_inputs, batch_inputs_len
 
     def make_batch_output(self, labels_encoded):
+        # batch_outputs = pad_sequences(labels_encoded, dtype='int32', padding='post')
+        # return batch_outputs
+        # create sparse matrix
         rows, cols, data = [], [], []
         for row, label in enumerate(labels_encoded):
             cols.extend(range(len(label)))
             rows.extend(len(label) * [row])
             data.extend(label)
 
-        return scipy.sparse.coo_matrix((data, (rows, cols)), dtype='int32')
+        batch_outputs = scipy.sparse.coo_matrix((data, (rows, cols)), dtype='int32')
+        batch_outputs_len = np.array([len(label) for label in labels_encoded])
+        return batch_outputs, batch_outputs_len
 
     @abstractmethod
     def create_input_features(self, index_array):
@@ -112,8 +117,8 @@ class HFS5BatchGenerator(BatchGenerator):
     """
 
     def __init__(self, dataset, feature_type, batch_size, shuffle=True, seed=None):
-        self.inputs = dataset['inputs']
-        self.labels = dataset['labels']
+        self.inputs = dataset['inputs'][:5]
+        self.labels = dataset['labels'][:5]
         super().__init__(len(self.inputs), feature_type, batch_size, shuffle, seed)
 
     def create_input_features(self, index_array):

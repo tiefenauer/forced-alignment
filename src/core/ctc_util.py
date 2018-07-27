@@ -1,5 +1,7 @@
 from keras import Input, Model
 from keras.layers import Lambda
+from keras import backend as K
+import tensorflow as tf
 
 
 def ctc_model(inputs, output, **kwargs):
@@ -76,10 +78,6 @@ def ctc_lambda_func(args):
     """ CTC cost function
     """
     y_pred, labels, inputs_length = args
+    return tf.nn.ctc_loss(labels, tf.transpose(y_pred, perm=[1, 0, 2]), inputs_length[:, 0])
 
-    # Little hack for load_model
-    import tensorflow as tf
-
-    return tf.nn.ctc_loss(labels,
-                          tf.transpose(y_pred, perm=[1, 0, 2]),
-                          inputs_length[:, 0])
+    # return K.ctc_batch_cost(y_true, y_pred, input_length, label_length)

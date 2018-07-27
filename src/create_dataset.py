@@ -100,6 +100,8 @@ def check_target_files(corpus, feature_types, file):
             if override.lower() in ['', 'y']:
                 remove(file)
                 feature_files.append((feature, file))
+            else:
+                print(f'skipping creation of {feature_type} features.')
         else:
             feature_files.append((feature, file))
     return feature_files

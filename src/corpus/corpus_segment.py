@@ -1,5 +1,6 @@
 import librosa
 import numpy as np
+from python_speech_features import mfcc
 
 from corpus.audible import Audible
 from util.audio_util import ms_to_frames

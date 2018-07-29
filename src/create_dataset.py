@@ -81,10 +81,10 @@ def precompute_features(corpus, feature_type, target_file, limit=None):
                 durations.resize(durations.shape[0] + 1, axis=0)
                 durations[durations.shape[0] - 1] = dur
 
-                del corpus_entry._audio
+            del corpus_entry._audio
 
-                if i % 128 == 0:
-                    f.flush()
+            if i % 128 == 0:
+                f.flush()
 
         f.flush()
     print(f'...done! {i} datasets saved in {target_file}')

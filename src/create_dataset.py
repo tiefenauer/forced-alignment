@@ -34,53 +34,57 @@ def generate_speech_segments(corpus):
 
 def precompute_features(corpus, feature_type, target_file, limit=None):
     # get number of elements and delete it right afterwards to prevent memory error
-    subset_segments = list(generate_speech_segments(corpus))
-    num_segments = len(subset_segments)
-    del subset_segments
-
-    if limit:
-        subset_segments = list(takewhile(lambda x: x[0] < limit, generate_speech_segments(corpus)))
-    else:
-        subset_segments = generate_speech_segments(corpus)
+    # subset_segments = list(generate_speech_segments(corpus))
+    # num_segments = len(subset_segments)
+    # del subset_segments
+    #
+    # if limit:
+    #     subset_segments = list(takewhile(lambda x: x[0] < limit, generate_speech_segments(corpus)))
+    # else:
+    #     subset_segments = generate_speech_segments(corpus)
 
     with h5py.File(target_file) as f:
-        progress = tqdm(enumerate(subset_segments), total=num_segments, unit='speech segments')
-        for i, (subset, speech_segment) in progress:
-            lang = speech_segment.corpus_entry.language
-            inp = speech_segment.audio_features(feature_type)
-            lbl = speech_segment.text
-            dur = speech_segment.audio_length
-            group_name = 'train' if subset.startswith('train') else 'dev' if subset.startswith(
-                'dev') else 'test' if subset.startswith('test') else 'generic'
-            desc = f'group: {group_name}, subset: {subset}, language: {lang},' \
-                   f't_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
-            progress.set_description(desc)
+        # progress = tqdm(enumerate(subset_segments), total=num_segments, unit='speech segments')
+        progress = tqdm(enumerate(corpus), total=len(corpus), unit=' corpus entries')
+        for i, corpus_entry in progress:
+            for speech_segment in corpus_entry.speech_segments_not_numeric:
+                subset, lang = corpus_entry.subset, corpus_entry.language
+                inp = speech_segment.audio_features(feature_type)
+                lbl = speech_segment.text
+                dur = speech_segment.audio_length
+                group_name = 'train' if subset.startswith('train') else 'dev' if subset.startswith(
+                    'dev') else 'test' if subset.startswith('test') else 'generic'
+                desc = f'group: {group_name}, subset: {subset}, language: {lang}, ' \
+                       f't_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
+                progress.set_description(desc)
 
-            inp_path = f'{group_name}/{lang}/inputs'
-            if inp_path not in f:
-                f.create_dataset(inp_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=np.float32))
-            lbl_path = f'{group_name}/{lang}/labels'
-            if lbl_path not in f:
-                f.create_dataset(lbl_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
-            dur_path = f'{group_name}/{lang}/durations'
-            if dur_path not in f:
-                f.create_dataset(dur_path, shape=(0,), maxshape=(None,))
+                inp_path = f'{group_name}/{lang}/inputs'
+                if inp_path not in f:
+                    f.create_dataset(inp_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=np.float32))
+                lbl_path = f'{group_name}/{lang}/labels'
+                if lbl_path not in f:
+                    f.create_dataset(lbl_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
+                dur_path = f'{group_name}/{lang}/durations'
+                if dur_path not in f:
+                    f.create_dataset(dur_path, shape=(0,), maxshape=(None,))
 
-            inputs = f[group_name][lang]['inputs']
-            labels = f[group_name][lang]['labels']
-            durations = f[group_name][lang]['durations']
+                inputs = f[group_name][lang]['inputs']
+                labels = f[group_name][lang]['labels']
+                durations = f[group_name][lang]['durations']
 
-            inputs.resize(inputs.shape[0] + 1, axis=0)
-            inputs[inputs.shape[0] - 1] = inp.flatten().astype(np.float32)
+                inputs.resize(inputs.shape[0] + 1, axis=0)
+                inputs[inputs.shape[0] - 1] = inp.flatten().astype(np.float32)
 
-            labels.resize(labels.shape[0] + 1, axis=0)
-            labels[labels.shape[0] - 1] = lbl
+                labels.resize(labels.shape[0] + 1, axis=0)
+                labels[labels.shape[0] - 1] = lbl
 
-            durations.resize(durations.shape[0] + 1, axis=0)
-            durations[durations.shape[0] - 1] = dur
+                durations.resize(durations.shape[0] + 1, axis=0)
+                durations[durations.shape[0] - 1] = dur
 
-            if i % 256 == 0:
-                f.flush()
+                del corpus_entry._audio
+
+                if i % 128 == 0:
+                    f.flush()
 
         f.flush()
     print(f'...done! {i} datasets saved in {target_file}')

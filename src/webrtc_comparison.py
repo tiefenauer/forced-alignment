@@ -13,8 +13,7 @@ from matplotlib.pyplot import savefig
 from tabulate import tabulate
 from tqdm import tqdm
 
-from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
-from util.corpus_util import load_corpus, get_corpus
+from util.corpus_util import get_corpus
 from util.log_util import redirect_to_file, reset_redirect
 from util.vad_util import webrtc_voice
 
@@ -72,7 +71,7 @@ def precision_recall(corpus_entry, aggressiveness):
 def compare_corpus(corpus, aggressiveness):
     p_r_f_d = []
     tot_orig, tot_webrtc = 0, 0
-    progress = tqdm(enumerate(corpus, 1), unit='entries')
+    progress = tqdm(enumerate(corpus, 1), total=len(corpus), unit='entries')
     for i, corpus_entry in progress:
         p, r, f, n_orig, n_webrtc = precision_recall(corpus_entry, aggressiveness)
         tot_orig += n_orig
@@ -83,6 +82,7 @@ def compare_corpus(corpus, aggressiveness):
                       f'precision={p:.3f}, recall={r:.3f}, f-score={f:.3f}'
         progress.set_description(description)
         p_r_f_d.append((n_orig, n_webrtc, p, r, f, d))
+        del corpus_entry._audio
 
     p_r_f_d = np.asarray(p_r_f_d)
     avg_orig, avg_webrtc, avg_p, avg_r, avg_f, avg_d = np.abs(p_r_f_d).mean(axis=0)

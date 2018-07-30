@@ -243,19 +243,7 @@ def ler(y_true, y_pred, **kwargs):
     """
     LER-Loss (see https://www.tensorflow.org/api_docs/python/tf/edit_distance)
     """
-    return tf.reduce_mean(tf.edit_distance(y_pred, y_true, normaliize=True, **kwargs))
-
-
-def ctc_decode_func(args):
-    y_pred, labels, input_length, label_length = args
-    decoded, log_prob = tf.nn.ctc_greedy_decoder(y_pred, tf.reshape(input_length, [-1]))
-    # decoded, log_prob = tf.nn.ctc_beam_search_decoder(y_pred, tf.reshape(input_length, [-1]))
-    # sparse = dense_to_sparse(decoded[0])
-    # ed = tf.edit_distance(tf.cast(sparse, tf.int32), labels)
-    # ler = tf.reduce_mean(ed)
-    # return tf.sparse_to_dense(ler)
-    # sequences, probs = K.ctc_decode(y_pred, tf.reshape(input_length, [-1]), greedy=False)
-    # return tf.cast(sequences[0], tf.float32)
+    return tf.reduce_mean(tf.edit_distance(y_pred, y_true, normalize=True, **kwargs))
 
 
 if __name__ == '__main__':

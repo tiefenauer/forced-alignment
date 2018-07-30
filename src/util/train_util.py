@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 
 from constants import POC_PROFILES
-from util.log_util import create_args_str, redirect_to_file
+from util.log_util import create_args_str
 
 
 def get_num_features(feature_type):

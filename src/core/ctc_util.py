@@ -1,6 +1,6 @@
-import tensorflow as tf
 from keras import Input, Model
 from keras import backend as K
+from keras.activations import relu
 from keras.layers import Lambda
 
 
@@ -50,6 +50,9 @@ def decoder_lambda_func(args, is_greedy=True, beam_width=100, top_paths=1, merge
     :param merge_repeated: whether to merge/sum up partial paths that lead to the same prefix
     :return A sparse tensor with the top_paths decoded sequence
     """
+    # hack: we need to import tensorflow here again to make keras.engine.saving.load_model work...
+    import tensorflow as tf
+
     y_pred, seq_len = args
     seq_len = tf.cast(seq_len[:, 0], tf.int32)
     y_pred = tf.transpose(y_pred, perm=[1, 0, 2])  # time major
@@ -80,6 +83,13 @@ def ctc_lambda_func(args):
         tensor containing the lenghts of each sequence in the batch (they have been padded)
     :return: tensor for the CTC-loss
     """
+
+    # hack: we need to import tensorflow here again to make keras.engine.saving.load_model work...
+    import tensorflow as tf
     y_true, y_pred, input_length, label_length = args
     y_true = tf.sparse_tensor_to_dense(y_true)
     return K.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+
+
+def clipped_relu(x):
+    return relu(x, max_value=20)

@@ -2,24 +2,21 @@
 import argparse
 import os
 import pickle
-from os import listdir
-from os.path import splitext, join
 
-import h5py
 import tensorflow as tf
 from keras import backend as K
-from keras.activations import relu
 from keras.callbacks import TensorBoard
 from keras.layers import Dense, Dropout, Input, TimeDistributed, Bidirectional, SimpleRNN, Activation
 from keras.optimizers import Adam
 from keras.utils import get_custom_objects
 
 from constants import TRAIN_ROOT
-from core.ctc_util import ctc_model
-from core.dataset_generator import OnTheFlyFeaturesIterator, HFS5BatchGenerator
+from core.ctc_util import ctc_model, clipped_relu
+from core.keras_util import ctc_dummy_loss, decoder_dummy_loss, ler
 from util.corpus_util import get_corpus
 from util.log_util import redirect_to_file
 from util.train_util import get_num_features, get_target_dir
+from core.dataset_generator import generate_train_dev_test
 
 # -------------------------------------------------------------
 # some Keras/TF setup
@@ -43,7 +40,7 @@ parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc'
                     help=f'(optional) features to use for training (default: mfcc)')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
-parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=20,
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=1,
                     help=f'(optional) number of epochs to train the model (default: {20})')
 parser.add_argument('--train_steps', type=int, nargs='?', default=0,
                     help=f'(optional) number of batches per epoch to use for training (default: all)')
@@ -69,7 +66,7 @@ def main():
     model = create_model(args.architecture, num_features)
     model.summary()
 
-    train_it, val_it, test_it = create_train_dev_test(corpus, args.language, args.feature_type, args.batch_size)
+    train_it, val_it, test_it = generate_train_dev_test(corpus, args.language, args.feature_type, args.batch_size)
     total_n = train_it.n + val_it.n + test_it.n
     print(f'train/dev/test: {train_it.n}/{val_it.n}/{test_it.n} '
           f'({100*train_it.n//total_n}/{100*val_it.n//total_n}/{100*test_it.n//total_n}%)')
@@ -79,34 +76,6 @@ def main():
     with open(os.path.join(target_dir, 'history.pkl'), 'wb') as f:
         pickle.dump(history.history, f)
     K.clear_session()
-
-
-def create_train_dev_test(corpus, language, feature_type, batch_size):
-    h5_features = list(join(corpus.root_path, file) for file in listdir(corpus.root_path)
-                       if splitext(file)[0].startswith('features')
-                       and feature_type in splitext(file)[0]
-                       and splitext(file)[1] == '.h5')
-    default_featuers = f'features_{feature_type}.h5'
-    feature_file = default_featuers if default_featuers in h5_features else h5_features[0] if h5_features else None
-    if feature_file:
-        print(f'found precomputed features: {feature_file}. Using HDF5-Features')
-        f = h5py.File(feature_file, 'r')
-        # hack for RL corpus: because there are no train/dev/test-subsets train/validate/test on same subset
-        train_ds = f['train'][language] if args.corpus == 'ls' else f['generic'][language]
-        dev_ds = f['dev'][language] if args.corpus == 'ls' else f['generic'][language]
-        test_ds = f['test'][language] if args.corpus == 'ls' else f['generic'][language]
-        train_it = HFS5BatchGenerator(train_ds, feature_type, batch_size)
-        val_it = HFS5BatchGenerator(dev_ds, feature_type, batch_size)
-        test_it = HFS5BatchGenerator(test_ds, feature_type, batch_size)
-
-    else:
-        print(f'No precomputed features found. Generating features on the fly...')
-        train_entries, val_entries, test_entries = corpus(languages=[language]).train_dev_test_split()
-        train_it = OnTheFlyFeaturesIterator(train_entries, feature_type, batch_size)
-        val_it = OnTheFlyFeaturesIterator(val_entries, feature_type, batch_size)
-        test_it = OnTheFlyFeaturesIterator(test_entries, feature_type, batch_size)
-
-    return train_it, val_it, test_it
 
 
 def create_model(architecture, num_features):
@@ -218,32 +187,6 @@ def train_model(model, target_dir, train_it, val_it):
                                   verbose=1
                                   )
     return history
-
-
-def clipped_relu(x):
-    return relu(x, max_value=20)
-
-
-def ctc_dummy_loss(y_true, y_pred):
-    """
-    CTC-Loss for Keras. Because Keras has no CTC-loss built-in, we create this dummy.
-    We simply use the output of the RNN, which corresponds to the CTC loss.
-    """
-    return y_pred
-
-
-def decoder_dummy_loss(y_true, y_pred):
-    """
-    Loss of the decoded sequence. Since this is not optimized, we simply return a zero-Tensor
-    """
-    return K.zeros((1,))
-
-
-def ler(y_true, y_pred, **kwargs):
-    """
-    LER-Loss (see https://www.tensorflow.org/api_docs/python/tf/edit_distance)
-    """
-    return tf.reduce_mean(tf.edit_distance(y_pred, y_true, normalize=True, **kwargs))
 
 
 if __name__ == '__main__':

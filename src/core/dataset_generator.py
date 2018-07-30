@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
+from os import listdir
+from os.path import join, splitext
 
+import h5py
 import numpy as np
 import scipy
 from keras.preprocessing.image import Iterator
@@ -48,6 +51,12 @@ class BatchGenerator(Iterator, ABC):
 
         batch_outputs = scipy.sparse.coo_matrix((data, (rows, cols)), dtype=np.int32)
         return batch_outputs, batch_outputs_len
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return None, None
 
     @abstractmethod
     def create_input_features(self, index_array):
@@ -120,8 +129,8 @@ class HFS5BatchGenerator(BatchGenerator):
     """
 
     def __init__(self, dataset, feature_type, batch_size, shuffle=True, seed=None):
-        self.inputs = dataset['inputs']
-        self.labels = dataset['labels']
+        self.inputs = dataset['inputs'][:5]
+        self.labels = dataset['labels'][:5]
         super().__init__(len(self.inputs), feature_type, batch_size, shuffle, seed)
 
     def create_input_features(self, index_array):
@@ -129,3 +138,31 @@ class HFS5BatchGenerator(BatchGenerator):
 
     def create_labels_encoded(self, index_array):
         return [encode(label) for label in (self.labels[i] for i in index_array)]
+
+
+def generate_train_dev_test(corpus, language, feature_type, batch_size):
+    h5_features = list(join(corpus.root_path, file) for file in listdir(corpus.root_path)
+                       if splitext(file)[0].startswith('features')
+                       and feature_type in splitext(file)[0]
+                       and splitext(file)[1] == '.h5')
+    default_features = f'features_{feature_type}.h5'
+    feature_file = default_features if default_features in h5_features else h5_features[0] if h5_features else None
+    if feature_file:
+        print(f'found precomputed features: {feature_file}. Using HDF5-Features')
+        f = h5py.File(feature_file, 'r')
+        # hack for RL corpus: because there are no train/dev/test-subsets train/validate/test on same subset
+        train_ds = f['train'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
+        dev_ds = f['dev'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
+        test_ds = f['test'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
+        train_it = HFS5BatchGenerator(train_ds, feature_type, batch_size)
+        val_it = HFS5BatchGenerator(dev_ds, feature_type, batch_size)
+        test_it = HFS5BatchGenerator(test_ds, feature_type, batch_size)
+
+    else:
+        print(f'No precomputed features found. Generating features on the fly...')
+        train_entries, val_entries, test_entries = corpus(languages=[language]).train_dev_test_split()
+        train_it = OnTheFlyFeaturesIterator(train_entries, feature_type, batch_size)
+        val_it = OnTheFlyFeaturesIterator(val_entries, feature_type, batch_size)
+        test_it = OnTheFlyFeaturesIterator(test_entries, feature_type, batch_size)
+
+    return train_it, val_it, test_it

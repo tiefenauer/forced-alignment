@@ -16,7 +16,7 @@ parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=5,
 args = parser.parse_args()
 
 # set model path here or in args
-model_path = r'E:\2018-07-30-10-41-04_BRNN_DS1_rl_en_mfcc'
+model_path = r'E:\2018-07-30-14-59-24_BRNN_DS1_rl_en_mfcc'
 
 
 def main():

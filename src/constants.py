@@ -70,3 +70,7 @@ LANGUAGE_CODES = {
     'fr': 'fr-FR',
     'es': 'es-ES'
 }
+
+NUM_EPOCHS = 20
+BATCH_SIZE = 32
+FEATURE_TYPE = 'mfcc'

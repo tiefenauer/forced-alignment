@@ -10,7 +10,7 @@ from keras.layers import Dense, Dropout, Input, TimeDistributed, Bidirectional, 
 from keras.optimizers import Adam
 from keras.utils import get_custom_objects
 
-from constants import TRAIN_ROOT
+from constants import TRAIN_ROOT, NUM_EPOCHS, BATCH_SIZE, FEATURE_TYPE
 from core.ctc_util import ctc_model, clipped_relu
 from core.keras_util import ctc_dummy_loss, decoder_dummy_loss, ler
 from util.corpus_util import get_corpus
@@ -34,14 +34,14 @@ parser.add_argument('-c', '--corpus', type=str, choices=['rl', 'ls'], default='l
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('-l', '--language', type=str, default='en',
                     help='language on which to train the RNN')
-parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=32,
-                    help=f'(optional) number of speech segments to include in one batch (default: 32)')
-parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'mel', 'pow'], default='mfcc',
-                    help=f'(optional) features to use for training (default: mfcc)')
+parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=BATCH_SIZE,
+                    help=f'(optional) number of speech segments to include in one batch (default: {BATCH_SIZE})')
+parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'mel', 'pow'], default=FEATURE_TYPE,
+                    help=f'(optional) features to use for training (default: {FEATURE_TYPE})')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
-parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=20,
-                    help=f'(optional) number of epochs to train the model (default: {20})')
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=NUM_EPOCHS,
+                    help=f'(optional) number of epochs to train the model (default: {NUM_EPOCHS})')
 parser.add_argument('--train_steps', type=int, nargs='?', default=0,
                     help=f'(optional) number of batches per epoch to use for training (default: all)')
 parser.add_argument('--valid_steps', type=int, nargs='?', default=0,

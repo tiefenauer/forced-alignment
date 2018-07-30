@@ -75,8 +75,6 @@ def main():
           f'({100*train_it.n//total_n}/{100*val_it.n//total_n}/{100*test_it.n//total_n}%)')
     history = train_model(model, target_dir, train_it, val_it)
 
-    evaluate_model(model, test_it)
-
     model.save(os.path.join(target_dir, 'model.h5'))
     with open(os.path.join(target_dir, 'history.pkl'), 'wb') as f:
         pickle.dump(history.history, f)
@@ -222,18 +220,6 @@ def train_model(model, target_dir, train_it, val_it):
     return history
 
 
-def evaluate_model(model, test_it):
-    print(f'Evaluating on {len(test_it)} batches ({test_it.n} speech segments)')
-    model.evaluate_generator(test_it)
-
-    # for inputs, outputs in test_batches.next_batch():
-    #     X_lengths = inputs['input_length']
-    #     Y_pred = model.predict(inputs)
-    #     res = tf.keras.backend.ctc_decode(Y_pred, X_lengths)
-    #     print(f'prediction: {decode(y_pred)}')
-    #     print(f'actual: {decode(y)}')
-
-
 def clipped_relu(x):
     return relu(x, max_value=20)
 
@@ -257,12 +243,7 @@ def ler(y_true, y_pred, **kwargs):
     """
     LER-Loss (see https://www.tensorflow.org/api_docs/python/tf/edit_distance)
     """
-    return tf.reduce_mean(tf.edit_distance(y_pred, y_true, **kwargs))
-
-
-def ctc_lambda_func(args):
-    y_pred, labels, input_length, label_length = args
-    return K.ctc_batch_cost(labels, y_pred, input_length, label_length)
+    return tf.reduce_mean(tf.edit_distance(y_pred, y_true, normaliize=True, **kwargs))
 
 
 def ctc_decode_func(args):

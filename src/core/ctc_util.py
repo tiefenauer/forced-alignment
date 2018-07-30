@@ -22,7 +22,6 @@ def ctc_model(inputs, output, **kwargs):
     y_pred = dec([output, inputs_length])
 
     # Output layer for CTC-loss
-    # try also: K.ctc_batch_cost(labels, y_pred, input_length, label_length)
     ctc = Lambda(ctc_lambda_func, output_shape=(1,), name="ctc")
     loss = ctc([labels, output, inputs_length, labels_length])
 

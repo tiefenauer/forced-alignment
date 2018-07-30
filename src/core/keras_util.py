@@ -2,12 +2,13 @@ import keras
 import tensorflow as tf
 from keras import backend as K, Model
 from keras.layers import Lambda
+from keras.optimizers import Adam
 from keras.utils import get_custom_objects
 
 from core.ctc_util import clipped_relu, decoder_lambda_func, decode_output_shape
 
 
-def load_model(model_path):
+def load_model_for_prediction(model_path):
     update_custom_objects()
 
     # load model from file
@@ -26,6 +27,31 @@ def load_model(model_path):
     y_pred = to_dense_layer(y_pred)
 
     model = Model(inputs=[inputs, inputs_length], outputs=[y_pred])
+
+    return model
+
+
+def load_model_for_evaluation(model_path):
+    update_custom_objects()
+
+    # load model from file
+    model = keras.models.load_model(model_path)
+
+    dec_layer = model.get_layer('decoder')
+    dec = Lambda(decoder_lambda_func, output_shape=decode_output_shape, name='beam_search')
+    y_pred = dec(dec_layer.input)
+
+    model = Model(inputs=model.inputs, outputs=[model.outputs[0], y_pred])
+
+    # Freezing layers
+    for l in model.layers:
+        l.trainable = False
+
+    opt = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-8, clipnorm=5)
+    model.compile(optimizer=opt,
+                  loss={'ctc': ctc_dummy_loss, 'beam_search': decoder_dummy_loss},
+                  metrics={'beam_search': ler},
+                  loss_weights=[1, 0])
 
     return model
 

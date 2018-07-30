@@ -3,8 +3,9 @@ import os
 from os.path import join, exists
 
 from core.dataset_generator import generate_train_dev_test
-from core.keras_util import load_model
+from core.keras_util import load_model_for_prediction, load_model_for_evaluation
 from util.corpus_util import get_corpus
+from util.log_util import redirect_to_file
 from util.rnn_util import decode
 
 parser = argparse.ArgumentParser(
@@ -20,11 +21,17 @@ model_path = r'E:\2018-07-30-14-59-24_BRNN_DS1_rl_en_mfcc'
 
 
 def main():
+    global model_path
+
+    log_file_path = join(model_path, 'test.log')
+    redirect_to_file(log_file_path)
+    print(f'Results will be written to: {log_file_path}')
+
     model_path = get_model_path(args.model)
     print(f'evaluating model: {model_path}')
 
-    print('loading model...')
-    model = load_model(model_path)
+    print('loading model for prediction...')
+    model = load_model_for_prediction(model_path)
     model.summary()
     print('...done!')
 
@@ -32,12 +39,25 @@ def main():
     print(f'parsed: corpus_id={corpus_id}, language={language}, feature_type={feature_type}')
 
     corpus = get_corpus(corpus_id, language)
+
     train_it, val_it, test_it = generate_train_dev_test(corpus, language, feature_type, args.batch_size)
+    print(f'making predictions for {len(train_it)} test batches...')
     for batch_inputs, batch_outputs in test_it:
         X, Y, X_lengths, Y_lengths = batch_inputs
         batch_predictions = model.predict_on_batch([X, X_lengths])
         for prediction, ground_truth in zip(batch_predictions, Y.toarray()):
             print(f'prediction: {decode(prediction)}, ground truth: {decode(ground_truth)}')
+    print('done making predictions!')
+
+    print('loading model for evaluation')
+    model = load_model_for_evaluation(model_path)
+    print('...done!')
+
+    train_it, val_it, test_it = generate_train_dev_test(corpus, language, feature_type, args.batch_size)
+    print(f'evaluation model on {len(train_it)} test batches')
+    metrics = model.evaluate_generator(test_it)
+    for metric_name, metric_value in zip(model.metrics_names, metrics):
+        print(f'{metric_name}: {metric_value:.4f}')
 
 
 def get_model_path(model=None):

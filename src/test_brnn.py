@@ -2,12 +2,10 @@ import argparse
 import os
 from os.path import join, exists
 
-from keras.utils import get_custom_objects
-
-from core.ctc_util import clipped_relu
+from core.dataset_generator import generate_train_dev_test
 from core.keras_util import load_model
 from util.corpus_util import get_corpus
-from core.dataset_generator import generate_train_dev_test
+from util.rnn_util import decode
 
 parser = argparse.ArgumentParser(
     description="""Evaluate BRNN by using Keras functions and/or making predictions on some samples from test-set""")
@@ -27,15 +25,19 @@ def main():
 
     print('loading model...')
     model = load_model(model_path)
+    model.summary()
     print('...done!')
 
     corpus_id, language, feature_type = parse_train_args(model_path)
     print(f'parsed: corpus_id={corpus_id}, language={language}, feature_type={feature_type}')
+
     corpus = get_corpus(corpus_id, language)
     train_it, val_it, test_it = generate_train_dev_test(corpus, language, feature_type, args.batch_size)
     for batch_inputs, batch_outputs in test_it:
-        batch_predictions = model.predict(batch_inputs, batch_size=5)
-        print(batch_predictions)
+        X, Y, X_lengths, Y_lengths = batch_inputs
+        batch_predictions = model.predict_on_batch([X, X_lengths])
+        for prediction, ground_truth in zip(batch_predictions, Y.toarray()):
+            print(f'prediction: {decode(prediction)}, ground truth: {decode(ground_truth)}')
 
 
 def get_model_path(model=None):

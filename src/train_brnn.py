@@ -34,13 +34,13 @@ parser.add_argument('-c', '--corpus', type=str, choices=['rl', 'ls'], default='l
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('-l', '--language', type=str, default='en',
                     help='language on which to train the RNN')
-parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=5,
-                    help=f'(optional) number of speech segments to include in one batch (default: 5)')
+parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=32,
+                    help=f'(optional) number of speech segments to include in one batch (default: 32)')
 parser.add_argument('-f', '--feature_type', type=str, nargs='?', choices=['mfcc', 'mel', 'pow'], default='mfcc',
                     help=f'(optional) features to use for training (default: mfcc)')
 parser.add_argument('-t', '--target_root', type=str, nargs='?', default=TRAIN_ROOT,
                     help=f'(optional) root directory where results will be written to (default: {TRAIN_ROOT})')
-parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=1,
+parser.add_argument('-e', '--num_epochs', type=int, nargs='?', default=20,
                     help=f'(optional) number of epochs to train the model (default: {20})')
 parser.add_argument('--train_steps', type=int, nargs='?', default=0,
                     help=f'(optional) number of batches per epoch to use for training (default: all)')

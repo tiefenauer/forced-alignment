@@ -23,23 +23,23 @@ class BatchGenerator(Iterator, ABC):
         self.num_features = get_num_features(feature_type)
 
     def _get_batches_of_transformed_samples(self, index_array):
-        inputs = self.create_input_features(index_array)
-        labels = self.create_labels_encoded(index_array)
+        inputs_features = self.create_input_features(index_array)
+        labels_encoded = self.create_labels_encoded(index_array)
 
-        X, X_lengths = self.make_batch_input(inputs)
-        Y, Y_lengths = self.make_batch_output(labels)
+        X, X_lengths = self.make_batch_inputs(inputs_features)
+        Y, Y_lengths = self.make_batch_outputs(labels_encoded)
         return [X, Y, X_lengths, Y_lengths], [np.zeros((X.shape[0],)), Y]
 
-    def make_batch_input(self, inputs_features):
+    def make_batch_inputs(self, inputs_features):
         batch_inputs = pad_sequences(inputs_features, dtype='float32', padding='post')
         batch_inputs_len = np.array([inp.shape[0] for inp in inputs_features])
         return batch_inputs, batch_inputs_len
 
-    def make_batch_output(self, labels_encoded):
+    def make_batch_outputs(self, labels_encoded):
         batch_outputs_len = np.array([len(label) for label in labels_encoded])
 
         # the following would create labels as (padded) dense matrix, but then the receiving tensor must be dense too!
-        # labels_encoded = pad_sequences(labels_encoded, dtype='int32', padding='post')
+        # batch_outputs = pad_sequences(labels_encoded, dtype='int32', padding='post')
 
         # create labels (ground truth) as sparse matrix: more performant than dense matrix because the labels are
         # of different lengths and hence the matrix will contain a lot of zeros
@@ -56,7 +56,11 @@ class BatchGenerator(Iterator, ABC):
         return self
 
     def next(self):
-        return None, None
+        with self.lock:
+            index_array = next(self.index_generator)
+        index_array.sort()
+        index_array_lst = index_array.tolist()
+        return self._get_batches_of_transformed_samples(index_array_lst)
 
     @abstractmethod
     def create_input_features(self, index_array):
@@ -129,8 +133,8 @@ class HFS5BatchGenerator(BatchGenerator):
     """
 
     def __init__(self, dataset, feature_type, batch_size, shuffle=True, seed=None):
-        self.inputs = dataset['inputs'][:5]
-        self.labels = dataset['labels'][:5]
+        self.inputs = dataset['inputs']
+        self.labels = dataset['labels']
         super().__init__(len(self.inputs), feature_type, batch_size, shuffle, seed)
 
     def create_input_features(self, index_array):

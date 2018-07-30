@@ -28,7 +28,7 @@ def ctc_model(inputs, output, **kwargs):
     return Model(inputs=[inputs, labels, inputs_length, labels_length], outputs=[loss, y_pred])
 
 
-def decoder_lambda_func(args, is_greedy=True, beam_width=100, top_paths=1, merge_repeated=True):
+def decoder_lambda_func(args, is_greedy=False, beam_width=100, top_paths=1, merge_repeated=True):
     """
     CTC-Decoder function. Decodes a batch by evaluationg sequences of probabilities either using best-path
     (greedy) or beam-search.

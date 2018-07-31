@@ -6,17 +6,15 @@ import pickle
 import tensorflow as tf
 from keras import backend as K
 from keras.callbacks import TensorBoard
-from keras.layers import Dense, Dropout, Input, TimeDistributed, Bidirectional, SimpleRNN, Activation
 from keras.optimizers import Adam
-from keras.utils import get_custom_objects
 
 from constants import TRAIN_ROOT, NUM_EPOCHS, BATCH_SIZE, FEATURE_TYPE
-from core.ctc_util import ctc_model, clipped_relu
+from core.dataset_generator import generate_train_dev_test
 from core.keras_util import ctc_dummy_loss, decoder_dummy_loss, ler
+from util.brnn_util import deep_speech_model
 from util.corpus_util import get_corpus
 from util.log_util import redirect_to_file
 from util.train_util import get_num_features, get_target_dir
-from core.dataset_generator import generate_train_dev_test
 
 # -------------------------------------------------------------
 # some Keras/TF setup
@@ -86,7 +84,6 @@ def create_model(architecture, num_features):
     :param num_features: number of features in the input layer
     :return:
     """
-    get_custom_objects().update({"clipped_relu": clipped_relu})
     return deep_speech_model(num_features)
     # if architecture == 'ds1':
     #     return deep_speech_model(num_features)
@@ -95,55 +92,6 @@ def create_model(architecture, num_features):
     # elif architecture == 'poc':
     #     return create_model_poc(num_features)
     # return create_model_x(num_features)
-
-
-def deep_speech_model(num_features, num_hidden=2048, dropout=0.1, num_classes=28):
-    """
-    Deep Speech model with architecture as described in the paper:
-        5 Layers (3xFC + 1xBRNN + 1xFC) with Dropout applied to FC layer
-    The output contains 28 classes: a..z, space, blank
-
-    Differences to the original setup:
-        * We are not translating the raw audio files by 5 ms (Sec 2.1 in [1])
-        * We are not striding the RNN to halve the timesteps (Sec 3.3 in [1])
-        * We are not using frames of context
-
-    Reference: [1] https://arxiv.org/abs/1412.5567
-    """
-    x = Input(name='inputs', shape=(None, num_features))
-    o = x
-
-    # First layer
-    o = TimeDistributed(Dense(num_hidden))(o)
-    o = TimeDistributed(Activation(clipped_relu))(o)
-    o = TimeDistributed(Dropout(dropout))(o)
-
-    # Second layer
-    o = TimeDistributed(Dense(num_hidden))(o)
-    o = TimeDistributed(Activation(clipped_relu))(o)
-    o = TimeDistributed(Dropout(dropout))(o)
-
-    # Third layer
-    o = TimeDistributed(Dense(num_hidden))(o)
-    o = TimeDistributed(Activation(clipped_relu))(o)
-    o = TimeDistributed(Dropout(dropout))(o)
-
-    # Fourth layer
-    o = Bidirectional(SimpleRNN(num_hidden, return_sequences=True,
-                                dropout=dropout,
-                                activation=clipped_relu,
-                                kernel_initializer='he_normal'), merge_mode='sum')(o)
-    o = TimeDistributed(Dropout(dropout))(o)
-
-    # Fifth layer
-    o = TimeDistributed(Dense(num_hidden))(o)
-    o = TimeDistributed(Activation(clipped_relu))(o)
-    o = TimeDistributed(Dropout(dropout))(o)
-
-    # Output layer
-    o = TimeDistributed(Dense(num_classes, name='y_pred', activation='softmax'), name='out')(o)
-
-    return ctc_model(x, o)
 
 
 def train_model(model, target_dir, train_it, val_it):

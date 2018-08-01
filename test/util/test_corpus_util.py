@@ -1,12 +1,12 @@
 import unittest
 
-from util import corpus_util
+from util.corpus_util import get_corpus
 
 
 class TestCorpusUtil(unittest.TestCase):
 
     def test_load_corpus(self):
-        rl_corpus = corpus_util.load_corpus(r'E:\readylingua-corpus')
+        rl_corpus = get_corpus('rl')
         rl_corpus.summary()
         rl_corpus_de = rl_corpus('de')
         rl_corpus_de.summary()
@@ -26,6 +26,6 @@ class TestCorpusUtil(unittest.TestCase):
         corpus_entry_numeric.summary()
         corpus_entry_not_numeric = corpus_entry(numeric=False)
         corpus_entry_not_numeric.summary()
-        ls_corpus = corpus_util.load_corpus(r'E:\librispeech-corpus')
+        ls_corpus = get_corpus('ls')
         train_set, dev_set, test_set = ls_corpus.train_dev_test_split()
         ls_corpus.summary()

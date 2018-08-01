@@ -1,6 +1,6 @@
-import os
 import sys
 from datetime import datetime
+from os.path import join
 
 from constants import POC_PROFILES
 from util.log_util import create_args_str
@@ -29,14 +29,14 @@ def get_poc(args):
 
 
 def get_target_dir(rnn_type, args):
-    target_dir = os.path.join(args.target_root, datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '_' + rnn_type)
+    target_dir = join(args.target_root, datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '_' + rnn_type)
     if hasattr(args, 'poc'):
-        target_dir += '_poc'
+        target_dir += f'_poc{args.poc}'
     if hasattr(args, 'architecture'):
         target_dir += '_' + args.architecture.upper()
     target_dir += '_' + args.corpus
     target_dir += '_' + args.language
     target_dir += '_' + args.feature_type
-    if hasattr(args, 'synthesize'):
+    if hasattr(args, 'synthesize') and args.synthesize:
         target_dir += '_synthesized'
     return target_dir

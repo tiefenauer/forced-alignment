@@ -3,7 +3,7 @@ import argparse
 import os
 import sys
 from http.server import SimpleHTTPRequestHandler, HTTPServer
-from os.path import realpath, join, dirname
+from os.path import realpath, join, dirname, isdir, exists
 
 parser = argparse.ArgumentParser(description='Start simple HTTP server supporting HTTP/1.1 requests (needed to play'
                                              'the aligned audio in HTML5)!')
@@ -17,6 +17,7 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
     """RangeHTTPRequestHandler is a SimpleHTTPRequestHandler
     with HTTP 'Range' support"""
 
+    @property
     def send_head(self):
         """Common code for GET and HEAD commands.
         Return value is either a file object or None
@@ -27,11 +28,11 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # Handling file location
         # If directory, let SimpleHTTPRequestHandler handle the request
-        if os.path.isdir(path):
+        if isdir(path):
             return SimpleHTTPRequestHandler.send_head(self)
 
         # Handle file not found
-        if not os.path.exists(path):
+        if not exists(path):
             return self.send_error(404, self.responses.get(404)[0])
 
         # Handle file request

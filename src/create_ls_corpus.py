@@ -5,18 +5,20 @@ import math
 import os
 import re
 import sys
+from os import makedirs, walk
+from os.path import exists, splitext, join
 from pathlib import Path
 
-from os.path import exists, splitext, join
+from librosa.output import write_wav
 from pydub.utils import mediainfo
 from tqdm import tqdm
 
+from constants import CORPUS_ROOT, CORPUS_RAW_ROOT
 from corpus.corpus import LibriSpeechCorpus
 from corpus.corpus_entry import CorpusEntry
 from corpus.corpus_segment import Speech, Pause, UnalignedSpeech
-from constants import CORPUS_ROOT, CORPUS_RAW_ROOT
-from util.audio_util import mp3_to_wav, crop_wav, calculate_frame
-from util.corpus_util import save_corpus, find_file_by_extension
+from util.audio_util import crop_to_segments, seconds_to_frame, read_audio
+from util.corpus_util import save_corpus, find_file_by_suffix
 from util.log_util import log_setup, create_args_str
 
 logfile = 'create_ls_corpus.log'
@@ -96,7 +98,7 @@ def create_corpus(source_root, target_root, max_entries):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
     if not exists(target_root):
-        os.makedirs(target_root)
+        makedirs(target_root)
 
     return create_librispeech_corpus(source_root=source_root, target_root=target_root, max_entries=max_entries)
 
@@ -112,7 +114,7 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
     print('creating corpus entries')
     corpus_entries = []
 
-    directories = [root for root, subdirs, files in os.walk(audio_root) if not subdirs]
+    directories = [root for root, subdirs, files in walk(audio_root) if not subdirs]
     progress = tqdm(directories, total=min(len(directories), max_entries or math.inf), file=sys.stderr, unit='entries')
 
     for raw_path in progress:
@@ -139,15 +141,17 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
         segments, full_transcript = create_segments(segments_file, transcript_file, book_text)
 
         # Convert, resample and crop audio
-        audio_file = join(target_root, splitext(mp3_file)[0] + ".wav")
-        if not exists(audio_file) or args.overwrite:
-            in_file = join(raw_path, mp3_file)
-            mp3_to_wav(in_file, audio_file)
-            crop_wav(audio_file, segments)
-        parms['media_info'] = mediainfo(audio_file)
+        audio_file = join(raw_path, mp3_file)
+        target_audio_path = join(target_root, splitext(mp3_file)[0] + ".wav")
+        if not exists(target_audio_path) or args.overwrite:
+            audio, rate = read_audio(audio_file, resample_rate=16000, to_mono=True)
+            audio, rate, segments = crop_to_segments(audio, rate, segments)
+            write_wav(target_audio_path, audio, rate)
+        parms['media_info'] = mediainfo(target_audio_path)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_file, segments, full_transcript=full_transcript, raw_path=raw_path, parms=parms)
+        corpus_entry = CorpusEntry(target_audio_path, segments, full_transcript=full_transcript, raw_path=raw_path,
+                                   parms=parms)
         corpus_entries.append(corpus_entry)
 
     corpus = LibriSpeechCorpus(corpus_entries, target_root)
@@ -157,17 +161,17 @@ def create_librispeech_corpus(source_root, target_root, max_entries):
 
 def collect_corpus_info(directory):
     # books
-    books_file = find_file_by_extension(directory, 'BOOKS.TXT')
+    books_file = find_file_by_suffix(directory, 'BOOKS.TXT')
     books_file = join(directory, books_file)
     books = collect_books(books_file)
 
     # chapters
-    chapters_file = find_file_by_extension(directory, 'CHAPTERS.TXT')
+    chapters_file = find_file_by_suffix(directory, 'CHAPTERS.TXT')
     chapters_file = join(directory, chapters_file)
     chapters = collect_chapters(chapters_file)
 
     # speakers
-    speakers_file = find_file_by_extension(directory, 'SPEAKERS.TXT')
+    speakers_file = find_file_by_suffix(directory, 'SPEAKERS.TXT')
     speakers_file = join(directory, speakers_file)
     speakers = collect_speakers(speakers_file)
 
@@ -227,7 +231,7 @@ def collect_speakers(speakers_file):
 
 def collect_book_texts(books_root):
     book_texts = {}
-    for root, files in tqdm([(root, files) for root, subdirs, files in os.walk(books_root)
+    for root, files in tqdm([(root, files) for root, subdirs, files in walk(books_root)
                              if not subdirs and len(files) == 1], unit='books'):
         book_path = join(root, files[0])
         encoding = 'latin-1' if 'ascii' in book_path else 'utf-8'  # use latin-1 for ascii files because of encoding problems
@@ -271,9 +275,9 @@ def collect_corpus_entry_parms(directory, book_info, chapter_info, speaker_info)
 def collect_corpus_entry_files(directory, parms):
     speaker_id = parms['speaker_id']
     chapter_id = parms['chapter_id']
-    segments_file = find_file_by_extension(directory, f'{speaker_id}-{chapter_id}.seg.txt')
-    transcript_file = find_file_by_extension(directory, f'{speaker_id}-{chapter_id}.trans.txt')
-    mp3_file = find_file_by_extension(directory, f'{chapter_id}.mp3')
+    segments_file = find_file_by_suffix(directory, f'{speaker_id}-{chapter_id}.seg.txt')
+    transcript_file = find_file_by_suffix(directory, f'{speaker_id}-{chapter_id}.trans.txt')
+    mp3_file = find_file_by_suffix(directory, f'{chapter_id}.mp3')
     return segments_file, transcript_file, mp3_file
 
 
@@ -354,8 +358,8 @@ def parse_segment_line(line):
     result = re.search(segment_pattern, line)
     if result:
         segment_id = result.group('segment_id')
-        segment_start = calculate_frame(result.group('segment_start'))
-        segment_end = calculate_frame(result.group('segment_end'))
+        segment_start = seconds_to_frame(result.group('segment_start'))
+        segment_end = seconds_to_frame(result.group('segment_end'))
         return segment_id, segment_start, segment_end
     return None, None, None
 

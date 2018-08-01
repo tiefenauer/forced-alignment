@@ -1,17 +1,21 @@
+"""
+Utility functions for end-to-end tasks
+"""
 import json
 import os
 import pickle
 from os import makedirs, remove
+from os.path import join, exists, splitext, basename, relpath
 from pathlib import Path
 
 import langdetect
 from bs4 import BeautifulSoup
-from os.path import join, exists, splitext, basename, relpath
+from librosa.output import write_wav
 from pydub import AudioSegment
 
 from constants import DEMO_ROOT
 from util.asr_util import transcribe
-from util.audio_util import write_wav_file, frame_to_ms, read_audio
+from util.audio_util import frame_to_ms, read_audio
 from util.lsa_util import align
 from util.vad_util import extract_voice
 
@@ -54,7 +58,7 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
 
     print(f'saving audio in {audio_path}')
     tmp_wav = join(target_dir, 'audio.tmp.wav')
-    write_wav_file(tmp_wav, audio, rate)
+    write_wav(tmp_wav, audio, rate)
     AudioSegment.from_wav(tmp_wav).export(audio_path, format='mp3')
     remove(tmp_wav)
 
@@ -79,10 +83,10 @@ def create_demo_files(demo_id, audio, rate, transcript, language, limit=None):
             pickle.dump(voice_segments, f)
 
     print(f'aligning audio with transcript')
-    alignment = align(voice_segments, transcript, printout=alignment_text_path)
+    alignments = align(voice_segments, transcript, printout=alignment_text_path)
 
     print(f'saving alignment information to {alignment_json_path}')
-    json_data = create_alignment_json(alignment)
+    json_data = create_alignment_json(alignments)
     with open(alignment_json_path, 'w') as f:
         json.dump(json_data, f, indent=2)
 
@@ -96,7 +100,7 @@ def create_alignment_json(alignments):
     for al in alignments:
         start_ms = frame_to_ms(al.start_frame, al.rate)
         end_ms = frame_to_ms(al.end_frame, al.rate)
-        words.append([al.alignment_text, start_ms, end_ms])
+        words.append([al.text, start_ms, end_ms])
 
     json_data = {}
     json_data['words'] = words

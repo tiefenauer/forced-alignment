@@ -1,9 +1,9 @@
 from copy import deepcopy
 from datetime import timedelta
+from os.path import exists, join
 from random import randint
 
 import numpy as np
-from os.path import exists, join
 from tabulate import tabulate
 
 from corpus.audible import Audible
@@ -12,13 +12,17 @@ from util.string_util import contains_numeric
 
 
 class CorpusEntry(Audible):
+    """
+    Class for corpus entries containing an audio signal, a transcript, segmentation and alignment information
+    """
+
     # cache audio and rate
     _audio = None
     _rate = None
 
-    def __init__(self, audio_file, segments, full_transcript='', raw_path='', parms={}):
+    def __init__(self, audio_file, segments, full_transcript='', raw_path='', parms=None):
         """
-        creates a new corpus entry
+        Create a new corpus entry
         :param audio_file: path to the audio file (will be read on-the-fly)
         :param segments: list of speech- and pause-segments
         :param full_transcript: string containing the full transcript (if available) if not set, the concatenated
@@ -26,6 +30,8 @@ class CorpusEntry(Audible):
         :param raw_path: path to the directory containing the raw data from which this entry was constructed
         :param parms: dictionary containing arbitrary paths
         """
+        if parms is None:
+            parms = {}
         self.corpus = None
         self.audio_file = audio_file
 

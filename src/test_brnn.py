@@ -2,9 +2,9 @@ import argparse
 import os
 from os.path import join, exists
 
-from core.dataset_generator import generate_train_dev_test
-from core.keras_util import load_model_for_prediction, load_model_for_evaluation
+from util.brnn_util import generate_train_dev_test
 from util.corpus_util import get_corpus
+from util.keras_util import load_model_for_prediction, load_model_for_evaluation
 from util.log_util import redirect_to_file
 from util.rnn_util import decode
 

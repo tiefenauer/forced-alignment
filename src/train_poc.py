@@ -1,20 +1,23 @@
 # RNN implementation inspired by https://github.com/philipperemy/tensorflow-ctc-speech-recognition
 import argparse
+import collections
+import os
 import random
 import time
+from os.path import join
 
-import collections
 import numpy as np
 import tensorflow as tf
-from os.path import exists
 
 from constants import TRAIN_ROOT
+from corpus.corpus_segment import Speech
+from corpus.dummy_corpus import DummyCorpus
 from util.audio_util import distort, shift
 from util.corpus_util import get_corpus
 from util.log_util import *
 from util.plot_util import visualize_cost
-from util.rnn_util import CHAR_TOKENS, decode, DummyCorpus, FileLogger, encode, pad_sequences, sparse_tuple_from
-from util.train_util import get_poc, get_target_dir, get_num_features, get_corpus
+from util.rnn_util import CHAR_TOKENS, decode, FileLogger, encode, pad_sequences, sparse_tuple_from
+from util.train_util import get_poc, get_target_dir, get_num_features
 
 # -------------------------------------------------------------
 # Constants, defaults and env-vars
@@ -67,20 +70,26 @@ num_layers = 1
 
 def main():
     target_dir = get_target_dir('RNN', args)
+    print(f'Results will be written to: {target_dir}')
+
+    log_file_path = join(target_dir, 'train.log')
+    redirect_to_file(log_file_path)
+    print(create_args_str(args))
+
     num_features = get_num_features(args.feature_type)
     corpus = get_corpus(args.corpus)
 
-    train_set, dev_set, test_set = create_train_dev_test(args, corpus)
+    train_set, dev_set, test_set = create_train_dev_test(corpus)
 
     model_parms = create_model(num_features)
     train_model(model_parms, target_dir, train_set, dev_set, test_set)
 
     fig_ctc, fig_ler, _ = visualize_cost(target_dir, args)
-    fig_ctc.savefig(os.path.join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
-    fig_ler.savefig(os.path.join(target_dir, 'ler_cost.png'), bbox_inches='tight')
+    fig_ctc.savefig(join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
+    fig_ler.savefig(join(target_dir, 'ler_cost.png'), bbox_inches='tight')
 
 
-def create_train_dev_test(args, corpus):
+def create_train_dev_test(corpus):
     repeat_sample = None
 
     if args.id is not None:
@@ -98,10 +107,24 @@ def create_train_dev_test(args, corpus):
         print(f'training on corpus entry with index={args.ix}')
         repeat_sample = corpus[args.ix]
 
+    # create train/dev/test set by repeating speech segments from the same sample
     if repeat_sample:
-        train_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
-        dev_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
-        test_set = DummyCorpus([repeat_sample], 1, args.limit_segments)
+        speech_segments = repeat_sample.speech_segments_not_numeric[:args.limit_segments]
+
+        if args.synthesize:
+            # add distorted variants of the original speech segments as synthesized training data
+            synthesized_segments = []
+            for speech_segment in speech_segments:
+                speech = Speech(speech_segment.start_frame, speech_segment.end_frame)
+                speech.corpus_entry = speech_segment.corpus_entry
+                speech.audio = distort(speech_segment.audio, speech_segment.rate, tempo=True)
+                speech.transcript = speech_segment.transcript
+                synthesized_segments.append(speech)
+            speech_segments += synthesized_segments
+
+        train_set = speech_segments
+        dev_set = speech_segments
+        test_set = speech_segments
         return train_set, dev_set, test_set
 
     train_set, dev_set, test_set = corpus.train_dev_test_split()
@@ -234,8 +257,7 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
             start = time.time()
 
             # iterate over batches for current epoch
-            add_distortion = curr_epoch > 0 and args.synthesize
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, args.feature_type, distort_audio=add_distortion):
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, args.feature_type, shift_audio=False):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -243,15 +265,15 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
                 ctc_train += batch_cost * batch_len
                 ler_train += session.run(ler, feed_dict=feed) * batch_len
 
-                # Decoding
-                d = session.run(decoded[0], feed_dict=feed)
-                dense_decoded = tf.sparse_tensor_to_dense(d, default_value=0).eval(session=session)
-
-                for i, prediction_enc in enumerate(dense_decoded):
-                    ground_truth = ground_truths[i]
-                    prediction = decode(prediction_enc)
-                    print_prediction(ground_truth, prediction, 'train-set')
-                    log_prediction(epoch_logger, ground_truth, prediction, 'train_set')
+                # # Decoding
+                # d = session.run(decoded[0], feed_dict=feed)
+                # dense_decoded = tf.sparse_tensor_to_dense(d, default_value=0).eval(session=session)
+                #
+                # for i, prediction_enc in enumerate(dense_decoded):
+                #     ground_truth = ground_truths[i]
+                #     prediction = decode(prediction_enc)
+                #     print_prediction(ground_truth, prediction, 'train-set')
+                #     log_prediction(epoch_logger, ground_truth, prediction, 'train-set')
 
                 num_samples += batch_len
 
@@ -271,7 +293,9 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
             convergence = ler_train_mean < LER_CONVERGENCE and abs(ler_diff) < 0.01
 
             # validate cost with a randomly chosen entry from the dev-set that has been randomly shifted
-            X_val, Y_val, val_seq_len, val_ground_truths = random.choice(list(generate_batches(dev_set, args.feature_type, shift_audio=True)))
+            val_batches = list(
+                generate_batches(dev_set, args.feature_type, shift_audio=True, distort_audio=True, limit_segments=5))
+            X_val, Y_val, val_seq_len, val_ground_truths = random.choice(val_batches)
             val_feed = {inputs: X_val, targets: Y_val, seq_len: val_seq_len}
             ctc_val, ler_val = session.run([cost, ler], feed_dict=val_feed)
             val_ctcs.append(ctc_val)
@@ -279,33 +303,45 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
             val_lers.append(ler_val)
             ler_val_mean = np.array(val_lers).mean()
 
+            # Decoding
+            d = session.run(decoded[0], feed_dict=val_feed)
+            dense_decoded = tf.sparse_tensor_to_dense(d, default_value=0).eval(session=session)
+
+            for i, prediction_enc in enumerate(dense_decoded):
+                ground_truth = ground_truths[i]
+                prediction = decode(prediction_enc)
+                print_prediction(ground_truth, prediction, 'dev-set')
+                log_prediction(epoch_logger, ground_truth, prediction, 'dev-set')
+
             train_cost_logger.write_tabbed(
-                [curr_epoch, ctc_train, ctc_train_mean, ler_train, ler_train_mean, ctc_val, ctc_val_mean, ler_val,
+                [curr_epoch, ctc_train, ctc_val, ctc_train_mean, ctc_val_mean, ler_train, ler_val, ler_train_mean,
                  ler_val_mean])
 
-            val_str = f'=== Epoch {curr_epoch}, ctc_train = {ctc_train:.3f}, ler_train = {ler_train:.3f}, ' \
-                      f'ctc_val = {ctc_val:.3f}, ler_val = {ler_val:.3f}, time = {time.time() - start:.3f}, ' \
-                      f'ctc_mean = {ctc_train_mean}, ler_mean = {ler_train_mean:.3f}, ler_diff = {ler_diff:.3f} ==='
+            val_str = f'=== Epoch {curr_epoch}, ' \
+                      f'ctc_train = {ctc_train:.3f}, ctc_val = {ctc_val:.3f}, ' \
+                      f'ctc_train_mean = {ctc_train_mean:.3f}, ctc_val_mean = {ctc_val_mean:.3f} ' \
+                      f'ler_train = {ler_train:.3f}, ler_val = {ler_val:.3f}, ' \
+                      f'ler_train_mean = {ler_train_mean:.3f}, ler_val_mean = {ler_val_mean:.3f} ' \
+                      f'ler_diff = {ler_diff:.3f}, time = {time.time() - start:.3f}==='
             print(val_str)
             epoch_logger.write(val_str)
 
         print(f'convergence reached after {curr_epoch} epochs!')
         saver = tf.train.Saver()
-        save_path = saver.save(session, os.path.join(target_dir, 'model.ckpt'))
+        save_path = saver.save(session, join(target_dir, 'model.ckpt'))
         print(f'Model saved to path: {save_path}')
 
     return save_path
 
 
-def generate_batches(corpus_entries, feature_type, shift_audio=False, distort_audio=False):
-    speech_segments = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
-    l = len(speech_segments)
+def generate_batches(speech_segments, feature_type, shift_audio=False, distort_audio=False, limit_segments=None):
+    l = limit_segments if limit_segments else len(speech_segments)
     for ndx in range(0, l, args.batch_size):
         batch = []
         for speech_segment in speech_segments[ndx:min(ndx + args.batch_size, l)]:
             audio = speech_segment.audio  # save original audio signal
             if distort_audio:
-                speech_segment.audio = distort(audio, speech_segment.rate, tempo=True)
+                speech_segment.audio = distort(audio, speech_segment.rate, tempo=True, pitch=True)
             if shift_audio:
                 speech_segment.audio = shift(audio)  # clip audio before calculating MFCC/spectrogram
 
@@ -325,7 +361,8 @@ def generate_batches(corpus_entries, feature_type, shift_audio=False, distort_au
 def create_cost_logger(log_dir, log_file):
     cost_logger = create_file_logger(log_dir, log_file)
     cost_logger.write_tabbed(
-        ['epoch', 'ctc_train', 'ctc_train_mean', 'ler_train', 'ler_train_mean', 'ctc_val', 'ler_val', 'ler_val_mean'])
+        ['epoch', 'ctc_train', 'ctc_val', 'ctc_train_mean', 'ctc_val_mean', 'ler_train', 'ler_val', 'ler_train_mean',
+         'ler_val_mean'])
     return cost_logger
 
 
@@ -343,7 +380,7 @@ def create_epoch_logger(log_dir):
 def create_file_logger(log_dir, file_name):
     if not exists(log_dir):
         makedirs(log_dir)
-    file_path = os.path.join(log_dir, file_name)
+    file_path = join(log_dir, file_name)
     file_logger = FileLogger(file_path)
     return file_logger
 

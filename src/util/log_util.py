@@ -1,3 +1,6 @@
+"""
+Utility functions for logging tasks
+"""
 import logging
 import sys
 from datetime import datetime
@@ -25,14 +28,18 @@ def log_setup(filename=None):
 
 
 def redirect_to_file(log_file_path, append=False, format="[{timestamp:%Y-%m-%d %H:%M:%S} - {level:5}] "):
-    """wraps print function to print to stdout and file simultaneously.
-    Returns file handle (file must be closed manually!)"""
+    """
+    Print to log file and stdout simultaneously. Use reset_redirect() to only print to stdout again
+    """
     if not exists(dirname(log_file_path)):
         makedirs(dirname(log_file_path))
     streamtologger.redirect(log_file_path, append=append, header_format=format)
 
 
 def reset_redirect():
+    """
+    Disable printing to log file and stdout simultaneously
+    """
     global stdout
     global stderr
     sys.stdout = stdout

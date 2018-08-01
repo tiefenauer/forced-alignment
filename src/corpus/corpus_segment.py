@@ -8,13 +8,17 @@ from util.string_util import normalize
 
 
 class Segment(Audible):
+    """
+    Base class for audio segments
+    """
+
     # cache features
     _mag_specgram = None
     _pow_specgram = None
     _mel_specgram = None
     _mfcc = None
 
-    def __init__(self, start_frame, end_frame, transcript, alignment_type):
+    def __init__(self, start_frame, end_frame, transcript, segment_type):
         self.start_frame = start_frame
         self.end_frame = end_frame
 
@@ -22,7 +26,7 @@ class Segment(Audible):
         self._transcript = ''
         self.transcript = transcript.strip() if transcript else ''
 
-        self.segment_type = alignment_type
+        self.segment_type = segment_type
         self.corpus_entry = None
 
     @property

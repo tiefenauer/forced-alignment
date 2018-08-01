@@ -1,3 +1,6 @@
+"""
+Some callbacks that can be used during training
+"""
 from keras import callbacks, backend as K
 
 from core.dataset_generator import BatchGenerator
@@ -5,8 +8,6 @@ from util.rnn_util import decode
 
 
 class MetaCheckpoint(callbacks.ModelCheckpoint):
-    # from: https://github.com/igormq/asr-study
-
     def __init__(self, filepath, monitor='val_loss', verbose=0,
                  save_best_only=False, save_weights_only=False,
                  mode='auto', period=1, training_args=None, meta=None):

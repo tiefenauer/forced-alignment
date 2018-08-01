@@ -1,35 +1,25 @@
+"""
+Utility functions to work with corpora
+"""
 import gzip
-import os
 import pickle
-from copy import copy
+from os import listdir
 from os.path import join
 
 from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
 
 
-def get_corpus(id, lang=None):
-    if id == 'ls':
+def get_corpus(corpus_id, lang=None):
+    if corpus_id == 'ls':
         corpus = load_corpus(LS_CORPUS_ROOT)
-    elif id == 'rl':
+    elif corpus_id == 'rl':
         corpus = load_corpus(RL_CORPUS_ROOT)
     else:
-        raise ValueError('unknown corpus id')
+        raise ValueError(f'unknown corpus id: {corpus_id}')
     if lang:
         corpus = corpus(languages=[lang])
     corpus.summary()
     return corpus
-
-
-def save_corpus(corpus_entries, target_root, gzip=False):
-    corpus_file = join(target_root, 'corpus')
-    if gzip:
-        corpus_file += '.gz'
-        with gzip.open(corpus_file, 'wb') as corpus:
-            corpus.write(pickle.dumps(corpus_entries))
-    else:
-        with open(corpus_file, 'wb') as corpus:
-            pickle.dump(corpus_entries, corpus)
-    return corpus_file
 
 
 def load_corpus(corpus_root):
@@ -45,9 +35,26 @@ def load_corpus(corpus_root):
     return corpus
 
 
-def find_file_by_extension(directory, extension):
-    return next(iter(filename for filename in os.listdir(directory) if filename.lower().endswith(extension.lower())),
-                None)
+def save_corpus(corpus_entries, target_root, gzip=False):
+    corpus_file = join(target_root, 'corpus')
+    if gzip:
+        corpus_file += '.gz'
+        with gzip.open(corpus_file, 'wb') as corpus:
+            corpus.write(pickle.dumps(corpus_entries))
+    else:
+        with open(corpus_file, 'wb') as corpus:
+            pickle.dump(corpus_entries, corpus)
+    return corpus_file
+
+
+def find_file_by_suffix(dir, suffix):
+    """
+    Find first file inside a directory ending with a given suffix or None if no file is found
+    :param dir: path to directory to walk
+    :param suffix: suffix to use
+    :return: name of first found file or None if directory does not contain any file with given suffix
+    """
+    return next(iter(fn for fn in listdir(dir) if fn.lower().endswith(suffix.lower())), None)
 
 
 def filter_corpus_entry_by_subset_prefix(corpus_entries, prefixes):
@@ -56,20 +63,3 @@ def filter_corpus_entry_by_subset_prefix(corpus_entries, prefixes):
     return [corpus_entry for corpus_entry in corpus_entries
             if corpus_entry.subset
             and any(corpus_entry.subset.startswith(prefix) for prefix in prefixes)]
-
-
-def calculate_crop(segments):
-    crop_start = min(segment.start_frame for segment in segments)
-    crop_end = max(segment.end_frame for segment in segments)
-    return crop_start, crop_end
-
-
-def crop_segments(segments):
-    cropped_segments = []
-    crop_start, crop_end = calculate_crop(segments)
-    for segment in segments:
-        cropped_segment = copy(segment)
-        cropped_segment.start_frame -= crop_start
-        cropped_segment.end_frame -= crop_start
-        cropped_segments.append(cropped_segment)
-    return cropped_segments

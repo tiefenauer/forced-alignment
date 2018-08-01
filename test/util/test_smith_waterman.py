@@ -2,7 +2,7 @@ import unittest
 
 from hamcrest import assert_that, is_
 
-from smith_waterman import matrix, traceback, smith_waterman
+from util.lsa_util import smith_waterman, matrix, traceback
 
 
 class SmithWatermanTest(unittest.TestCase):

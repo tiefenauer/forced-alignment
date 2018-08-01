@@ -10,8 +10,6 @@ CORPUS_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default corpus 
 RL_CORPUS_ROOT = join(CORPUS_ROOT, 'readylingua-corpus')
 LS_CORPUS_ROOT = join(CORPUS_ROOT, 'librispeech-corpus')
 
-TRAIN_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default directory for training results
-
 DEMO_ROOT = join(ROOT_DIR, 'demos', 'htdocs')
 
 # PoC profiles
@@ -42,22 +40,22 @@ POC_PROFILES = {
         'limit_segments': 5, 'synthesize': True
     },
     'poc_7': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mfcc', 'limit_segments': 5
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mfcc', 'limit_segments': 5
     },
     'poc_8': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mfcc', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mfcc', 'limit_segments': 5, 'synthesize': True
     },
     'poc_9': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mel', 'limit_segments': 5
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mel', 'limit_segments': 5
     },
     'poc_10': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'mel', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mel', 'limit_segments': 5, 'synthesize': True
     },
     'poc_11': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'pow', 'limit_segments': 5
     },
     'poc_12': {
-        'corpus': 'ls', 'language': 'en', 'ix': 0, 'feature_type': 'pow', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'pow', 'limit_segments': 5, 'synthesize': True
     }
 }
 # // @formatter:on
@@ -71,6 +69,13 @@ LANGUAGE_CODES = {
     'es': 'es-ES'
 }
 
+# default parameters for training
+CORPUS = 'ls'
+LANGUAGE = 'en'
 NUM_EPOCHS = 20
+NUM_STEPS_TRAIN = 0
+NUM_STEPS_VAL = 0
 BATCH_SIZE = 5
 FEATURE_TYPE = 'mfcc'
+TRAIN_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default directory for training results
+ARCHITECTURE = 'ds1'

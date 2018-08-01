@@ -18,9 +18,18 @@ from util.log_util import redirect_to_file, reset_redirect
 from util.vad_util import webrtc_voice
 
 parser = argparse.ArgumentParser(description="""Measure WebRTC-VAD performance by calculating precision/recall""")
+parser.add_argument('-f', '--file', help='Dummy argument for Jupyter Notebook compatibility')
 parser.add_argument('-c', '--corpus', nargs='?', type=str, choices=['rl', 'ls'], default=None,
                     help='(optional) corpus to use (default: all)')
 args = parser.parse_args()
+
+
+def main():
+    corpora = [args.corpus] if args.corpus else ['rl', 'ls']
+    for corpus_id in corpora:
+        corpus = get_corpus(corpus_id)
+        stats = create_corpus_stats(corpus)
+        save_stats(stats, corpus)
 
 
 def calc_overlap(a, b):
@@ -163,8 +172,4 @@ def save_stats(stats, corpus):
 
 
 if __name__ == '__main__':
-    corpora = [args.corpus] if args.corpus else ['rl', 'ls']
-    for corpus_id in corpora:
-        corpus = get_corpus(corpus_id)
-        stats = create_corpus_stats(corpus)
-        save_stats(stats, corpus)
+    main()

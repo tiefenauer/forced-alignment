@@ -1,24 +1,16 @@
+"""
+Utility functions for VAD stage
+"""
+import collections
 from os import remove
 
-import collections
 import librosa
 import soundfile as sf
+from librosa.output import write_wav
 from webrtcvad import Vad
 
-from util.audio_util import ms_to_frames, write_pcm16_wave, read_audio, write_wav_file, read_pcm16_wave
-
-
-class Voice(object):
-    """
-    class representing voice activity inside an audio signal
-    """
-
-    def __init__(self, audio, rate, start_frame, end_frame):
-        self.audio = audio
-        self.rate = rate
-        self.start_frame = start_frame
-        self.end_frame = end_frame
-        self.transcript = None
+from corpus.alignment import Voice
+from util.audio_util import ms_to_frames, write_pcm16_wave, read_audio, read_pcm16_wave
 
 
 def extract_voice(audio, rate, min_segments=2, max_segments=None):
@@ -28,7 +20,7 @@ def extract_voice(audio, rate, min_segments=2, max_segments=None):
     :param rate: sample rate
     :param min_segments: expected minimal number of segments
     :param max_segments: maximum nuber of segments to return
-    :return:
+    :return: list of corpus.alignment.Voice instances
     """
     voice_segments = list(webrtc_voice(audio, rate))
     if len(voice_segments) >= min_segments:
@@ -119,8 +111,8 @@ def to_pcm16(audio, rate):
     tmp_file = 'tmp.wav'
     # convert to 16kHz (mono) if neccessary
     if rate != 16000 or audio.ndim > 1:
-        write_wav_file(tmp_file, audio, rate)
-        audio, rate = read_audio(tmp_file, sample_rate=16000, mono=True)
+        write_wav(tmp_file, audio, rate)
+        audio, rate = read_audio(tmp_file, resample_rate=16000, to_mono=True)
     # convert to PCM_16
     sf.write(tmp_file, audio, rate, subtype='PCM_16')
     audio, rate = read_pcm16_wave(tmp_file)

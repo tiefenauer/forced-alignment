@@ -1,8 +1,5 @@
 from abc import ABC, abstractmethod
-from os import listdir
-from os.path import join, splitext
 
-import h5py
 import numpy as np
 import scipy
 from keras.preprocessing.image import Iterator
@@ -14,8 +11,13 @@ from util.train_util import get_num_features
 
 class BatchGenerator(Iterator, ABC):
     """
-    Generates batches for training/validation/evaluation. Batches are created as tuples of dictionaries. Each dictionary
-    contains keys mapping to the data required by tensors of the model.
+    Generates batches for training/validation/evaluation. Batches are created as tuples forinput and output. Each
+    tuple serves as input resp. output to feed the model during training.
+
+    Iterators are badly documented and seem to be intended for image data. Since the features (MFCC, Mel-Spectrograms
+    or Power-Spectrograms) are 2D they can be considered images.
+
+    See https://www.tensorflow.org/api_docs/python/tf/keras/preprocessing/image/Iterator for some information
     """
 
     def __init__(self, n, feature_type, batch_size, shuffle, seed):
@@ -23,19 +25,44 @@ class BatchGenerator(Iterator, ABC):
         self.num_features = get_num_features(feature_type)
 
     def _get_batches_of_transformed_samples(self, index_array):
-        inputs_features = self.create_input_features(index_array)
-        labels_encoded = self.create_labels_encoded(index_array)
+        """
+        generates a batch as a tuple (inputs, outputs) with the following elements:
+            inputs: array or dict for tensors 'inputs', 'labels' and 'inputs_lengths'
+                X: (batch_size, T_x, num_features) --> 'inputs'
+                    Input features for sequences in batch. The sequences are zero-padded to T_x whereas T_x will be the
+                    length of the longest sequence. The value of num_features depends on the chosen feature type.
+                Y: sparse array  --> 'labels'
+                    the encoded output labels
+                X_lengths: (batch_size,)  --> 'inputs_length'
+                    lengths of the unpadded input sequences
+                Y_lengths: (batch_size,) --> 'labels_length'
+                    lengths of  the unpadded label sequences
+            outputs: array or dict for tensors 'ctc' and 'decode'
+                ctc: (batch_size,) zero-array
+                decode: labels to decode (same as Y)
 
-        X, X_lengths = self.make_batch_inputs(inputs_features)
-        Y, Y_lengths = self.make_batch_outputs(labels_encoded)
+        Note that the input features will be created on-the-fly by calculating the spectrogram/MFCC per batch.
+        Performance could be improved by pre-computing those features upfront and storing them in a HDF5-file.
+
+        :param index_array: array with indices of speech segments to use for batch
+        :return: (inputs, outputs) as specified above
+        """
+        features = self.extract_features(index_array)
+        labels = self.extract_labels(index_array)
+
+        X, X_lengths = self.make_batch_inputs(features)
+        Y, Y_lengths = self.make_batch_outputs(labels)
         return [X, Y, X_lengths, Y_lengths], [np.zeros((X.shape[0],)), Y]
 
-    def make_batch_inputs(self, inputs_features):
-        batch_inputs = pad_sequences(inputs_features, dtype='float32', padding='post')
-        batch_inputs_len = np.array([inp.shape[0] for inp in inputs_features])
+    @staticmethod
+    def make_batch_inputs(features):
+        batch_inputs = pad_sequences(features, dtype='float32', padding='post')
+        batch_inputs_len = np.array([feature.shape[0] for feature in features])
         return batch_inputs, batch_inputs_len
 
-    def make_batch_outputs(self, labels_encoded):
+    @staticmethod
+    def make_batch_outputs(labels):
+        labels_encoded = [encode(label) for label in labels]
         batch_outputs_len = np.array([len(label) for label in labels_encoded])
 
         # the following would create labels as (padded) dense matrix, but then the receiving tensor must be dense too!
@@ -63,73 +90,28 @@ class BatchGenerator(Iterator, ABC):
         return self._get_batches_of_transformed_samples(index_array_lst)
 
     @abstractmethod
-    def create_input_features(self, index_array):
-        pass
+    def extract_features(self, index_array):
+        """
+        Extract unpadded features for a batch of elements with specified indices
+        :param index_array: array with indices of elements in current batch
+        :return: list of unpadded features
+        """
+        raise NotImplementedError
 
     @abstractmethod
-    def create_labels_encoded(self, index_array):
-        pass
-
-    @property
-    def num_elements(self):
-        return len(self.elements)
-
-
-class OnTheFlyFeaturesIterator(BatchGenerator):
-
-    def __init__(self, corpus_entries, feature_type, batch_size, shuffle=True, seed=None):
-        speech_segs = list(seg for corpus_entry in corpus_entries for seg in corpus_entry.speech_segments_not_numeric)
-        speech_segs = np.array(speech_segs)
-        super().__init__(len(speech_segs), feature_type, batch_size, shuffle=shuffle, seed=seed)
-
-    def _get_batches_of_transformed_samples(self, index_array):
+    def extract_labels(self, index_array):
         """
-        generates a batch as a tuple (inputs, outputs) with the following elements:
-            inputs: array or dict for tensors 'inputs', 'labels' and 'inputs_lengths'
-                X: (batch_size, T_x, num_features) --> 'inputs'
-                    Input features for sequences in batch. The sequences are zero-padded to T_x whereas T_x will be the
-                    length of the longest sequence. The value of num_features depends on the chosen feature type.
-                Y: sparse array  --> 'labels'
-                    the encoded output labels
-                X_lengths: (batch_size,)  --> 'inputs_lengths'
-                    lengths of the unpadded input sequences
-            outputs: array or dict for tensors 'ctc' and 'decode'
-                ctc: (batch_size,) zero-array
-                decode: labels to decode (same as Y)
-
-        Note that the input features will be created on-the-fly by calculating the spectrogram/MFCC per batch.
-        Performance could be improved by pre-computing those features upfront and storing them in a HDF5-file.
-
-        :param index_array: array with indices of speech segments to use for batch
-        :return: (inputs, outputs) as specified above
+        Extract unpadded, unencoded labels for a batch of elements with specified indices
+        :param index_array: array with indices of elements in current batch
+        :return: list of textual labels
         """
-        speech_segments = self.elements[index_array]
-        X_data = [seg.audio_features(self.feature_type) for seg in speech_segments]
-        Y_data = [encode(seg.text) for seg in speech_segments]
-
-        X = pad_sequences(X_data, dtype='float32', padding='post')
-        X_lengths = np.array([f.shape[0] for f in X_data])
-
-        rows, cols, data = [], [], []
-        for row, label in enumerate(Y_data):
-            cols.extend(range(len(label)))
-            rows.extend(len(label) * [row])
-            data.extend(label)
-
-        Y = scipy.sparse.coo_matrix((data, (rows, cols)), dtype=np.int32)
-
-        return [X, Y, X_lengths], [np.zeros((X.shape[0],)), Y]
-
-    def create_input_features(self, index_array):
-        pass
-
-    def create_labels_encoded(self, index_array):
-        pass
+        """"""
+        raise NotImplementedError
 
 
 class HFS5BatchGenerator(BatchGenerator):
     """
-    Creates batches for training/validation/evaluation by iterating over a HDF5 file.
+    Creates batches for by iterating over a dataset from a HDF5 file.
     """
 
     def __init__(self, dataset, feature_type, batch_size, shuffle=True, seed=None):
@@ -137,36 +119,26 @@ class HFS5BatchGenerator(BatchGenerator):
         self.labels = dataset['labels']
         super().__init__(len(self.inputs), feature_type, batch_size, shuffle, seed)
 
-    def create_input_features(self, index_array):
+    def extract_features(self, index_array):
+        """extract features and reshape to (T_x, num_features)"""
         return [inp.reshape((-1, self.num_features)) for inp in (self.inputs[i] for i in index_array)]
 
-    def create_labels_encoded(self, index_array):
+    def extract_labels(self, index_array):
+        """extract labels and encode to integer"""
         return [encode(label) for label in (self.labels[i] for i in index_array)]
 
 
-def generate_train_dev_test(corpus, language, feature_type, batch_size):
-    h5_features = list(join(corpus.root_path, file) for file in listdir(corpus.root_path)
-                       if splitext(file)[0].startswith('features')
-                       and feature_type in splitext(file)[0]
-                       and splitext(file)[1] == '.h5')
-    default_features = f'features_{feature_type}.h5'
-    feature_file = default_features if default_features in h5_features else h5_features[0] if h5_features else None
-    if feature_file:
-        print(f'found precomputed features: {feature_file}. Using HDF5-Features')
-        f = h5py.File(feature_file, 'r')
-        # hack for RL corpus: because there are no train/dev/test-subsets train/validate/test on same subset
-        train_ds = f['train'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
-        dev_ds = f['dev'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
-        test_ds = f['test'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
-        train_it = HFS5BatchGenerator(train_ds, feature_type, batch_size)
-        val_it = HFS5BatchGenerator(dev_ds, feature_type, batch_size)
-        test_it = HFS5BatchGenerator(test_ds, feature_type, batch_size)
+class OnTheFlyFeaturesIterator(BatchGenerator):
+    """
+    Creates batches by calculating the features on-the-fly
+    """
 
-    else:
-        print(f'No precomputed features found. Generating features on the fly...')
-        train_entries, val_entries, test_entries = corpus(languages=[language]).train_dev_test_split()
-        train_it = OnTheFlyFeaturesIterator(train_entries, feature_type, batch_size)
-        val_it = OnTheFlyFeaturesIterator(val_entries, feature_type, batch_size)
-        test_it = OnTheFlyFeaturesIterator(test_entries, feature_type, batch_size)
+    def __init__(self, corpus_entries, feature_type, batch_size, shuffle=True, seed=None):
+        self.speech_segments = np.array(list(s for e in corpus_entries for s in e.speech_segments_not_numeric))
+        super().__init__(len(self.speech_segments), feature_type, batch_size, shuffle=shuffle, seed=seed)
 
-    return train_it, val_it, test_it
+    def extract_features(self, index_array):
+        return [seg.audio_features(self.feature_type) for seg in self.speech_segments[index_array]]
+
+    def extract_labels(self, index_array):
+        return [seg.text for seg in self.speech_segments[index_array]]

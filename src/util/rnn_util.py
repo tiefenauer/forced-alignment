@@ -1,64 +1,10 @@
 import string
 from abc import ABC
-from itertools import chain, repeat
 
 import numpy as np
-from python_speech_features import mfcc
 
 SPACE_TOKEN = '<space>'
 CHAR_TOKENS = string.ascii_lowercase
-
-
-def create_x_from_spec(spec, segment_offset, audio_len, speech_len, shift):
-    """
-    calculates the input features for a speech segment given the spectrogram of the corpus entry
-    :param spec: spectrogram of the corpus entry (numpy-array of dimension (T_x, num_features))
-    :param segment_offset: offset in number of frames from the beginning of the audio (int)
-    :param audio_len: number of audio frames in the corpus entry
-    :param speech_len: number of audio frames in the speech segment
-    :param shift:  number of frames the audio was shifted to the left
-    :return: the part of the spectrogram that corresponds to the speech segment
-    """
-    spec_len = spec.shape[0]
-    spec_factor = spec_len / audio_len
-
-    start = int(spec_factor * (segment_offset + shift))
-    end = int(spec_factor * (segment_offset + speech_len))
-
-    inputs = spec[start:end, :]
-    train_inputs = np.asarray(inputs[np.newaxis, :])
-    x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
-    return x
-
-
-def create_x_y_mfcc(audio, rate, text):
-    # create x from MFCC features
-    inputs = mfcc(audio, samplerate=rate)
-    train_inputs = np.asarray(inputs[np.newaxis, :])
-    x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
-
-    # create y from encoded text
-    # print(text)
-    tokens = tokenize(text)
-    # print(tokens)
-    targets = [encode_token(token) for token in tokens]
-    # print(targets)
-    y = sparse_tuple_from([targets])
-
-    return x, y
-
-
-def create_x_mfcc(audio, rate):
-    """
-    creates input features for the RNN from a speech segment based on the speech segment's audio and sampling rate
-    :param audio: ndarray of shape (N,)
-    :param rate: sampling rate as integer
-    :return: ndarray of shape (1, T_x, 13)
-    """
-    inputs = mfcc(audio, samplerate=rate)  # inputs: (T_x , 13)
-    train_inputs = np.asarray(inputs[np.newaxis, :])  # train_inputs: (1, T_x, 13)
-    x = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)  # x: (1, T_x, 13)
-    return x
 
 
 def tokenize(text):
@@ -172,32 +118,6 @@ def pad_sequences(sequences, maxlen=None, dtype=np.float32,
         else:
             raise ValueError('Padding type "%s" not understood' % padding)
     return x, lengths
-
-
-class DummyCorpus(object):
-    """Helper class to repeat a given list of corpus entries a certain number of times. Additionally, the number of
-     speech segments on each entry can be limited. An instance of this class is an iterator that will iterate over all
-     corpus entries N times (i.e. each corpus entry will be yielded N times).
-
-     This is useful for example for a POC where a RNN learns from only the first 5 speech segments of a single instance.
-     """
-
-    def __init__(self, repeat_samples, times, num_segments=None):
-        self.repeat_samples = repeat_samples
-        self.times = times
-        self.num_segments = num_segments
-
-    def __iter__(self):
-        for repeat_sample in chain.from_iterable(repeat(self.repeat_samples, self.times)):
-            segments_with_text = [speech for speech in repeat_sample.speech_segments_not_numeric
-                                  if speech.text and len(speech.audio) > 0]
-            if self.num_segments:
-                segments_with_text = segments_with_text[:self.num_segments]
-            repeat_sample.segments = segments_with_text
-            yield repeat_sample
-
-    def __len__(self):
-        return self.times * len(self.repeat_samples)
 
 
 class FileLogger(ABC):

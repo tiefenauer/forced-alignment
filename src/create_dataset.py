@@ -1,6 +1,5 @@
 import argparse
 from datetime import timedelta
-from itertools import takewhile
 from os import makedirs, remove
 from os.path import exists, join, dirname
 

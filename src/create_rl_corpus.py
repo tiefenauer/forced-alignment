@@ -5,19 +5,21 @@ import math
 import os
 import sys
 import wave
+from os import makedirs, remove, walk
+from os.path import exists, join
 from pathlib import Path
 
+from librosa.output import write_wav
 from lxml import etree
-from os.path import exists
 from pydub.utils import mediainfo
 from tqdm import tqdm
 
+from constants import CORPUS_RAW_ROOT, CORPUS_ROOT
 from corpus.corpus import ReadyLinguaCorpus
 from corpus.corpus_entry import CorpusEntry
 from corpus.corpus_segment import Speech, Pause
-from constants import CORPUS_RAW_ROOT, CORPUS_ROOT
-from util.audio_util import recalculate_frame, resample_wav, crop_wav
-from util.corpus_util import save_corpus, find_file_by_extension
+from util.audio_util import resample_frame, crop_to_segments, read_audio
+from util.corpus_util import save_corpus, find_file_by_suffix
 from util.log_util import log_setup, create_args_str
 from util.string_util import create_filename
 
@@ -60,8 +62,8 @@ args = parser.parse_args()
 def main():
     print(create_args_str(args))
 
-    source_root = os.path.join(args.source_root, 'readylingua-raw')
-    target_root = os.path.join(args.target_root, 'readylingua-corpus')
+    source_root = join(args.source_root, 'readylingua-raw')
+    target_root = join(args.target_root, 'readylingua-corpus')
     print(f'Processing files from {source_root} and saving them in {target_root}')
 
     corpus, corpus_file = create_corpus(source_root, target_root, args.max_entries)
@@ -70,11 +72,11 @@ def main():
 
 
 def create_corpus(source_root, target_root, max_entries):
-    if not os.path.exists(source_root):
+    if not exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)
-    if not os.path.exists(target_root):
-        os.makedirs(target_root)
+    if not exists(target_root):
+        makedirs(target_root)
 
     return create_readylingua_corpus(source_root, target_root, max_entries)
 
@@ -84,7 +86,7 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
     log.info('Collecting files')
     corpus_entries = []
 
-    directories = [root for root, subdirs, files in os.walk(source_root)
+    directories = [root for root, subdirs, files in walk(source_root)
                    if not subdirs  # only include leaf directories
                    and not root.endswith(os.sep + 'old')  # '/old' leaf-folders are considered not reliable
                    and not os.sep + 'old' + os.sep in root]  # also exclude /old/ non-leaf folders
@@ -104,22 +106,25 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
 
         parms = collect_corpus_entry_parms(raw_path, files)
 
-        segmentation_file = os.path.join(raw_path, files['segmentation'])
-        index_file = os.path.join(raw_path, files['index'])
-        transcript_file = os.path.join(raw_path, files['text'])
-        audio_file = os.path.join(raw_path, files['audio'])
+        segmentation_file = join(raw_path, files['segmentation'])
+        index_file = join(raw_path, files['index'])
+        transcript_file = join(raw_path, files['text'])
+        audio_file = join(raw_path, files['audio'])
 
         segments = create_segments(index_file, transcript_file, segmentation_file, parms['rate'])
 
         # Resample and crop audio
-        audio_resampled = os.path.join(target_root, parms['id'] + ".wav")
-        if not exists(audio_resampled) or args.overwrite:
-            resample_wav(audio_file, audio_resampled, inrate=parms['rate'], inchannels=parms['channels'])
-            crop_wav(audio_resampled, segments)
-        parms['media_info'] = mediainfo(audio_resampled)
+        target_audio_path = join(target_root, parms['id'] + ".wav")
+        if not exists(target_audio_path) or args.overwrite:
+            if exists(target_audio_path):
+                remove(target_audio_path)
+            audio, rate = read_audio(audio_file, resample_rate=16000, to_mono=True)
+            audio, rate, segments, crop_to_segments(audio, rate, segments)
+            write_wav(target_audio_path, audio, rate)
+        parms['media_info'] = mediainfo(target_audio_path)
 
         # Create corpus entry
-        corpus_entry = CorpusEntry(audio_resampled, segments, raw_path=raw_path, parms=parms)
+        corpus_entry = CorpusEntry(target_audio_path, segments, raw_path=raw_path, parms=parms)
         corpus_entries.append(corpus_entry)
 
     corpus = ReadyLinguaCorpus(corpus_entries, target_root)
@@ -128,9 +133,9 @@ def create_readylingua_corpus(source_root, target_root, max_entries):
 
 
 def collect_files(directory):
-    project_file = find_file_by_extension(directory, ' - Project.xml')
+    project_file = find_file_by_suffix(directory, ' - Project.xml')
     if project_file:
-        audio_file, text_file, segmentation_file, index_file = parse_project_file(os.path.join(directory, project_file))
+        audio_file, text_file, segmentation_file, index_file = parse_project_file(join(directory, project_file))
     else:
         audio_file, text_file, segmentation_file, index_file = scan_content_dir(directory)
 
@@ -167,16 +172,16 @@ def parse_project_file(project_file):
 
 
 def scan_content_dir(content_dir):
-    audio_file = find_file_by_extension(content_dir, '.wav')
-    text_file = find_file_by_extension(content_dir, '.txt')
-    segmentation_file = find_file_by_extension(content_dir, ' - Segmentation.xml')
-    index_file = find_file_by_extension(content_dir, ' - Index.xml')
+    audio_file = find_file_by_suffix(content_dir, '.wav')
+    text_file = find_file_by_suffix(content_dir, '.txt')
+    segmentation_file = find_file_by_suffix(content_dir, ' - Segmentation.xml')
+    index_file = find_file_by_suffix(content_dir, ' - Index.xml')
     return audio_file, text_file, segmentation_file, index_file
 
 
 def collect_corpus_entry_parms(directory, files):
-    index_file_path = os.path.join(directory, files['index'])
-    audio_file_path = os.path.join(directory, files['audio'])
+    index_file_path = join(directory, files['index'])
+    audio_file_path = join(directory, files['audio'])
     folders = directory.split(os.sep)
 
     # find name and create id
@@ -212,8 +217,8 @@ def create_segments(index_file, transcript_file, segmentation_file, original_sam
     segments = []
     for audio_segment in segmentation:
         # re-calculate original frame values to resampled values
-        start_frame = recalculate_frame(audio_segment['start_frame'], old_sampling_rate=original_sample_rate)
-        end_frame = recalculate_frame(audio_segment['end_frame'], old_sampling_rate=original_sample_rate)
+        start_frame = resample_frame(audio_segment['start_frame'], old_sampling_rate=original_sample_rate)
+        end_frame = resample_frame(audio_segment['end_frame'], old_sampling_rate=original_sample_rate)
         if audio_segment['class'] == 'Speech':
             speech = find_speech_within_segment(audio_segment, speeches)
             if speech:

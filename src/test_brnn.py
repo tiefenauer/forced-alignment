@@ -10,7 +10,7 @@ from util.rnn_util import decode
 
 parser = argparse.ArgumentParser(
     description="""Evaluate BRNN by using Keras functions and/or making predictions on some samples from test-set""")
-parser.add_argument('-m', '--model', type=str, nargs='?', default=None,
+parser.add_argument('model', type=str, nargs='?', default=None,
                     help='corpus on which to train the RNN (rl=ReadyLingua, ls=LibriSpeech')
 parser.add_argument('-b', '--batch_size', type=int, nargs='?', default=5,
                     help=f'(optional) number of speech segments to include in one batch (default: 5)')

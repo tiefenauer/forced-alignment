@@ -85,8 +85,8 @@ def main():
     train_model(model_parms, target_dir, train_set, dev_set, test_set)
 
     fig_ctc, fig_ler, _ = visualize_cost(target_dir, args)
-    fig_ctc.savefig(join(target_dir, 'ctc_cost.png'), bbox_inches='tight')
-    fig_ler.savefig(join(target_dir, 'ler_cost.png'), bbox_inches='tight')
+    fig_ctc.savefig(join(target_dir, f'poc{args.poc}_ctc.png'), bbox_inches='tight')
+    fig_ler.savefig(join(target_dir, f'poc{args.poc}_ler.png'), bbox_inches='tight')
 
 
 def create_train_dev_test(corpus):

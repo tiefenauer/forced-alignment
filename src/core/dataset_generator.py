@@ -125,7 +125,7 @@ class HFS5BatchGenerator(BatchGenerator):
 
     def extract_labels(self, index_array):
         """extract labels and encode to integer"""
-        return [encode(label) for label in (self.labels[i] for i in index_array)]
+        return [label for label in (self.labels[i] for i in index_array)]
 
 
 class OnTheFlyFeaturesIterator(BatchGenerator):

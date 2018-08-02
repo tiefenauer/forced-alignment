@@ -93,7 +93,7 @@ def main():
     print(f'Done! Corpus with {len(corpus)} entries saved to {corpus_file}')
 
 
-def create_corpus(source_root, target_root, max_entries):
+def create_corpus(source_root, target_root, max_entries=None):
     if not exists(source_root):
         print(f"ERROR: Source root {source_root} does not exist!")
         exit(0)

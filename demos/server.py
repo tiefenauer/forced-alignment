@@ -17,7 +17,6 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
     """RangeHTTPRequestHandler is a SimpleHTTPRequestHandler
     with HTTP 'Range' support"""
 
-    @property
     def send_head(self):
         """Common code for GET and HEAD commands.
         Return value is either a file object or None

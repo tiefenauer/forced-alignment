@@ -189,13 +189,9 @@ def generate_train_dev_test(corpus, language, feature_type, batch_size):
     if feature_file:
         print(f'found precomputed features: {feature_file}. Using HDF5-Features')
         f = h5py.File(feature_file, 'r')
-        # hack for RL corpus: because there are no train/dev/test-subsets train/validate/test on same subset
-        train_ds = f['train'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
-        dev_ds = f['dev'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
-        test_ds = f['test'][language] if corpus._name == 'LibriSpeech' else f['generic'][language]
-        train_it = HFS5BatchGenerator(train_ds, feature_type, batch_size)
-        val_it = HFS5BatchGenerator(dev_ds, feature_type, batch_size)
-        test_it = HFS5BatchGenerator(test_ds, feature_type, batch_size)
+        train_it = HFS5BatchGenerator(f['train'][language], feature_type, batch_size)
+        val_it = HFS5BatchGenerator(f['dev'][language], feature_type, batch_size)
+        test_it = HFS5BatchGenerator(f['test'][language], feature_type, batch_size)
 
     else:
         print(f'No precomputed features found. Generating features on the fly...')

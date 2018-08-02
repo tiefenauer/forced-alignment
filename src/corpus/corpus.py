@@ -149,14 +149,17 @@ class ReadyLinguaCorpus(Corpus):
         super().__init__('ReadyLingua', corpus_entries, root_path)
 
     def train_dev_test_split(self):
-        n_entries = len(self.corpus_entries)
+        speech_segments = [seg for corpus_entry in self.corpus_entries
+                           for seg in corpus_entry.speech_segments_not_numeric]
+
         # 80/10/10 split
+        n_entries = len(speech_segments)
         train_split = int(n_entries * 0.8)
         test_split = int(train_split + (n_entries - train_split) / 2)
 
-        train_set = self.corpus_entries[:train_split]
-        dev_set = self.corpus_entries[train_split:test_split]
-        test_set = self.corpus_entries[test_split:]
+        train_set = speech_segments[:train_split]
+        dev_set = speech_segments[train_split:test_split]
+        test_set = speech_segments[test_split:]
         return train_set, dev_set, test_set
 
 
@@ -166,7 +169,10 @@ class LibriSpeechCorpus(Corpus):
         super().__init__('LibriSpeech', corpus_entries, root_path)
 
     def train_dev_test_split(self):
-        train_set = filter_corpus_entry_by_subset_prefix(self.corpus_entries, 'train-')
-        dev_set = filter_corpus_entry_by_subset_prefix(self.corpus_entries, 'dev-')
-        test_set = filter_corpus_entry_by_subset_prefix(self.corpus_entries, ['test-', 'unknown'])
+        train_entries = filter_corpus_entry_by_subset_prefix(self.corpus_entries, 'train-')
+        dev_entries = filter_corpus_entry_by_subset_prefix(self.corpus_entries, 'dev-')
+        test_entries = filter_corpus_entry_by_subset_prefix(self.corpus_entries, ['test-', 'unknown'])
+        train_set = [seg for corpus_entry in train_entries for seg in corpus_entry.speech_segments_not_numeric]
+        dev_set = [seg for corpus_entry in dev_entries for seg in corpus_entry.speech_segments_not_numeric]
+        test_set = [seg for corpus_entry in test_entries for seg in corpus_entry.speech_segments_not_numeric]
         return train_set, dev_set, test_set

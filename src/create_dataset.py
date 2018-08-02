@@ -34,53 +34,53 @@ def generate_speech_segments(corpus):
 
 def precompute_features(corpus, feature_type, target_file, limit=None):
     with h5py.File(target_file) as f:
-        train_set, dev_set, test_set = corpus.train_dev_test_split()
-        train_segments = (('train', corpus_entry.language, speech_segment)
-                          for corpus_entry in train_set
-                          for speech_segment in corpus_entry.speech_segments_not_numeric)
-        dev_segments = (('dev', corpus_entry.language, speech_segment)
-                        for corpus_entry in dev_set
-                        for speech_segment in corpus_entry.speech_segments_not_numeric)
-        test_segments = (('test', corpus_entry.language, speech_segment)
-                         for corpus_entry in test_set
-                         for speech_segment in corpus_entry.speech_segments_not_numeric)
-        corpus_entries = chain(train_segments, dev_segments, test_segments)
-        total_length = sum(len(corpus_entry.speech_segments_not_numeric)
-                           for subset in [train_set, dev_set, test_set]
-                           for corpus_entry in subset)
-        progress = tqdm(enumerate(corpus_entries), total=total_length, unit=' corpus entries')
-        for i, (subset, lang, speech_segment) in progress:
-            inp = speech_segment.audio_features(feature_type)
-            lbl = speech_segment.text
-            dur = speech_segment.audio_length
-            desc = f'set: {subset}, lang: {lang}, t_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
-            progress.set_description(desc)
+        for lang in corpus.languages:
+            corpus_lang = corpus(languages=[lang])
+            train_set, dev_set, test_set = corpus_lang.train_dev_test_split()
+            train_segments = (('train', speech_segment) for speech_segment in train_set)
+            dev_segments = (('dev', speech_segment) for speech_segment in dev_set)
+            test_segments = (('test', speech_segment) for speech_segment in test_set)
 
-            inp_path = f'{subset}/{lang}/inputs'
-            if inp_path not in f:
-                f.create_dataset(inp_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=np.float32))
-            lbl_path = f'{subset}/{lang}/labels'
-            if lbl_path not in f:
-                f.create_dataset(lbl_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
-            dur_path = f'{subset}/{lang}/durations'
-            if dur_path not in f:
-                f.create_dataset(dur_path, shape=(0,), maxshape=(None,))
+            num_train, num_dev, num_test = len(train_set), len(dev_set), len(test_set)
+            num_total = num_train + num_dev + num_test
+            print(f'{num_total} speech segments: train/dev/test={num_train}/{num_dev}/{num_test}'
+                  f'({100*num_train/num_total:.2f}/{100*num_dev/num_total:.2f}/{100*num_test/num_total:.2f}%)')
 
-            inputs = f[subset][lang]['inputs']
-            labels = f[subset][lang]['labels']
-            durations = f[subset][lang]['durations']
+            speech_segments = chain(train_segments, dev_segments, test_segments)
+            progress = tqdm(enumerate(speech_segments), total=num_total, unit=' corpus entries')
 
-            inputs.resize(inputs.shape[0] + 1, axis=0)
-            inputs[inputs.shape[0] - 1] = inp.flatten().astype(np.float32)
+            for i, (subset, speech_segment) in progress:
+                inp = speech_segment.audio_features(feature_type)
+                lbl = speech_segment.text
+                dur = speech_segment.audio_length
+                desc = f'{subset}, lang: {lang}, t_x: {len(inp)}, t_y: {len(lbl)}, duration: {timedelta(seconds=dur)}'
+                progress.set_description(desc)
 
-            labels.resize(labels.shape[0] + 1, axis=0)
-            labels[labels.shape[0] - 1] = lbl
+                inp_path = f'{subset}/{lang}/inputs'
+                if inp_path not in f:
+                    f.create_dataset(inp_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=np.float32))
+                lbl_path = f'{subset}/{lang}/labels'
+                if lbl_path not in f:
+                    f.create_dataset(lbl_path, shape=(0,), maxshape=(None,), dtype=h5py.special_dtype(vlen=str))
+                dur_path = f'{subset}/{lang}/durations'
+                if dur_path not in f:
+                    f.create_dataset(dur_path, shape=(0,), maxshape=(None,))
 
-            durations.resize(durations.shape[0] + 1, axis=0)
-            durations[durations.shape[0] - 1] = dur
+                inputs = f[subset][lang]['inputs']
+                labels = f[subset][lang]['labels']
+                durations = f[subset][lang]['durations']
 
-            if i % 128 == 0:
-                f.flush()
+                inputs.resize(inputs.shape[0] + 1, axis=0)
+                inputs[inputs.shape[0] - 1] = inp.flatten().astype(np.float32)
+
+                labels.resize(labels.shape[0] + 1, axis=0)
+                labels[labels.shape[0] - 1] = lbl
+
+                durations.resize(durations.shape[0] + 1, axis=0)
+                durations[durations.shape[0] - 1] = dur
+
+                if i % 128 == 0:
+                    f.flush()
 
         f.flush()
 

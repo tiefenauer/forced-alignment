@@ -118,12 +118,31 @@ def decoder_lambda_func(args, is_greedy=False, beam_width=100, top_paths=1, merg
     import tensorflow as tf
 
     y_pred, seq_len = args
+
+    # using K.ctc_decode does not work because it returns a dense Tensor and we need a sparse tensor to
+    # calculate LER with tf.edit_distance !
+    # decoded = K.ctc_decode(y_pred, seq_len[:, 0], greedy=is_greedy, beam_width=beam_width, top_paths=top_paths)
+    # prediction = decoded[0][0]
+    # prediction_sparse = to_sparse(prediction)
+    # return prediction_sparse
+
     seq_len = tf.cast(seq_len[:, 0], tf.int32)
     y_pred = tf.transpose(y_pred, perm=[1, 0, 2])  # time major
 
     if is_greedy:
         return tf.nn.ctc_greedy_decoder(y_pred, seq_len)[0][0]
     return tf.nn.ctc_beam_search_decoder(y_pred, seq_len, beam_width, top_paths, merge_repeated)[0][0]
+
+
+def to_sparse(x):
+    """
+    https://stackoverflow.com/questions/42127505/tensorflow-dense-to-sparse
+    :param x:
+    :return:
+    """
+    idx = tf.where(tf.not_equal(x, 0))
+    sparse = tf.SparseTensor(idx, tf.gather_nd(x, idx), x.get_shape())
+    return sparse
 
 
 def ctc_lambda_func(args):

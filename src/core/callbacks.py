@@ -1,9 +1,11 @@
 """
 Some callbacks that can be used during training
 """
+from os import remove
+from os.path import join, exists
+
 from keras import callbacks, backend as K
 
-from core.dataset_generator import BatchGenerator
 from util.rnn_util import decode
 
 
@@ -65,29 +67,39 @@ class CustomProgbarLogger(callbacks.ProgbarLogger):
 
 class ReportCallback(callbacks.Callback):
 
-    def __init__(self, test_func, dev_batches: BatchGenerator, model, target_dir):
+    def __init__(self, model, val_it, target_dir):
         super().__init__()
-        self.test_func = test_func
-        self.dev_batches = dev_batches
         self.model = model
-        self.target_dir = target_dir
+        self.val_it = val_it
+        self.inputs, self.outputs = next(self.val_it)
+        self.log_file_path = join(target_dir, 'validation.log')
+        if exists(self.log_file_path):
+            remove(self.log_file_path)
 
-    def validate_epoch_end(self, verbose=0):
-        for inputs, outputs in self.dev_batches:
-            X = inputs['the_input']
-            X_lengths = inputs['input_length']
-            truths = inputs['source_str']
+        # create Function-graph to get decoded sequences for validation data
+        # K.function([self.model.get_layer('inputs').input], [self.model.get_layer('decoder').input[0]])([X])
+        input_data = model.get_layer('inputs').input
+        decoder = model.get_layer('decoder').input[0]
+        self.prediction_fun = K.function([input_data, K.learning_phase()], [decoder])
 
-            y_pred = self.test_func([X])[0]
-            sequences, probs = K.ctc_decode(y_pred, X_lengths, greedy=False)
-            predictions = [decode(K.get_value(seq).reshape(-1)) for seq in sequences]
+    def validate_epoch_end(self, epoch):
+        X, Y, X_lengths, Y_lengths = self.inputs
 
+        truths = [decode(lbl).strip() for m in list(Y.todense()) for lbl in m.tolist()]
+
+        y_pred = self.prediction_fun([X])[0]
+        sequences, probs = K.ctc_decode(y_pred, X_lengths, greedy=False)
+        sequence_values = [K.get_value(seq) for seq in sequences][0]
+        predictions = [decode(seq_val) for seq_val in sequence_values]
+
+        with open(self.log_file_path, 'a') as f:
             for truth, pred in zip(truths, predictions):
-                print(f'truth: {truth}, prediction: {pred}')
-            break
+                log_str = f'epoch {str(epoch).ljust(2)}: truth: {truth}, prediction: {pred}'
+                print(log_str)
+                f.write(log_str + '\n')
 
     def on_epoch_end(self, epoch, logs=None):
         print(f'Validating epoch {epoch}')
         K.set_learning_phase(0)
-        self.validate_epoch_end(verbose=1)
+        self.validate_epoch_end(epoch=epoch)
         K.set_learning_phase(1)

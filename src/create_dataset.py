@@ -33,6 +33,8 @@ def generate_speech_segments(corpus):
 
 
 def precompute_features(corpus, feature_type, target_file, limit=None):
+    num_speech_segments = 0
+
     with h5py.File(target_file) as f:
         for lang in corpus.languages:
             corpus_lang = corpus(languages=[lang])
@@ -81,10 +83,11 @@ def precompute_features(corpus, feature_type, target_file, limit=None):
 
                 if i % 128 == 0:
                     f.flush()
+            num_speech_segments += i + 1
 
         f.flush()
 
-    print(f'...done! {i} datasets saved in {target_file}')
+    print(f'...done! {num_speech_segments} datasets saved in {target_file}')
 
 
 def get_target_file(corpus, feature_type, target_file):
@@ -92,8 +95,8 @@ def get_target_file(corpus, feature_type, target_file):
     return join(corpus.root_path, f'{prefix}_{feature_type}.h5')
 
 
-def check_target_files(corpus, feature_types, file):
-    check_files = [(feature, get_target_file(corpus, feature, file)) for feature in feature_types]
+def check_target_files(corpus, feature, file):
+    check_files = [(feature, get_target_file(corpus, feature, file)) for feature in feature]
     feature_files = []
     for feature, file in check_files:
         if exists(file):
@@ -102,7 +105,7 @@ def check_target_files(corpus, feature_types, file):
                 remove(file)
                 feature_files.append((feature, file))
             else:
-                print(f'skipping creation of {feature_type} features.')
+                print(f'skipping creation of {feature} features.')
         else:
             feature_files.append((feature, file))
     return feature_files

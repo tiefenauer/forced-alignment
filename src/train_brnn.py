@@ -29,6 +29,7 @@ from keras.optimizers import Adam
 
 from constants import TRAIN_ROOT, NUM_EPOCHS, BATCH_SIZE, FEATURE_TYPE, CORPUS, LANGUAGE, NUM_STEPS_TRAIN, \
     NUM_STEPS_VAL, ARCHITECTURE
+from core.callbacks import ReportCallback
 from util.brnn_util import deep_speech_model, generate_train_dev_test, ctc_dummy_loss, decoder_dummy_loss, ler
 from util.corpus_util import get_corpus
 from util.log_util import redirect_to_file
@@ -132,11 +133,8 @@ def train_model(model, target_dir, train_it, val_it):
     tb_cb = TensorBoard(log_dir=target_dir, write_graph=True, write_images=True)
     cb_list.append(tb_cb)
 
-    # y_pred = model.get_layer('ctc').input[0]
-    # input_data = model.get_layer('the_input').input
-    # report = K.function([input_data, K.learning_phase()], [y_pred])
-    # report_cb = ReportCallback(report, dev_batches, model, target_dir)
-    # cb_list.append(report_cb)
+    report_cb = ReportCallback(model, val_it, target_dir)
+    cb_list.append(report_cb)
 
     # model_ckpt = MetaCheckpoint(join(target_dir, 'model.h5'), training_args=args, meta=meta)
     # cb_list.append(model_ckpt)

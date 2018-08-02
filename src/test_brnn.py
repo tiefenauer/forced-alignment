@@ -1,5 +1,6 @@
 import argparse
 import os
+from os import remove
 from os.path import join, exists
 
 from util.brnn_util import generate_train_dev_test
@@ -7,6 +8,7 @@ from util.corpus_util import get_corpus
 from util.keras_util import load_model_for_prediction, load_model_for_evaluation
 from util.log_util import redirect_to_file
 from util.rnn_util import decode
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 
 parser = argparse.ArgumentParser(
     description="""Evaluate BRNN by using Keras functions and/or making predictions on some samples from test-set""")
@@ -24,6 +26,8 @@ def main():
     global model_path
 
     log_file_path = join(model_path, 'test.log')
+    if exists(log_file_path):
+        remove(log_file_path)
     redirect_to_file(log_file_path)
     print(f'Results will be written to: {log_file_path}')
 
@@ -41,12 +45,14 @@ def main():
     corpus = get_corpus(corpus_id, language)
 
     train_it, val_it, test_it = generate_train_dev_test(corpus, language, feature_type, args.batch_size)
-    print(f'making predictions for {len(train_it)} test batches...')
-    for batch_inputs, batch_outputs in test_it:
+    print(f'making some predictions for {len(train_it)} test batches...')
+    for i, (batch_inputs, batch_outputs) in enumerate(test_it):
         X, Y, X_lengths, Y_lengths = batch_inputs
         batch_predictions = model.predict_on_batch([X, X_lengths])
         for prediction, ground_truth in zip(batch_predictions, Y.toarray()):
             print(f'prediction: {decode(prediction)}, ground truth: {decode(ground_truth)}')
+        if i == 100:
+            break
     print('done making predictions!')
 
     print('loading model for evaluation')

@@ -18,3 +18,5 @@ google-cloud-speech
 soundfile
 langdetect
 pattern3
+plotly
+seaborn

@@ -20,6 +20,7 @@ Sample call (training on the LibriSpeech corpus with MFCC as features):
 """
 import argparse
 import pickle
+from datetime import timedelta
 from os.path import join
 
 import tensorflow as tf
@@ -88,8 +89,14 @@ def main():
 
     train_it, val_it, test_it = generate_train_dev_test(corpus, args.language, args.feature_type, args.batch_size)
     total_n = train_it.n + val_it.n + test_it.n
-    print(f'train/dev/test: {train_it.n}/{val_it.n}/{test_it.n} '
+    train_s = int(sum(d for d in train_it.durations))
+    val_s = int(sum(d for d in val_it.durations))
+    test_s = int(sum(d for d in test_it.durations))
+    total_s = train_s + val_s + test_s
+    print(f'train/dev/test: {train_it.n}/{val_it.n}/{test_it.n} (total: {total_n})'
           f'({100*train_it.n//total_n}/{100*val_it.n//total_n}/{100*test_it.n//total_n}%)')
+    print(
+        f'audio: {timedelta(seconds=train_s)}/{timedelta(seconds=val_s)}/{timedelta(seconds=test_s)} (total: {timedelta(seconds=total_s)})')
     history = train_model(model, target_dir, train_it, val_it)
 
     model.save(join(target_dir, 'model.h5'))

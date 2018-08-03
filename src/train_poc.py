@@ -4,6 +4,7 @@ import collections
 import os
 import random
 import time
+from math import ceil
 from os.path import join
 
 import numpy as np
@@ -11,7 +12,6 @@ import tensorflow as tf
 
 from constants import TRAIN_ROOT
 from corpus.corpus_segment import Speech
-from corpus.dummy_corpus import DummyCorpus
 from util.audio_util import distort, shift
 from util.corpus_util import get_corpus
 from util.log_util import *
@@ -23,7 +23,7 @@ from util.train_util import get_poc, get_target_dir, get_num_features
 # Constants, defaults and env-vars
 # -------------------------------------------------------------
 BATCH_SIZE = 50
-MAX_EPOCHS = 10000  # number of epochs to train on
+MAX_EPOCHS = 1000  # number of epochs to train on
 LER_CONVERGENCE = 0.05  # LER value for convergence (average over last 10 epochs)
 MAX_SHIFT = 2000  # maximum number of frames to shift the audio
 FEATURE_TYPE = 'mfcc'
@@ -82,7 +82,7 @@ def main():
     train_set, dev_set, test_set = create_train_dev_test(corpus)
 
     model_parms = create_model(num_features)
-    train_model(model_parms, target_dir, train_set, dev_set, test_set)
+    train_poc(model_parms, target_dir, train_set, dev_set)
 
     fig_ctc, fig_ler, _ = visualize_cost(target_dir, args)
     fig_ctc.savefig(join(target_dir, f'poc{args.poc}_ctc.png'), bbox_inches='tight')
@@ -107,33 +107,29 @@ def create_train_dev_test(corpus):
         print(f'training on corpus entry with index={args.ix}')
         repeat_sample = corpus[args.ix]
 
-    # create train/dev/test set by repeating speech segments from the same sample
-    if repeat_sample:
-        speech_segments = repeat_sample.speech_segments_not_numeric[:args.limit_segments]
+    # create train/dev/test set by repeating first n speech segments from the same sample
+    if not repeat_sample:
+        raise ValueError(f'no corpus entry with index={args.ix} or id={args.id} found!')
 
-        if args.synthesize:
-            # add distorted variants of the original speech segments as synthesized training data
-            synthesized_segments = []
-            for speech_segment in speech_segments:
-                speech = Speech(speech_segment.start_frame, speech_segment.end_frame)
-                speech.corpus_entry = speech_segment.corpus_entry
-                speech.audio = distort(speech_segment.audio, speech_segment.rate, tempo=True)
-                speech.transcript = speech_segment.transcript
-                synthesized_segments.append(speech)
-            speech_segments += synthesized_segments
+    speech_segments = repeat_sample.speech_segments_not_numeric[:args.limit_segments]
 
-        train_set = speech_segments
-        dev_set = speech_segments
-        test_set = speech_segments
-        return train_set, dev_set, test_set
+    # use those segments also for validation and testing (will be randomly distorted after each epoch)
+    dev_set = speech_segments
+    test_set = speech_segments
 
-    train_set, dev_set, test_set = corpus.train_dev_test_split()
-    if args.limit_entries:
-        print(f'limiting corpus entries to {args.limit_entries}')
-        repeat_samples = train_set[:args.limit_entries]
-        train_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
-        dev_set = DummyCorpus(repeat_samples, 1, num_segments=args.limit_segments)
+    # augment training data with synthesized speech segments if neccessary
+    if args.synthesize:
+        # add distorted variants of the original speech segments as synthesized training data
+        synthesized_segments = []
+        for speech_segment in speech_segments:
+            speech = Speech(speech_segment.start_frame, speech_segment.end_frame)
+            speech.corpus_entry = speech_segment.corpus_entry
+            speech.audio = distort(speech_segment.audio, speech_segment.rate, tempo=True)
+            speech.transcript = speech_segment.transcript
+            synthesized_segments.append(speech)
+        speech_segments += synthesized_segments
 
+    train_set = speech_segments
     return train_set, dev_set, test_set
 
 
@@ -213,8 +209,8 @@ def create_model(num_features):
     }
 
 
-def train_model(model_parms, target_dir, train_set, dev_set, test_set):
-    print(f'training on {len(train_set)} corpus entries with {args.limit_segments or "all"} segments each')
+def train_poc(model_parms, target_dir, train_set, dev_set):
+    print(f'training on {ceil(len(train_set)/args.batch_size)} batches {len(train_set)} speech_segments')
     num_features = model_parms['num_features']
     graph = model_parms['graph']
     cost = model_parms['cost']
@@ -257,7 +253,7 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
             start = time.time()
 
             # iterate over batches for current epoch
-            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, args.feature_type, shift_audio=False):
+            for X, Y, batch_seq_len, ground_truths in generate_batches(train_set, args.feature_type, args.batch_size):
                 feed = {inputs: X, targets: Y, seq_len: batch_seq_len}
                 batch_cost, _ = session.run([cost, optimizer], feed)
 
@@ -294,7 +290,8 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
 
             # validate cost with a randomly chosen entry from the dev-set that has been randomly shifted
             val_batches = list(
-                generate_batches(dev_set, args.feature_type, shift_audio=True, distort_audio=True, limit_segments=5))
+                generate_batches(dev_set, args.feature_type, args.batch_size, shift_audio=True, distort_audio=True,
+                                 limit_segments=5))
             X_val, Y_val, val_seq_len, val_ground_truths = random.choice(val_batches)
             val_feed = {inputs: X_val, targets: Y_val, seq_len: val_seq_len}
             ctc_val, ler_val = session.run([cost, ler], feed_dict=val_feed)
@@ -334,11 +331,12 @@ def train_model(model_parms, target_dir, train_set, dev_set, test_set):
     return save_path
 
 
-def generate_batches(speech_segments, feature_type, shift_audio=False, distort_audio=False, limit_segments=None):
+def generate_batches(speech_segments, feature_type, batch_size, shift_audio=False, distort_audio=False,
+                     limit_segments=None):
     l = limit_segments if limit_segments else len(speech_segments)
-    for ndx in range(0, l, args.batch_size):
+    for ndx in range(0, l, batch_size):
         batch = []
-        for speech_segment in speech_segments[ndx:min(ndx + args.batch_size, l)]:
+        for speech_segment in speech_segments[ndx:min(ndx + batch_size, l)]:
             audio = speech_segment.audio  # save original audio signal
             if distort_audio:
                 speech_segment.audio = distort(audio, speech_segment.rate, tempo=True, pitch=True)

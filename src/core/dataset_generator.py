@@ -133,8 +133,8 @@ class OnTheFlyFeaturesIterator(BatchGenerator):
     Creates batches by calculating the features on-the-fly
     """
 
-    def __init__(self, corpus_entries, feature_type, batch_size, shuffle=True, seed=None):
-        self.speech_segments = np.array(list(s for e in corpus_entries for s in e.speech_segments_not_numeric))
+    def __init__(self, speech_segments, feature_type, batch_size, shuffle=True, seed=None):
+        self.speech_segments = np.array(speech_segments)
         super().__init__(len(self.speech_segments), feature_type, batch_size, shuffle=shuffle, seed=seed)
 
     def extract_features(self, index_array):

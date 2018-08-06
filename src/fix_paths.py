@@ -4,6 +4,7 @@ Since the paths to the audio files are absolute, this script will fix them.
 """
 import argparse
 
+from constants import RL_CORPUS_DIR, LS_CORPUS_DIR
 from util.log_util import create_args_str
 
 parser = argparse.ArgumentParser(
@@ -20,7 +21,10 @@ from util.corpus_util import get_corpus, save_corpus
 
 if __name__ == '__main__':
     print(create_args_str(args))
-    corpus = get_corpus(args.corpus_id, corpus_root=args.new_root)
+    corpus_id, new_root = args.corpus_id, args.new_root
+    corpus = get_corpus(corpus_id, corpus_root=new_root)
+    corpus_dir = RL_CORPUS_DIR if corpus_id == 'rl' else LS_CORPUS_DIR
+    new_root = join(args.new_root, corpus_dir)
     print(f'changing corpus root from {corpus.root_path} to {args.new_root}')
     corpus.root_path = args.new_root
 

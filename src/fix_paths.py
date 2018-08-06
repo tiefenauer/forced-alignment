@@ -20,7 +20,7 @@ from util.corpus_util import get_corpus, save_corpus
 
 if __name__ == '__main__':
     print(create_args_str(args))
-    corpus = get_corpus(args.corpus_id)
+    corpus = get_corpus(args.corpus_id, corpus_root=args.new_root)
     print(f'changing corpus root from {corpus.root_path} to {args.new_root}')
     corpus.root_path = args.new_root
 

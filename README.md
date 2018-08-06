@@ -2,7 +2,7 @@
 This repository contains the code for my IP8 project at [FHNW](http://www.fhnw.ch).
 
 ## Getting started
-The code was written for [Python](https://www.python.org/) `3.6.4` using [Anaconda](https://anaconda.org/) `4.4.11`.
+The code was written for [Python](https://www.python.org/) `3.6.6` using [Anaconda](https://anaconda.org/) `4.5.8`.
 
 ### Installation
 1. Clone this repository: `git clone `

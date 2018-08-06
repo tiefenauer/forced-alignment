@@ -8,6 +8,7 @@ from pattern3.metrics import levenshtein_similarity
 from tqdm import tqdm
 
 from corpus.alignment import Alignment
+from util.string_util import normalize
 
 
 def align(voice_segments, transcript, printout=False):
@@ -19,7 +20,7 @@ def align(voice_segments, transcript, printout=False):
         b = voice.transcript.upper()
         text_start, text_end, b_ = smith_waterman(a, b)
         alignment_text = transcript[text_start:text_end]
-        edit_distance = levenshtein_similarity(b, alignment_text.upper())
+        edit_distance = levenshtein_similarity(normalize(b), normalize(alignment_text))
 
         line = f'edit distance: {edit_distance:.2f}, transcript: {voice.transcript}, alignment: {alignment_text}'
         progress.set_description(line)

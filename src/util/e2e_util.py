@@ -138,4 +138,4 @@ def update_index(demo_id):
 
 
 def create_url(demo_path, target_dir):
-    return 'http://localhost:8000/' + relpath(demo_path, Path(target_dir).parent).replace(os.sep, '/')
+    return 'https://ip8.tiefenauer.info:8888/' + relpath(demo_path, Path(target_dir).parent).replace(os.sep, '/')

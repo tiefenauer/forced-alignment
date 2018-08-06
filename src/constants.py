@@ -7,8 +7,10 @@ ROOT_DIR = abspath(join(SRC_DIR, os.pardir))
 
 CORPUS_RAW_ROOT = r'D:\corpus' if os.name == 'nt' else '/media/all/D1/'  # root directory for raw corpus files
 CORPUS_ROOT = r'E:\\' if os.name == 'nt' else '/media/all/D1'  # default corpus directory
-RL_CORPUS_ROOT = join(CORPUS_ROOT, 'readylingua-corpus')
-LS_CORPUS_ROOT = join(CORPUS_ROOT, 'librispeech-corpus')
+RL_CORPUS_DIR = 'readylingua-corpus'
+LS_CORPUS_DIR = 'librispeech-corpus'
+RL_CORPUS_ROOT = join(CORPUS_ROOT, RL_CORPUS_DIR)
+LS_CORPUS_ROOT = join(CORPUS_ROOT, LS_CORPUS_DIR)
 
 DEMO_ROOT = join(ROOT_DIR, 'demos', 'htdocs')
 
@@ -43,19 +45,22 @@ POC_PROFILES = {
         'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mfcc', 'limit_segments': 5
     },
     'poc_8': {
-        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mfcc', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mfcc', 'limit_segments': 5,
+        'synthesize': True
     },
     'poc_9': {
         'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mel', 'limit_segments': 5
     },
     'poc_10': {
-        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mel', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'mel', 'limit_segments': 5,
+        'synthesize': True
     },
     'poc_11': {
         'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'pow', 'limit_segments': 5
     },
     'poc_12': {
-        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'pow', 'limit_segments': 5, 'synthesize': True
+        'corpus': 'rl', 'language': 'en', 'id': 'sunday22ohnerauschen', 'feature_type': 'pow', 'limit_segments': 5,
+        'synthesize': True
     }
 }
 # // @formatter:on

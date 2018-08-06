@@ -8,7 +8,7 @@ from os.path import basename, join
 
 from tqdm import tqdm
 
-from constants import LS_CORPUS_ROOT, RL_CORPUS_ROOT
+from constants import RL_CORPUS_ROOT, LS_CORPUS_ROOT
 from util.corpus_util import get_corpus, save_corpus
 
 corpus_id = 'ls'

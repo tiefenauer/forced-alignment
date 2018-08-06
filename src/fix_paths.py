@@ -2,6 +2,8 @@
 This file can be used if a corpus was created on the cluster (Unix) and downloaded locally (Windows) or vice versa.
 Since the paths to the audio files are absolute, this script will fix them.
 """
+import argparse
+
 from util.log_util import create_args_str
 
 parser = argparse.ArgumentParser(

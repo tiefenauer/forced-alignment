@@ -25,8 +25,8 @@ if __name__ == '__main__':
     corpus = get_corpus(corpus_id, corpus_root=new_root)
     corpus_dir = RL_CORPUS_DIR if corpus_id == 'rl' else LS_CORPUS_DIR
     new_root = join(args.new_root, corpus_dir)
-    print(f'changing corpus root from {corpus.root_path} to {args.new_root}')
-    corpus.root_path = args.new_root
+    print(f'changing corpus root from {corpus.root_path} to {new_root}')
+    corpus.root_path = new_root
 
     progress = tqdm(corpus, unit=' corpus entries')
     for corpus_entry in progress:

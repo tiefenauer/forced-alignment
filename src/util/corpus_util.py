@@ -3,18 +3,20 @@ Utility functions to work with corpora
 """
 import gzip
 import pickle
+import os
 from os import listdir
 from os.path import join
 
-from constants import RL_CORPUS_DIR, LS_CORPUS_DIR, LS_CORPUS_ROOT, RL_CORPUS_ROOT
+from constants import RL_CORPUS_DIR, LS_CORPUS_DIR, LS_CORPUS_ROOT, RL_CORPUS_ROOT, CORPUS_ROOT
 
 
-def get_corpus(corpus_id, lang=None, corpus_root=None):
+def get_corpus(corpus_id, lang=None):
+    corpus_root = os.environ.get('CORPUS_ROOT') or CORPUS_ROOT
     if corpus_id == 'ls':
-        ls_corpus_root = join(corpus_root, LS_CORPUS_DIR) if corpus_root else LS_CORPUS_ROOT
+        ls_corpus_root = join(corpus_root, LS_CORPUS_DIR)
         corpus = load_corpus(ls_corpus_root)
     elif corpus_id == 'rl':
-        rl_corpus_root = join(corpus_root, RL_CORPUS_DIR) if corpus_root else RL_CORPUS_ROOT
+        rl_corpus_root = join(corpus_root, RL_CORPUS_DIR)
         corpus = load_corpus(rl_corpus_root)
     else:
         raise ValueError(f'unknown corpus id: {corpus_id}')

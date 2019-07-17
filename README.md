@@ -1,5 +1,5 @@
 # Forced alignment based on speech pauses using an RNN
-This repository contains the code for my IP8 project at [FHNW](http://www.fhnw.ch).
+This repository contains the code for my IP8 project at [FHNW](http://www.fhnw.ch). I wrote a paper including a working implementation of the pipeline for my master thesis [here](https://github.com/tiefenauer/ip9).
 
 ## Getting started
 The code was written for [Python](https://www.python.org/) `3.6.6` using [Anaconda](https://anaconda.org/) `4.5.8`. The project documentation is available as IPython Notebooks at [https://ip8.tiefenauer.info](https://ip8.tiefenauer.info).
